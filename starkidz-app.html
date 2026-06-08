@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STAR Kidz — Pending Order Tracking</title>
+
+<!-- Installable app (works once hosted over https) -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1b3187" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+
+<style>
+  /* ---- Self-contained styling: no internet needed, works by double-clicking ---- */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:#eef2f7;color:#0f172a}
+  header{background:#0c1733;color:#fff;position:sticky;top:0;z-index:10;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+  .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;max-width:1100px;margin:0 auto}
+  .logo{width:40px;height:40px;flex:0 0 auto}
+  .title{font-weight:800;font-size:18px;line-height:1}
+  .sub{font-size:11px;color:#9fb0d6}
+  .spacer{flex:1}
+  .live{font-size:11px;font-weight:700;background:rgba(16,185,129,.2);color:#a7f3d0;border:1px solid rgba(16,185,129,.4);border-radius:8px;padding:5px 9px}
+  .tabs{display:flex;gap:6px;background:rgba(255,255,255,.08);padding:6px;border-radius:12px;max-width:1100px;margin:0 auto 0;flex-wrap:wrap}
+  .tab{flex:1;min-width:120px;border:0;background:transparent;color:#cdd6ee;font-weight:700;font-size:14px;padding:9px 12px;border-radius:8px;cursor:pointer}
+  .tab.active{background:#fff;color:#1b3187}
+  .ctx{padding:8px 16px;background:#13224a;color:#cdd6ee;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  select,input{font:inherit;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;outline:none;background:#fff;color:#0f172a}
+  select:focus,input:focus{border-color:#3358e0;box-shadow:0 0 0 3px rgba(51,88,224,.18)}
+  main{padding:18px 0 60px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:820px){.cols{grid-template-columns:340px 1fr}}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  h2{font-size:15px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  label{display:block;font-size:11px;font-weight:700;color:#64748b;margin:10px 0 4px}
+  .btn{width:100%;border:0;background:#2442b8;color:#fff;font-weight:700;padding:11px;border-radius:10px;cursor:pointer;font-size:14px}
+  .btn:hover{background:#1b3187}
+  .btn:active{transform:scale(.98)}
+  .order{border:1px solid #e2e8f0;border-radius:14px;padding:13px;margin-bottom:12px}
+  .order:last-child{margin-bottom:0}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .party{font-weight:800}
+  .muted{color:#64748b;font-size:12px}
+  .pill{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px}
+  .p-new{background:#e2e8f0;color:#475569}
+  .p-assigned{background:#dbeafe;color:#1d4ed8}
+  .p-prod{background:#fef3c7;color:#b45309}
+  .p-done{background:#dcfce7;color:#15803d}
+  .checks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+  .check{border:1px solid #e2e8f0;border-radius:10px;padding:8px;text-align:center}
+  .check .name{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.02em;margin-bottom:6px;min-height:24px;display:flex;align-items:center;justify-content:center}
+  .dot{font-size:11px;font-weight:800;border-radius:8px;padding:4px 0}
+  .s-Pending{background:#f1f5f9;color:#64748b}
+  .s-InProgress{background:#fef3c7;color:#b45309}
+  .s-Done{background:#dcfce7;color:#15803d}
+  .check select{width:100%;font-size:11px;padding:5px;margin-top:6px}
+  .card input,.card select{width:100%}
+  .hidden{display:none}
+  .empty{border:2px dashed #cbd5e1;border-radius:14px;padding:34px;text-align:center;color:#94a3b8;font-size:14px}
+  .hint{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:12px;padding:10px 12px;font-size:12px;margin-bottom:16px}
+  .when{font-size:11px;color:#94a3b8}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <svg class="logo" viewBox="0 0 64 64" aria-label="STAR Kidz">
+      <circle cx="32" cy="32" r="30.5" fill="#fff"/>
+      <circle cx="32" cy="32" r="30.5" fill="none" stroke="#e11d2b" stroke-width="3"/>
+      <path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/>
+      <path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/>
+    </svg>
+    <div>
+      <div class="title">STAR <span style="color:#f472b6">Kidz</span> — Pending Order Tracking</div>
+      <div class="sub">Sales → Komal Jain (GM) → Supervisors → Sales · live</div>
+    </div>
+    <div class="spacer"></div>
+    <span class="live" id="clock" style="background:rgba(255,255,255,.08);color:#cdd6ee;border-color:rgba(255,255,255,.2)">🕒 —</span>
+    <span class="live">🟢 Live — open in 2 windows to see it sync</span>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab" data-role="sales">🧾 Sales Person</button>
+    <button class="tab" data-role="gm">✅ Komal Jain (GM)</button>
+    <button class="tab" data-role="supervisor">🏭 Supervisor</button>
+  </div>
+  <div class="ctx" id="ctx"></div>
+</header>
+
+<main class="wrap"><div id="app"></div></main>
+
+<script src="parties-data.js"></script>
+<script>
+/* ===========================================================================
+   STAR Kidz — standalone Pending Order Tracker (single file, no server needed)
+   Real-time across browser windows via localStorage + the 'storage' event.
+   Same data shape as orderdb.js, so it maps 1:1 onto the Firebase version later.
+=========================================================================== */
+const LS_KEY = 'STARKIDZ_APP_ORDERS';
+const EVT = 'starkidz:changed';
+
+const SALES       = ['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI'];
+const SUPERVISORS = ['Supervisor 1 · Upper','Supervisor 2 · PU','Supervisor 3 · PVC','Supervisor 4 · Stuckon','Supervisor 5 · Dispatch'];
+const CHECKPOINTS = [
+  ['upperRawMaterial','Upper Raw Material'],
+  ['moulding','Moulding'],
+  ['packing','Packing'],
+  ['dispatch','Dispatch']
+];
+const STATES = ['Pending','In Progress','Done'];
+
+// ---- tiny "database" in the browser ----
+function load(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'[]'); }catch(e){ return []; } }
+function save(arr){
+  localStorage.setItem(LS_KEY, JSON.stringify(arr));
+  window.dispatchEvent(new Event(EVT));          // notify THIS window (storage event only hits OTHER windows)
+}
+function patch(id, fn){ const a=load(); const o=a.find(x=>x.id===id); if(o){ fn(o); o.updatedAt=Date.now(); } save(a); }
+
+// ---- who am i (kept per-window so two windows can be different roles) ----
+let role     = sessionStorage.getItem('sk_role')     || 'sales';
+let salesName= sessionStorage.getItem('sk_sales')    || SALES[0];
+let supName  = sessionStorage.getItem('sk_sup')      || SUPERVISORS[0];
+
+// ---- derived helpers ----
+function stageOf(o){
+  if(o.status.dispatch==='Done') return 'Done';
+  const touched = CHECKPOINTS.some(c=>o.status[c[0]]!=='Pending');
+  if(touched) return 'In Production';
+  if(o.assignedSupervisorName) return 'Assigned';
+  return 'New';
+}
+function stagePill(o){
+  const s=stageOf(o);
+  const cls={New:'p-new',Assigned:'p-assigned','In Production':'p-prod',Done:'p-done'}[s];
+  return `<span class="pill ${cls}">${s}</span>`;
+}
+function fmt(ts){ if(!ts) return ''; const d=new Date(ts);
+  return d.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})+' · '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); }
+
+// ---- Party / Distributor dropdown (grouped by region, from parties-data.js) ----
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function partyOptions(){
+  let html = '<option value="">— Select distributor —</option>';
+  (window.PARTY_GROUPS||[]).forEach(g=>{
+    html += `<optgroup label="${esc(g.region)}">` +
+      g.names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('') + `</optgroup>`;
+  });
+  html += '<option value="__NEW__">➕ Other — type a new party</option>';
+  return html;
+}
+function togglePartyNew(sel){
+  const inp=document.getElementById('f_party_new'); if(!inp) return;
+  if(sel.value==='__NEW__'){ inp.classList.remove('hidden'); inp.focus(); }
+  else { inp.classList.add('hidden'); inp.value=''; }
+}
+
+function checksHTML(o, editable){
+  return `<div class="checks">` + CHECKPOINTS.map(([key,label])=>{
+    const val=o.status[key]; const scls='s-'+val.replace(' ','');
+    const ctrl = editable
+      ? `<select onchange="setCheck('${o.id}','${key}',this.value)">`+
+          STATES.map(s=>`<option ${s===val?'selected':''}>${s}</option>`).join('')+`</select>`
+      : '';
+    return `<div class="check"><div class="name">${label}</div><div class="dot ${scls}">${val}</div>${ctrl}</div>`;
+  }).join('') + `</div>`;
+}
+
+// ===================== VIEWS =====================
+function viewSales(){
+  const orders = load().filter(o=>o.salespersonName===salesName);
+  const form = `<div class="card">
+    <h2>➕ New Order</h2>
+    <label>Party / Distributor</label>
+    <select id="f_party" onchange="togglePartyNew(this)">${partyOptions()}</select>
+    <input id="f_party_new" class="hidden" placeholder="Type the new party name…" style="margin-top:8px">
+    <label>Article No.</label><input id="f_article" placeholder="e.g. AIR-01">
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><label>Quantity (pairs)</label><input id="f_qty" type="number" min="1" value="240"></div>
+      <div style="flex:1"><label>Category</label>
+        <select id="f_cat" style="width:100%"><option>PU</option><option>PVC</option><option>Stuckon</option></select></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" onclick="createOrder()">Submit → goes to Komal instantly</button></div>
+  </div>`;
+
+  const list = orders.length ? orders.map(o=>`
+    <div class="order">
+      <div class="row"><span class="party">${o.party_name||'—'}</span>${stagePill(o)}</div>
+      <div class="muted">#${o.orderId} · Art ${o.article_no} · ${o.quantity} prs · ${o.category}
+        ${o.assignedSupervisorName?'· 👷 '+o.assignedSupervisorName:'· awaiting allotment'}</div>
+      ${checksHTML(o,false)}
+      <div class="when" style="margin-top:8px">Ordered ${fmt(o.createdAt)}</div>
+    </div>`).join('') : `<div class="empty">No orders yet. Submit one on the left — then open another window as <b>Komal Jain</b> to watch it arrive.</div>`;
+
+  return `<div class="hint">You are <b>${salesName}</b>. Orders you submit appear on Komal Jain's screen in real time, and any checkpoint a supervisor updates shows here live.</div>
+    <div class="grid cols">${form}<div><h2 style="color:#1b3187">📋 My Pending Orders (${orders.length})</h2>${list}</div></div>`;
+}
+
+function viewGM(){
+  const orders = load();
+  const list = orders.length ? orders.map(o=>{
+    const opts = `<option value="">— assign supervisor —</option>` +
+      SUPERVISORS.map(s=>`<option ${o.assignedSupervisorName===s?'selected':''}>${s}</option>`).join('');
+    return `<div class="order">
+      <div class="row"><span class="party">${o.party_name}</span>${stagePill(o)}</div>
+      <div class="muted">#${o.orderId} · Art ${o.article_no} · ${o.quantity} prs · ${o.category} · 🧾 ${o.salespersonName}</div>
+      <div class="row" style="margin-top:10px">
+        <div><label style="margin:0">Allot to</label>
+          <select onchange="allot('${o.id}',this.value)" style="min-width:220px">${opts}</select></div>
+        <div class="when">${fmt(o.createdAt)}</div>
+      </div>
+      ${checksHTML(o,false)}
+    </div>`;
+  }).join('') : `<div class="empty">No orders yet. Open another window as a <b>Sales Person</b> and submit one.</div>`;
+  return `<div class="hint">You are <b>Komal Jain (GM)</b>. This is your <b>Order History</b> — every order from Sales lands here automatically. Allot each one to the right supervisor.</div>
+    <h2 style="color:#1b3187">🗂️ Order History — all incoming orders (${orders.length})</h2>${list}`;
+}
+
+function viewSupervisor(){
+  const orders = load().filter(o=>o.assignedSupervisorName===supName);
+  const list = orders.length ? orders.map(o=>`
+    <div class="order">
+      <div class="row"><span class="party">${o.party_name}</span>${stagePill(o)}</div>
+      <div class="muted">#${o.orderId} · Art ${o.article_no} · ${o.quantity} prs · ${o.category} · 🧾 ${o.salespersonName}</div>
+      ${checksHTML(o,true)}
+      <div class="when" style="margin-top:8px">Last update ${fmt(o.updatedAt)}</div>
+    </div>`).join('') : `<div class="empty">No orders assigned to <b>${supName}</b> yet. Komal Jain assigns them from the GM screen.</div>`;
+  return `<div class="hint">You are <b>${supName}</b>. Update the 4 checkpoints below — each change instantly shows on the Sales Person's screen.</div>
+    <h2 style="color:#1b3187">🔧 My Assigned Orders (${orders.length})</h2>${list}`;
+}
+
+// ===================== ACTIONS =====================
+function createOrder(){
+  let party = document.getElementById('f_party').value;
+  party = (party==='__NEW__') ? (document.getElementById('f_party_new').value||'').trim() : (party||'').trim();
+  const article=(document.getElementById('f_article').value||'').trim();
+  const qty = Number(document.getElementById('f_qty').value||0);
+  const cat = document.getElementById('f_cat').value;
+  if(!party || !article || qty<1){ alert('Please fill party, article and a quantity of at least 1.'); return; }
+  const a = load();
+  a.unshift({
+    id:'o'+Date.now()+Math.random().toString(36).slice(2,6),
+    orderId:'ORD-'+String(Date.now()).slice(-5),
+    party_name:party, article_no:article, quantity:qty, category:cat,
+    salespersonName:salesName, assignedSupervisorName:null,
+    status:{upperRawMaterial:'Pending',moulding:'Pending',packing:'Pending',dispatch:'Pending'},
+    stage:'New', createdAt:Date.now(), updatedAt:Date.now()
+  });
+  save(a);
+}
+function allot(id, sup){ patch(id,o=>{ o.assignedSupervisorName=sup||null; }); }
+function setCheck(id, key, val){ patch(id,o=>{ o.status[key]=val; }); }
+
+// ===================== SHELL / RENDER =====================
+function renderCtx(){
+  let html='';
+  if(role==='sales')
+    html = `Logged in as Sales: <select onchange="setSales(this.value)">`+SALES.map(s=>`<option ${s===salesName?'selected':''}>${s}</option>`).join('')+`</select>`;
+  else if(role==='supervisor')
+    html = `Logged in as: <select onchange="setSup(this.value)">`+SUPERVISORS.map(s=>`<option ${s===supName?'selected':''}>${s}</option>`).join('')+`</select>`;
+  else
+    html = `Logged in as: <b style="color:#fff">Komal Jain · General Manager</b>`;
+  document.getElementById('ctx').innerHTML = html;
+}
+function setSales(v){ salesName=v; sessionStorage.setItem('sk_sales',v); render(); }
+function setSup(v){ supName=v; sessionStorage.setItem('sk_sup',v); render(); }
+function setRole(r){ role=r; sessionStorage.setItem('sk_role',r); render(); }
+
+function render(){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.role===role));
+  renderCtx();
+  document.getElementById('app').innerHTML =
+    role==='sales' ? viewSales() : role==='gm' ? viewGM() : viewSupervisor();
+}
+
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b=e.target.closest('.tab'); if(b) setRole(b.dataset.role);
+});
+// Real-time: re-draw when data changes in THIS window or ANY other window.
+window.addEventListener(EVT, render);
+window.addEventListener('storage', e=>{ if(e.key===LS_KEY) render(); });
+
+// Live "today" date + time — shows on every tab (Sales, Komal/GM, Supervisor), updates each second
+function tickClock(){
+  const el=document.getElementById('clock'); if(!el) return; const n=new Date();
+  el.innerHTML='🕒 '+n.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})
+    +' · '+n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+}
+tickClock(); setInterval(tickClock,1000);
+
+render();
+</script>
+</body>
+</html>

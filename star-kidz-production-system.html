@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STAR Kidz — Production Order Tracking & Management</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { brand:{50:'#eef3ff',100:'#dae4ff',500:'#3358e0',600:'#2442b8',700:'#1b3187',900:'#0c1733'} },
+  fontFamily:{ sans:['Manrope','system-ui','sans-serif'] }
+}}}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+body{font-family:'Manrope',system-ui,sans-serif}
+.tab-btn{transition:background-color .15s ease,color .15s ease}
+.tab-btn:hover{background:rgba(255,255,255,.12)}
+.tab-active{background:#fff;color:#1b3187;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.card-hover{transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease}
+.card-hover:hover{transform:translateY(-4px);box-shadow:0 14px 30px -12px rgba(15,23,42,.28)}
+.kpi-hover{transition:transform .15s ease,box-shadow .15s ease}
+.kpi-hover:hover{transform:translateY(-3px);box-shadow:0 10px 22px -10px rgba(15,23,42,.25)}
+button{transition:transform .12s ease,background-color .15s ease,filter .15s ease}
+button:not(:disabled):active{transform:scale(.96)}
+.brand-logo{transition:transform .25s ease}.brand-logo:hover{transform:rotate(-6deg) scale(1.06)}
+.bar{height:.5rem;border-radius:9999px;background:#e5e7eb;overflow:hidden}
+.bar>span{display:block;height:100%;border-radius:9999px;transition:width .5s ease}
+.toast{animation:sl .3s ease, fo .4s ease 4.6s forwards}
+@keyframes sl{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fo{to{opacity:0;transform:translateY(-10px)}}
+.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+.clock-chip{font-variant-numeric:tabular-nums}
+.ohover{cursor:help;border-radius:5px;padding:0 3px;transition:background .15s}.ohover:hover{background:#eef3ff;color:#1b3187}
+</style>
+<!-- PWA: installable app (website + Microsoft Store) -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1b3187" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<script src="pwa.js" defer></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+<header class="bg-brand-900 text-white sticky top-0 z-30 shadow-lg">
+  <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="brand-logo h-11 w-11 rounded-2xl shrink-0 shadow-lg overflow-hidden">
+        <svg viewBox="0 0 64 64" class="h-11 w-11">
+          <circle cx="32" cy="32" r="30.5" fill="#ffffff"/>
+          <circle cx="32" cy="32" r="30.5" fill="none" stroke="#e11d2b" stroke-width="3"/>
+          <path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/>
+          <path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/>
+        </svg>
+      </div>
+      <div class="min-w-0">
+        <h1 class="font-extrabold tracking-tight text-base sm:text-lg leading-tight">STAR <span class="text-brand-500">Kidz</span></h1>
+        <p class="text-[11px] sm:text-xs text-white/70 -mt-0.5">Production Order Tracking & Management · Ojas Footwear</p>
+      </div>
+    </div>
+    <div id="clock" class="clock-chip order-3 sm:order-2 w-full sm:w-auto flex items-center gap-2 text-xs sm:text-[13px] bg-white/10 ring-1 ring-white/20 rounded-lg px-3 py-1.5">
+      <span>🕒</span><span id="clockText" class="font-semibold">—</span>
+    </div>
+    <div id="linkBadge" class="order-3 sm:order-2 flex items-center gap-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 ring-1 bg-white/10 ring-white/20 text-white/60">🔗 <span id="linkText">…</span></div>
+    <div class="order-2 sm:order-3 flex items-center gap-2 shrink-0">
+      <span class="hidden sm:inline text-xs text-white/70">Logged in as</span>
+      <select id="userSelect" onchange="onUserChange()" class="bg-white/10 ring-1 ring-white/20 rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none"></select>
+      <button onclick="logout()" title="Sign out" class="bg-white/10 hover:bg-rose-600 ring-1 ring-white/20 rounded-lg px-3 py-1.5 text-sm font-semibold transition">⎋ Logout</button>
+    </div>
+  </div>
+  <nav class="max-w-[1400px] mx-auto px-2 sm:px-6">
+    <div class="flex gap-1 bg-black/10 rounded-t-xl p-1 overflow-x-auto no-scrollbar">
+      <button data-tab="dash" onclick="switchTab('dash')" class="tab-btn flex-1 min-w-[110px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90">📊 Dashboard</button>
+      <button data-tab="orders" onclick="switchTab('orders')" class="tab-btn flex-1 min-w-[110px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90">🏭 Orders</button>
+      <button data-tab="gm" onclick="switchTab('gm')" class="tab-btn flex-1 min-w-[130px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90">✅ GM Approval <span id="gmBadge" class="ml-1 bg-brand-500 text-white rounded-full px-1.5 text-[10px]"></span></button>
+      <button data-tab="reports" onclick="switchTab('reports')" class="tab-btn flex-1 min-w-[110px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90">📑 Reports</button>
+    </div>
+  </nav>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
+
+  <!-- DASHBOARD -->
+  <section id="view-dash" class="tab-view space-y-6">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4" id="dashKpis"></div>
+    <div class="grid lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2">
+        <h2 class="font-bold text-slate-900 mb-3">🚦 Live Order Tracking</h2>
+        <div id="dashOrders" class="space-y-3"></div>
+      </div>
+      <div>
+        <h2 class="font-bold text-slate-900 mb-3">🔔 Alerts & Notifications</h2>
+        <div id="alertsBox" class="space-y-2"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORDERS -->
+  <section id="view-orders" class="tab-view hidden space-y-5">
+    <details id="newOrderWrap" class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-5">
+      <summary class="font-bold text-slate-900 cursor-pointer flex items-center gap-2">➕ Create New Order <span class="text-xs font-normal text-slate-400">(GM only)</span></summary>
+      <form id="orderForm" onsubmit="addOrder(event)" class="grid sm:grid-cols-3 gap-3 mt-4">
+        <div><label class="lbl">Customer Name</label><input name="customer" required class="inp" placeholder="e.g. Bata Retail"></div>
+        <div><label class="lbl">Article Code</label><input name="code" list="articleCodes" required class="inp" placeholder="AIR-2002"></div>
+        <div><label class="lbl">Article Name</label><input name="aname" required class="inp" placeholder="Article name"></div>
+        <div><label class="lbl">Order Quantity (pairs)</label><input name="qty" type="number" min="1" required class="inp" placeholder="600"></div>
+        <div><label class="lbl">Priority</label><select name="priority" class="inp"><option>High</option><option selected>Medium</option><option>Low</option></select></div>
+        <div><label class="lbl">Order Date</label><input name="odate" type="date" required class="inp"></div>
+        <div><label class="lbl">Last Delivery Date</label><input name="ddate" type="date" required class="inp"></div>
+        <div class="flex items-end"><button class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg py-2 text-sm">Create Order</button></div>
+      </form>
+      <datalist id="articleCodes"></datalist>
+    </details>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="font-bold text-slate-900 mr-2">All Orders</h2>
+      <div class="flex gap-1 text-xs bg-white rounded-lg ring-1 ring-slate-200 p-1" id="catFilter">
+        <button onclick="setFilter('all',this)" class="cf px-2.5 py-1 rounded-md font-semibold bg-brand-50 text-brand-700">All</button>
+        <button onclick="setFilter('PU',this)" class="cf px-2.5 py-1 rounded-md font-medium text-slate-500">PU</button>
+        <button onclick="setFilter('PVC',this)" class="cf px-2.5 py-1 rounded-md font-medium text-slate-500">PVC</button>
+        <button onclick="setFilter('Stuckon',this)" class="cf px-2.5 py-1 rounded-md font-medium text-slate-500">Stuckon</button>
+      </div>
+      <input id="ordSearch" oninput="setOrderSearch(this.value)" placeholder="🔍 Search order # / customer" class="inp sm:ml-auto" style="max-width:18rem">
+    </div>
+    <div id="ordersList" class="space-y-4"></div>
+  </section>
+
+  <!-- GM APPROVAL -->
+  <section id="view-gm" class="tab-view hidden space-y-4">
+    <h2 class="font-bold text-slate-900">✅ Production Completion Requests</h2>
+    <p class="text-sm text-slate-500">Requests appear automatically when Packing reaches 100%. Only <b>KOMAL JAIN (GM)</b> can approve.</p>
+    <input id="gmSearch" oninput="setOrderSearch(this.value)" placeholder="🔍 Search order # / customer" class="inp" style="max-width:20rem">
+    <div id="gmList" class="space-y-3"></div>
+  </section>
+
+  <!-- REPORTS -->
+  <section id="view-reports" class="tab-view hidden space-y-4">
+    <h2 class="font-bold text-slate-900">📑 Reports</h2>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="report('daily')" class="rbtn">Daily Production</button>
+      <button onclick="report('pending')" class="rbtn">Pending Orders</button>
+      <button onclick="report('dept')" class="rbtn">Department-wise</button>
+      <button onclick="report('sup')" class="rbtn">Supervisor Performance</button>
+      <button onclick="report('dispatch')" class="rbtn">Dispatch</button>
+      <button onclick="report('delayed')" class="rbtn">Delayed Orders</button>
+    </div>
+    <div id="reportOut" class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-4 overflow-x-auto"></div>
+  </section>
+</main>
+
+<div id="toasts" class="fixed top-4 right-4 z-50 space-y-2 w-[calc(100%-2rem)] sm:w-80"></div>
+
+<style>
+.lbl{display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px}
+.inp{width:100%;border:1px solid #cbd5e1;border-radius:.5rem;padding:.5rem .65rem;font-size:.85rem;outline:none}
+.inp:focus{box-shadow:0 0 0 2px #3358e066;border-color:#3358e0}
+.rbtn{background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.5rem .9rem;font-size:.8rem;font-weight:600;color:#334155}
+.rbtn:hover{background:#eef3ff;color:#1b3187;border-color:#bdd0ff}
+.miniinp{width:5rem;border:1px solid #cbd5e1;border-radius:.4rem;padding:.25rem .4rem;font-size:.8rem;text-align:center;outline:none}
+.miniinp:focus{box-shadow:0 0 0 2px #3358e055}
+.savebtn{background:#0f766e;color:#fff;font-size:.72rem;font-weight:700;border-radius:.4rem;padding:.3rem .6rem}
+.savebtn:hover{filter:brightness(1.08)}
+.rtable{width:100%;border-collapse:collapse;font-size:.8rem}
+.rtable th{background:#f1f5f9;text-align:left;padding:.5rem .6rem;font-weight:700;color:#475569;white-space:nowrap}
+.rtable td{padding:.45rem .6rem;border-top:1px solid #f1f5f9}
+</style>
+
+<!-- Cloud data layer: Firebase SDK → your config → the Store abstraction (loads before the app) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="store.js"></script>
+
+<script src="articles-data.js"></script>
+<script>
+/* ===================== STAR KIDZ — PRODUCTION MANAGEMENT ===================== */
+const TODAY = new Date();   // Req#5: live "now" — fetches today's real date/time
+const $ = s => document.querySelector(s);
+
+// ---------- USERS / ROLES ----------
+const USERS = [
+  { id:'U_GM', empId:'GM-01',  name:'KOMAL JAIN',   title:'General Manager',          role:'GM' },
+  { id:'U_S1', empId:'PRD-101', name:'Supervisor 1', title:'Upper Department',         role:'UPPER' },
+  { id:'U_S2', empId:'PRD-102', name:'Supervisor 2', title:'PU Department',            role:'PU' },
+  { id:'U_S3', empId:'PRD-103', name:'Supervisor 3', title:'PVC Department',           role:'PVC' },
+  { id:'U_S4', empId:'PRD-104', name:'Supervisor 4', title:'Stuckon Department',       role:'STUCKON' },
+  { id:'U_S5', empId:'PRD-105', name:'Supervisor 5', title:'Raw Material & Dispatch',  role:'RMDISP' },
+];
+let currentUser = USERS[0];
+
+// who can edit which stage of which order
+function canEdit(stage, o){
+  const r = currentUser.role;
+  if(r==='GM') return true;
+  if(r==='UPPER') return stage==='upper' && o.upperAllotted;            // Req#3: Upper waits for GM allotment
+  if(r==='RMDISP') return stage==='raw' || stage==='dispatch';
+  if(['PU','PVC','STUCKON'].includes(r))                                // Req#2: dept edits only its own category
+    return (stage==='moulding'||stage==='packing') && catRoleOf(o.category)===r;
+  return false;
+}
+
+// ---------- Req#2: category-wise AUTOMATIC allotment ----------
+const CATEGORY_ROLE = { PU:'PU', PVC:'PVC', STUCKON:'STUCKON', STUCK:'STUCKON' };
+function catRoleOf(cat){ return CATEGORY_ROLE[String(cat||'').toUpperCase()] || null; }
+function autoAllot(o){
+  const role = catRoleOf(o.category);
+  o.allottedRole = role;
+  const dept = USERS.find(u=>u.role===role);
+  o.allottedDept = dept ? dept.title : 'Unassigned';
+}
+
+// ---------- DATA ----------
+let LOG = [];        // {ts, by, role, order, stage, detail}
+let NOTIFS = [];     // {type, msg, to, ts}
+let seq = 5007;
+
+function stageObj(required){ return { required, produced:0, balance:required, pct:0, by:'—', date:'—' }; }
+function mkOrder(no,cust,aname,code,cat,qty,od,dd,prio,fill){
+  const o = {
+    order_no:no, customer:cust, article_name:aname, article_code:code, category:cat,
+    qty, order_date:od, delivery_date:dd, priority:prio,
+    raw:{ required:qty, available:0, pending:qty, eta:'—', by:'—', date:'—' },
+    upper:stageObj(qty), moulding:stageObj(qty), packing:stageObj(qty),
+    dispatch:{ ready:0, dispatched:0, balance:qty, vehicle:'—', date:'—', by:'—' },
+    gm:{ requested:false, approved:false, completionDate:'—', completionStamp:'', remarks:'' },
+    upperAllotted:false, upperAllottedBy:'—', upperAllottedDate:'—',   // Req#3: GM must allot Upper program
+    allottedDept:'—', allottedRole:null,                                // Req#2: category department
+    closed:false
+  };
+  if(fill) fill(o);
+  autoAllot(o);                 // Req#2: route to its category department automatically
+  return o;
+}
+function setStage(s, produced){ s.produced=produced; s.balance=Math.max(0,s.required-produced); s.pct=s.required?Math.round(produced/s.required*100):0; s.by='Seed'; s.date='05 Jun 2026'; }
+
+let ORDERS = [
+  // GM approval pending (packing 100%)
+  mkOrder('ORD-5001','Bata Retail','AIR-2002 BLK/BLK/WHT','AIR-2002','PU',600,'2026-05-20','2026-06-10','High',o=>{
+    o.raw.available=600;o.raw.pending=0;o.raw.eta='Received';o.raw.by='Supervisor 5';o.raw.date='02 Jun 2026';
+    setStage(o.upper,600);setStage(o.moulding,600);setStage(o.packing,600);o.gm.requested=true;
+  }),
+  // In progress - moulding, due this week
+  mkOrder('ORD-5002','Khadims','EARTH-01 PNK/WHT','EARTH-01','PU',300,'2026-05-28','2026-06-08','Medium',o=>{
+    o.raw.available=300;o.raw.pending=0;o.raw.by='Supervisor 5';o.raw.date='03 Jun 2026';
+    setStage(o.upper,300);setStage(o.moulding,150);
+  }),
+  // Delayed (delivery past)
+  mkOrder('ORD-5003','Liberty','SKY-1001 RED/BLK','SKY-1001','PVC',480,'2026-05-15','2026-06-04','High',o=>{
+    o.raw.available=480;o.raw.pending=0;o.raw.by='Supervisor 5';o.raw.date='28 May 2026';
+    setStage(o.upper,300);setStage(o.moulding,120);
+  }),
+  // Raw material shortage
+  mkOrder('ORD-5004','Relaxo','FIRE-01 BLK/GRY','FIRE-01','Stuckon',240,'2026-06-01','2026-06-20','Low',o=>{
+    o.raw.available=100;o.raw.pending=140;o.raw.eta='2026-06-12';o.raw.by='Supervisor 5';o.raw.date='05 Jun 2026';
+  }),
+  // Closed (dispatched)
+  mkOrder('ORD-5005','Metro Shoes','MOON-01 BLK/GRY','MOON-01','PU',360,'2026-05-10','2026-05-30','Medium',o=>{
+    o.raw.available=360;o.raw.pending=0;setStage(o.upper,360);setStage(o.moulding,360);setStage(o.packing,360);
+    o.gm.requested=true;o.gm.approved=true;o.gm.completionDate='28 May 2026';
+    o.dispatch.ready=360;o.dispatch.dispatched=360;o.dispatch.balance=0;o.dispatch.vehicle='MH-12 AB 4456';o.dispatch.date='29 May 2026';o.dispatch.by='Supervisor 5';o.closed=true;
+  }),
+  // In dispatch (partial)
+  mkOrder('ORD-5006','Paragon','SKY-01 BLK/BLK','SKY-01','PVC',200,'2026-05-22','2026-06-09','High',o=>{
+    o.raw.available=200;o.raw.pending=0;setStage(o.upper,200);setStage(o.moulding,200);setStage(o.packing,200);
+    o.gm.requested=true;o.gm.approved=true;o.gm.completionDate='04 Jun 2026';
+    o.dispatch.ready=200;o.dispatch.dispatched=80;o.dispatch.balance=120;o.dispatch.vehicle='RJ-14 CD 7789';o.dispatch.date='05 Jun 2026';o.dispatch.by='Supervisor 5';
+  }),
+];
+// Req#3: seed orders already in Upper/later stages count as GM-allotted (so only brand-new orders wait)
+ORDERS.forEach(o=>{ if(o.upper.produced>0 || o.gm.requested || o.closed){ o.upperAllotted=true; o.upperAllottedBy='Komal Jain'; o.upperAllottedDate='05 Jun 2026'; } });
+
+// ---------- HELPERS ----------
+function fmt(d){ if(!d||d==='—') return '—'; const x=new Date(d); return isNaN(x)?d:x.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}); }
+function nowStr(){ return new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+// Req#5: today's date for <input type=date>, and a full "Day · Date · Time" stamp
+function todayISO(){ const d=new Date(), z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function nowFull(){ const n=new Date();
+  return n.toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'short',year:'numeric'})
+       + ' · ' + n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); }
+function daysBetween(a,b){ return Math.round((new Date(b)-new Date(a))/86400000); }
+function isDelayed(o){ return !o.closed && daysBetween(TODAY, o.delivery_date) < 0; }
+function dueThisWeek(o){ const d=daysBetween(TODAY,o.delivery_date); return !o.closed && d>=0 && d<=7; }
+function stageName(o){
+  if(o.closed) return 'Order Closed';
+  if(o.gm.approved) return o.dispatch.dispatched>0?'Dispatch In Progress':'Sent to Dispatch';
+  if(o.gm.requested) return 'GM Approval Pending';
+  if(o.packing.pct>=100) return 'Completion Requested';
+  if(o.packing.produced>0) return 'Packing';
+  if(o.moulding.produced>0) return 'Moulding';
+  if(o.upper.produced>0) return 'Upper Production';
+  if(o.raw.available>0) return 'Raw Material';
+  return 'New Order';
+}
+function prioBadge(p){ const m={High:'bg-rose-100 text-rose-700',Medium:'bg-amber-100 text-amber-700',Low:'bg-emerald-100 text-emerald-700'}; return `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 ${m[p]}">${p}</span>`; }
+function catBadge(c){ return ''; }   // category removed from the system
+function barColor(pct,delayed){ if(delayed&&pct<100) return '#f43f5e'; if(pct>=100) return '#10b981'; if(pct>0) return '#f59e0b'; return '#cbd5e1'; }
+function bar(label,pct,delayed){
+  return `<div>
+    <div class="flex justify-between text-[10px] font-semibold text-slate-500 mb-0.5"><span>${label}</span><span>${pct}%</span></div>
+    <div class="bar"><span style="width:${Math.min(100,pct)}%;background:${barColor(pct,delayed)}"></span></div>
+  </div>`;
+}
+function pctOf(p,r){ return r?Math.round(p/r*100):0; }
+
+// ---------- TOAST / NOTIFY ----------
+function toast(title,emoji,body){
+  const el=document.createElement('div');
+  el.className='toast bg-white rounded-xl shadow-lg ring-1 ring-slate-200 p-3.5 flex gap-3';
+  el.innerHTML=`<div class="text-xl">${emoji}</div><div><p class="font-bold text-sm text-slate-900">${title}</p><p class="text-xs text-slate-500">${body}</p></div>`;
+  $('#toasts').appendChild(el); setTimeout(()=>el.remove(),5000);
+}
+function notify(type,msg){
+  NOTIFS.unshift({type,msg,to:'Komal Jain, Concerned Supervisor, GM',ts:nowStr()});
+  if(NOTIFS.length>40) NOTIFS.pop();
+}
+function logUpdate(o,stage,detail){
+  LOG.unshift({ts:nowStr(), by:currentUser.name, role:currentUser.title, order:o.order_no, stage, detail});
+}
+
+// ---------- DASHBOARD ----------
+function kpi(label,val,emoji,tone){
+  const r={red:'ring-rose-200 bg-rose-50',amber:'ring-amber-200 bg-amber-50',green:'ring-emerald-200 bg-emerald-50',brand:'ring-brand-100 bg-brand-50',sky:'ring-sky-200 bg-sky-50'}[tone];
+  return `<div class="kpi-hover rounded-2xl ring-1 ${r} p-4"><div class="text-2xl">${emoji}</div><div class="mt-1 text-2xl font-extrabold text-slate-900">${val}</div><div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">${label}</div></div>`;
+}
+function renderDash(){
+  const open = ORDERS.filter(o=>!o.closed);
+  const prodPct = open.length? Math.round(open.reduce((s,o)=>s+o.packing.pct,0)/open.length):0;
+  const dispPct = open.length? Math.round(open.reduce((s,o)=>s+pctOf(o.dispatch.dispatched,o.qty),0)/open.length):0;
+  $('#dashKpis').innerHTML =
+    kpi('Total Pending Orders', open.length,'📦','brand')+
+    kpi('Due This Week', ORDERS.filter(dueThisWeek).length,'📅','amber')+
+    kpi('Delayed Orders', ORDERS.filter(isDelayed).length,'⏰','red')+
+    kpi('Production Completion', prodPct+'%','🏭','green')+
+    kpi('Dispatch Completion', dispPct+'%','🚚','sky');
+
+  $('#dashOrders').innerHTML = ORDERS.map(o=>{
+    const dl=isDelayed(o);
+    return `<div class="card-hover bg-white rounded-2xl shadow-sm ring-1 ${dl?'ring-rose-200':'ring-slate-200'} p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-slate-900">${o.customer}</span>
+          <span class="text-xs text-slate-400">#${o.order_no}</span>
+          ${prioBadge(o.priority)} <span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-indigo-100 text-indigo-700" title="Category ${o.category} → auto-allotted">🏷️ ${o.allottedDept}</span> ${o.upperAllotted?'':'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">🧵 Upper: awaiting GM</span>'} ${o.fromSales?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-brand-100 text-brand-700">📥 From Sales'+(o.salesPerson?' · '+o.salesPerson:'')+'</span>':''}
+          ${dl?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-rose-600 text-white">DELAYED</span>':''}
+        </div>
+        <span class="text-xs font-semibold ${o.closed?'text-emerald-600':o.gm.requested&&!o.gm.approved?'text-amber-600':'text-slate-500'}">${stageName(o)}</span>
+      </div>
+      <div class="text-xs text-slate-500 mb-3">${o.article_code} · ${o.article_name} · ${o.qty} prs · Delivery ${fmt(o.delivery_date)}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        ${bar('Raw', pctOf(o.raw.available,o.raw.required), dl)}
+        ${bar('Upper', o.upper.pct, dl)}
+        ${bar('Moulding', o.moulding.pct, dl)}
+        ${bar('Packing', o.packing.pct, dl)}
+        ${bar('Dispatch', pctOf(o.dispatch.dispatched,o.qty), dl)}
+      </div>
+    </div>`;
+  }).join('');
+
+  // recompute live alerts
+  scanAlerts();
+  $('#alertsBox').innerHTML = NOTIFS.length? NOTIFS.slice(0,12).map(n=>{
+    const tone={delay:'bg-rose-50 ring-rose-200 text-rose-700',shortage:'bg-amber-50 ring-amber-200 text-amber-700',approval:'bg-violet-50 ring-violet-200 text-violet-700',done:'bg-emerald-50 ring-emerald-200 text-emerald-700'}[n.type]||'bg-slate-50 ring-slate-200 text-slate-600';
+    const ic={delay:'⏰',shortage:'⚠️',approval:'🛎️',done:'✅'}[n.type]||'🔔';
+    return `<div class="rounded-xl ring-1 ${tone} p-3 text-xs"><div class="flex gap-2"><span>${ic}</span><div><p class="font-semibold">${n.msg}</p><p class="opacity-70 mt-0.5">→ ${n.to} · ${n.ts}</p></div></div></div>`;
+  }).join('') : `<p class="text-sm text-slate-400">No active alerts.</p>`;
+}
+function scanAlerts(){
+  NOTIFS = [];
+  ORDERS.forEach(o=>{
+    if(isDelayed(o)) notify('delay',`Delay in production/dispatch — ${o.order_no} (${o.customer}) past delivery ${fmt(o.delivery_date)}`);
+    if(o.raw.pending>0) notify('shortage',`Raw material shortage — ${o.order_no}: ${o.raw.pending} prs pending (ETA ${fmt(o.raw.eta)})`);
+    if(o.gm.requested && !o.gm.approved) notify('approval',`GM approval pending — ${o.order_no} (${o.customer}) packing 100%`);
+    if(!o.upperAllotted && !o.closed) notify('approval',`Upper allotment pending — ${o.order_no} (${o.customer}) awaiting GM → Upper Dept`);
+    if(o.gm.approved && !o.closed) notify('done',`✅ Order DONE — ${o.order_no} (${o.customer}) production approved · ${o.gm.completionStamp||fmt(o.gm.completionDate)}`);
+    if(o.closed) notify('done',`✅ Order DONE — ${o.order_no} (${o.customer}) dispatched & closed${o.gm.completionStamp?' · '+o.gm.completionStamp:''}`);
+  });
+}
+
+// ---------- ORDERS ----------
+let catFilter='all';
+function setFilter(c,btn){ catFilter=c; document.querySelectorAll('.cf').forEach(b=>b.className='cf px-2.5 py-1 rounded-md font-medium text-slate-500'); btn.className='cf px-2.5 py-1 rounded-md font-semibold bg-brand-50 text-brand-700'; renderOrders(); }
+
+// ---------- Req#4: order-number search (Orders tab + GM window + master view) ----------
+let orderSearch='';
+function matchSearch(o){
+  if(!orderSearch) return true;
+  return (o.order_no+' '+o.customer+' '+o.article_code+' '+(o.article_name||'')).toLowerCase().includes(orderSearch);
+}
+function setOrderSearch(v){
+  orderSearch=(v||'').trim().toLowerCase();
+  const a=$('#ordSearch'), b=$('#gmSearch');           // keep both boxes in sync
+  if(a && a.value!==v) a.value=v;
+  if(b && b.value!==v) b.value=v;
+  renderOrders(); renderGM();
+}
+
+function stageEditor(o, stage, title, qtyField){
+  const s = o[stage];
+  const editable = canEdit(stage,o);
+  const cur = stage==='raw'? s.available : s.produced;
+  const pct = stage==='raw'? pctOf(s.available,s.required) : s.pct;
+  let inputs='';
+  // Req#3: Upper program must be allotted by GM before the Upper Dept can work on it
+  let upperNote='';
+  if(stage==='upper'){
+    if(o.upperAllotted){
+      upperNote = `<div class="text-[10px] text-emerald-600 font-semibold mt-1">🧵 Allotted to Upper Dept by ${o.upperAllottedBy} · ${o.upperAllottedDate}</div>`;
+    } else {
+      upperNote = `<div class="text-[10px] text-amber-600 font-semibold mt-1">⏳ Awaiting GM allotment to Upper Dept</div>`
+        + (currentUser.role==='GM' && !o.closed ? `<button class="savebtn mt-1" style="background:#1b3187" onclick="allotUpper('${o.order_no}')">🧵 Allot to Upper</button>` : '');
+    }
+  }
+  const upperLocked = stage==='upper' && !o.upperAllotted;   // hide the produce input until GM allots
+  if(editable && !o.closed && !upperLocked){
+    if(stage==='raw'){
+      inputs=`<div class="flex flex-wrap items-center gap-2 mt-2">
+        <label class="text-[10px] text-slate-500">Available <input id="raw-av-${o.order_no}" type="number" min="0" value="${s.available}" class="miniinp"></label>
+        <label class="text-[10px] text-slate-500">ETA <input id="raw-eta-${o.order_no}" type="date" class="miniinp" style="width:8.5rem"></label>
+        <button class="savebtn" onclick="saveRaw('${o.order_no}')">Save</button></div>`;
+    } else {
+      inputs=`<div class="flex items-center gap-2 mt-2">
+        <label class="text-[10px] text-slate-500">${qtyField} <input id="${stage}-q-${o.order_no}" type="number" min="0" max="${s.required}" value="${cur}" class="miniinp"></label>
+        <button class="savebtn" onclick="saveStage('${o.order_no}','${stage}')">Save</button></div>`;
+    }
+  }
+  return `<div class="rounded-xl ring-1 ring-slate-200 p-3 bg-slate-50/50">
+    <div class="flex justify-between items-center"><span class="text-xs font-bold text-slate-700">${title}</span><span class="text-[10px] ${pct>=100?'text-emerald-600':pct>0?'text-amber-600':'text-slate-400'} font-bold">${pct}%</span></div>
+    <div class="bar mt-1.5"><span style="width:${Math.min(100,pct)}%;background:${barColor(pct,isDelayed(o))}"></span></div>
+    <div class="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+      Req <b>${s.required}</b> · ${stage==='raw'?'Avail':'Done'} <b>${cur}</b> · Bal <b>${stage==='raw'?s.pending:s.balance}</b>${stage==='raw'&&s.eta&&s.eta!=='—'?` · ETA ${fmt(s.eta)}`:''}<br>
+      <span class="text-slate-400">By ${s.by} · ${s.date}</span>
+    </div>
+    ${upperNote}
+    ${inputs}
+  </div>`;
+}
+function dispatchEditor(o){
+  const s=o.dispatch, editable=canEdit('dispatch',o)&&o.gm.approved&&!o.closed;
+  const pct=pctOf(s.dispatched,o.qty);
+  let inputs='';
+  if(editable){
+    inputs=`<div class="flex flex-wrap items-center gap-2 mt-2">
+      <label class="text-[10px] text-slate-500">Dispatched <input id="d-disp-${o.order_no}" type="number" min="0" max="${o.qty}" value="${s.dispatched}" class="miniinp"></label>
+      <label class="text-[10px] text-slate-500">Vehicle <input id="d-veh-${o.order_no}" value="${s.vehicle==='—'?'':s.vehicle}" class="miniinp" style="width:8rem"></label>
+      <button class="savebtn" onclick="saveDispatch('${o.order_no}')">Save</button></div>`;
+  } else if(!o.gm.approved){ inputs=`<p class="text-[10px] text-slate-400 mt-2">Locked until GM approves production.</p>`; }
+  return `<div class="rounded-xl ring-1 ring-slate-200 p-3 bg-slate-50/50">
+    <div class="flex justify-between items-center"><span class="text-xs font-bold text-slate-700">Dispatch</span><span class="text-[10px] ${pct>=100?'text-emerald-600':pct>0?'text-amber-600':'text-slate-400'} font-bold">${pct}%</span></div>
+    <div class="bar mt-1.5"><span style="width:${Math.min(100,pct)}%;background:${barColor(pct,isDelayed(o))}"></span></div>
+    <div class="text-[10px] text-slate-500 mt-1.5 leading-relaxed">Ready <b>${s.ready}</b> · Sent <b>${s.dispatched}</b> · Bal <b>${o.qty-s.dispatched}</b> · 🚚 ${s.vehicle} · ${fmt(s.date)}<br><span class="text-slate-400">By ${s.by}</span></div>
+    ${inputs}</div>`;
+}
+function renderOrders(){
+  $('#newOrderWrap').style.display = currentUser.role==='GM'?'block':'none';
+  const list = ORDERS.filter(o=>(catFilter==='all'||o.category===catFilter) && matchSearch(o));
+  $('#ordersList').innerHTML = list.map(o=>{
+    const dl=isDelayed(o);
+    return `<div class="card-hover bg-white rounded-2xl shadow-sm ring-1 ${dl?'ring-rose-200':'ring-slate-200'} p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-slate-900">${o.customer}</span><span class="text-xs text-slate-400">#${o.order_no}</span>
+          ${prioBadge(o.priority)} <span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-indigo-100 text-indigo-700" title="Category ${o.category} → auto-allotted">🏷️ ${o.allottedDept}</span> ${o.upperAllotted?'':'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">🧵 Upper: awaiting GM</span>'} ${o.fromSales?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-brand-100 text-brand-700">📥 From Sales'+(o.salesPerson?' · '+o.salesPerson:'')+'</span>':''}
+          ${dl?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-rose-600 text-white">DELAYED</span>':''}
+          ${o.closed?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-emerald-600 text-white">CLOSED</span>':''}
+        </div>
+        <span class="text-xs font-semibold text-slate-500">${stageName(o)}</span>
+      </div>
+      <div class="text-xs text-slate-500 mt-1 mb-3">Art <b>${o.article_code}</b> · ${o.article_name} · Qty ${o.qty} prs · Ordered ${fmt(o.order_date)} · Delivery ${fmt(o.delivery_date)}</div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        ${stageEditor(o,'raw','Raw Material','Available')}
+        ${stageEditor(o,'upper','Upper','Produced')}
+        ${stageEditor(o,'moulding','Moulding','Produced')}
+        ${stageEditor(o,'packing','Packing','Packed')}
+        ${dispatchEditor(o)}
+      </div>
+      ${o.gm.requested&&!o.gm.approved?`<div class="mt-3 text-xs font-semibold text-amber-700 bg-amber-50 ring-1 ring-amber-200 rounded-lg px-3 py-2">🛎️ Production Completion Request sent — awaiting GM approval.</div>`:''}
+      ${o.gm.remarks?`<div class="mt-2 text-[11px] text-rose-600">GM remark: ${o.gm.remarks}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ---------- UPDATES ----------
+function find(id){ return ORDERS.find(o=>o.order_no===id); }
+function saveRaw(id){
+  const o=find(id); if(!canEdit('raw',o)) return;
+  const av=Math.max(0,+$('#raw-av-'+id).value||0); const eta=$('#raw-eta-'+id).value;
+  o.raw.available=Math.min(av,o.raw.required); o.raw.pending=Math.max(0,o.raw.required-o.raw.available);
+  if(eta) o.raw.eta=eta; o.raw.by=currentUser.name; o.raw.date=nowStr();
+  logUpdate(o,'Raw Material',`Available ${o.raw.available}/${o.raw.required}`);
+  if(o.raw.pending>0) notify('shortage',`Raw shortage ${o.order_no}: ${o.raw.pending} prs pending`);
+  toast('Raw Material updated','📦',`${id}: ${o.raw.available}/${o.raw.required} available`);
+  refresh();
+}
+function saveStage(id,stage){
+  const o=find(id); if(!canEdit(stage,o)) return;
+  const q=Math.max(0,Math.min(o[stage].required, +$(`#${stage}-q-${id}`).value||0));
+  const s=o[stage]; s.produced=q; s.balance=s.required-q; s.pct=pctOf(q,s.required); s.by=currentUser.name; s.date=nowStr();
+  logUpdate(o,stage[0].toUpperCase()+stage.slice(1),`${q}/${s.required} (${s.pct}%)`);
+  toast(stage+' updated','🔧',`${id}: ${s.pct}% complete`);
+  if(stage==='packing' && s.pct>=100 && !o.gm.requested){
+    o.gm.requested=true;
+    notify('approval',`GM approval pending — ${o.order_no} packing 100%`);
+    toast('Completion Request sent','🛎️',`${id} → GM approval pending`);
+  }
+  refresh();
+}
+function saveDispatch(id){
+  const o=find(id); if(!canEdit('dispatch',o)||!o.gm.approved) return;
+  const d=Math.max(0,Math.min(o.qty,+$('#d-disp-'+id).value||0)); const veh=$('#d-veh-'+id).value.trim();
+  o.dispatch.dispatched=d; o.dispatch.balance=o.qty-d; o.dispatch.ready=o.qty; if(veh)o.dispatch.vehicle=veh;
+  o.dispatch.by=currentUser.name; o.dispatch.date=nowStr();
+  logUpdate(o,'Dispatch',`Dispatched ${d}/${o.qty}`);
+  if(d>=o.qty){ o.closed=true; o.gm.completionStamp=o.gm.completionStamp||nowFull();
+    notify('done',`✅ Order DONE — ${o.order_no} (${o.customer}) fully dispatched & closed · ${nowFull()}`);
+    toast('Order Done','✅',`${id} fully dispatched & closed`); }
+  else toast('Dispatch updated','🚚',`${id}: ${d}/${o.qty} sent`);
+  refresh();
+}
+
+// ---------- Req#3: GM allots the Upper program to the Upper Department ----------
+function allotUpper(id){
+  const o=find(id); if(currentUser.role!=='GM') return;
+  o.upperAllotted=true; o.upperAllottedBy=currentUser.name; o.upperAllottedDate=nowStr();
+  logUpdate(o,'Upper','Upper program allotted to Upper Dept by GM');
+  notify('approval',`Upper program allotted — ${o.order_no} (${o.customer}) → Upper Department · ${nowFull()}`);
+  toast('Upper Allotted','🧵',`${id} upper program released to Upper Dept`);
+  refresh();
+}
+
+// ---------- GM APPROVAL ----------
+function renderGM(){
+  const reqs = ORDERS.filter(o=>o.gm.requested && !o.gm.approved && matchSearch(o));
+  $('#gmBadge').textContent = ORDERS.filter(o=>o.gm.requested && !o.gm.approved).length||'';
+  const isGM = currentUser.role==='GM';
+  $('#gmList').innerHTML = reqs.length? reqs.map(o=>`
+    <div class="card-hover bg-white rounded-2xl shadow-sm ring-1 ring-amber-200 p-5">
+      <div class="flex items-center gap-2 mb-3"><span class="text-lg">🛎️</span><h3 class="font-bold text-slate-900">Production Completion Request</h3></div>
+      <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+        <div><span class="text-slate-400">Article:</span> <b>${o.article_name}</b> (${o.article_code})</div>
+        <div><span class="text-slate-400">Order No:</span> <b>${o.order_no}</b></div>
+        <div><span class="text-slate-400">Customer:</span> ${o.customer} · ${catBadge(o.category)}</div>
+        <div><span class="text-slate-400">Order Qty:</span> <b>${o.qty}</b> pairs</div>
+        <div><span class="text-slate-400">Completion Date:</span> ${nowStr()}</div>
+        <div><span class="text-slate-400">Priority:</span> ${prioBadge(o.priority)}</div>
+      </div>
+      <input id="gm-rem-${o.order_no}" class="inp mt-3" placeholder="Remarks (optional)">
+      ${isGM?`<div class="flex gap-2 mt-3">
+        <button onclick="approve('${o.order_no}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-4 py-2 text-sm">✔ Approve</button>
+        <button onclick="reject('${o.order_no}')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg px-4 py-2 text-sm">✕ Reject</button>
+      </div>`:`<p class="text-xs text-slate-400 mt-3">Only KOMAL JAIN (GM) can approve or reject.</p>`}
+    </div>`).join('') : `<div class="bg-white rounded-2xl ring-1 ring-dashed ring-slate-300 p-8 text-center text-slate-400 text-sm">No pending completion requests.</div>`;
+}
+function approve(id){
+  const o=find(id); if(currentUser.role!=='GM') return;
+  o.gm.approved=true; o.gm.completionDate=nowStr(); o.gm.completionStamp=nowFull(); o.gm.remarks=$('#gm-rem-'+id).value.trim();
+  o.dispatch.ready=o.qty;
+  logUpdate(o,'GM Approval','Production Completed → sent to Dispatch');
+  notify('done',`✅ Order DONE — ${o.order_no} (${o.customer}) approved & sent to Dispatch · ${o.gm.completionStamp}`);
+  toast('Production Approved','✅',`${id} sent to Dispatch Department`);
+  refresh();
+}
+function reject(id){
+  const o=find(id); if(currentUser.role!=='GM') return;
+  o.gm.requested=false; o.gm.remarks=$('#gm-rem-'+id).value.trim()||'Rejected — review packing';
+  logUpdate(o,'GM Approval','Completion request REJECTED');
+  toast('Request Rejected','↩️',`${id} returned to Packing dept`);
+  refresh();
+}
+
+// ---------- REPORTS ----------
+function tbl(head,rows){ return `<table class="rtable"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${head.length}" class="text-slate-400">No data.</td></tr>`}</tbody></table>`; }
+function report(kind){
+  let html='', t=nowStr();
+  if(kind==='daily'){
+    const rows=LOG.filter(l=>l.ts===t).map(l=>`<tr><td>${l.order}</td><td>${l.stage}</td><td>${l.detail}</td><td>${l.by}</td></tr>`).join('');
+    html=`<h3 class="font-bold mb-3">Daily Production Report — ${t}</h3>`+tbl(['Order','Stage','Detail','Updated By'],rows);
+  }else if(kind==='pending'){
+    const rows=ORDERS.filter(o=>!o.closed).map(o=>`<tr><td>${o.order_no}</td><td>${o.customer}</td><td>${catBadge(o.category)}</td><td>${o.qty}</td><td>${stageName(o)}</td><td>${o.packing.pct}%</td><td>${fmt(o.delivery_date)}</td></tr>`).join('');
+    html=`<h3 class="font-bold mb-3">Pending Order Report</h3>`+tbl(['Order','Customer','Category','Qty','Stage','Packing %','Delivery'],rows);
+  }else if(kind==='dept'){
+    const rows=['PU','PVC','Stuckon'].map(c=>{const g=ORDERS.filter(o=>o.category===c);const q=g.reduce((s,o)=>s+o.qty,0);const pk=g.length?Math.round(g.reduce((s,o)=>s+o.packing.pct,0)/g.length):0;const dp=g.length?Math.round(g.reduce((s,o)=>s+pctOf(o.dispatch.dispatched,o.qty),0)/g.length):0;return `<tr><td>${c}</td><td>${g.length}</td><td>${q}</td><td>${pk}%</td><td>${dp}%</td></tr>`;}).join('');
+    html=`<h3 class="font-bold mb-3">Department-wise Production Report</h3>`+tbl(['Department','Orders','Total Qty','Avg Packing %','Avg Dispatch %'],rows);
+  }else if(kind==='sup'){
+    const map={}; LOG.forEach(l=>{map[l.by]=map[l.by]||{n:0,role:l.role,last:l.ts};map[l.by].n++;});
+    USERS.forEach(u=>{ if(!map[u.name]) map[u.name]={n:0,role:u.title,last:'—'}; });
+    const rows=Object.entries(map).map(([n,v])=>`<tr><td>${n}</td><td>${v.role}</td><td>${v.n}</td><td>${v.last}</td></tr>`).join('');
+    html=`<h3 class="font-bold mb-3">Supervisor-wise Performance Report</h3>`+tbl(['Name','Department','Updates Made','Last Active'],rows);
+  }else if(kind==='dispatch'){
+    const rows=ORDERS.map(o=>`<tr><td>${o.order_no}</td><td>${o.customer}</td><td>${o.dispatch.ready}</td><td>${o.dispatch.dispatched}</td><td>${o.qty-o.dispatch.dispatched}</td><td>${o.dispatch.vehicle}</td><td>${fmt(o.dispatch.date)}</td></tr>`).join('');
+    html=`<h3 class="font-bold mb-3">Dispatch Report</h3>`+tbl(['Order','Customer','Ready','Dispatched','Balance','Vehicle','Date'],rows);
+  }else if(kind==='delayed'){
+    const rows=ORDERS.filter(isDelayed).map(o=>`<tr><td>${o.order_no}</td><td>${o.customer}</td><td>${fmt(o.delivery_date)}</td><td class="text-rose-600 font-bold">${-daysBetween(TODAY,o.delivery_date)} days</td><td>${stageName(o)}</td></tr>`).join('');
+    html=`<h3 class="font-bold mb-3">Delayed Order Report</h3>`+tbl(['Order','Customer','Delivery Date','Days Late','Stage'],rows);
+  }
+  $('#reportOut').innerHTML=html;
+}
+
+// ---------- NEW ORDER ----------
+function addOrder(e){
+  e.preventDefault();
+  if(currentUser.role!=='GM'){ toast('Not allowed','🔒','Only GM can create orders'); return; }
+  const f=e.target;
+  const o=mkOrder('ORD-'+(seq++), f.customer.value.trim(), f.aname.value.trim(), f.code.value.trim().toUpperCase(),
+                  f.category.value, +f.qty.value, f.odate.value, f.ddate.value, f.priority.value);
+  ORDERS.unshift(o); logUpdate(o,'Order','New order created');
+  notify('approval',`New order ${o.order_no} created for ${o.customer} · ${nowFull()}`);
+  f.reset(); $('[name=odate]').value=todayISO();
+  toast('Order Created','📝',`${o.order_no} added to production queue`);
+  refresh();
+}
+
+// ---------- SHELL ----------
+function switchTab(t){
+  document.querySelectorAll('.tab-view').forEach(v=>v.classList.add('hidden'));
+  $('#view-'+t).classList.remove('hidden');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('tab-active',b.dataset.tab===t));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function onUserChange(){
+  currentUser=USERS.find(u=>u.id===$('#userSelect').value);
+  toast('Logged in','👤',`${currentUser.name} · ${currentUser.title}`);
+  refresh();
+}
+function logout(){ try{ localStorage.removeItem('STARKIDZ_USER'); }catch(_){} window.location.href='login.html'; }
+function refresh(){ renderDash(); renderOrders(); renderGM(); pushProductionStatus(); }
+
+// ===== APP LINK: push live manufacturing status back to Sales (Dispatch Tracker) =====
+const PROD_STATUS_KEY = 'STARKIDZ_PROD_STATUS';
+function pushProductionStatus(){
+  try{
+    const map = {};
+    ORDERS.forEach(o=>{
+      map[o.order_no] = {
+        stage: stageName(o),
+        prodPct: Math.round((pctOf(o.raw.available,o.raw.required)+o.upper.pct+o.moulding.pct+o.packing.pct)/4),
+        packingPct: o.packing.pct,
+        dispatchPct: pctOf(o.dispatch.dispatched,o.qty),
+        completed: o.gm.approved,     // production completed & GM-approved
+        closed: o.closed,
+        doneAt: o.gm.completionStamp || (o.closed ? nowFull() : ''),   // Req#5: when the order was finished
+        allottedDept: o.allottedDept,                                   // Req#2
+        updatedBy: o.packing.by || o.moulding.by || o.upper.by || '—'
+      };
+    });
+    Store.setItem(PROD_STATUS_KEY, JSON.stringify({ updated:Date.now(), statuses:map }));
+  }catch(e){ /* storage blocked */ }
+}
+function updateClock(){
+  const el=$('#clockText'); if(!el)return; const now=new Date();
+  const d=now.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'});
+  const tm=now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZone:'Asia/Kolkata'});
+  el.innerHTML=`<span class="hidden sm:inline">${d} · </span>${tm} <span class="text-white/55">IST</span>`;
+}
+
+// ===== APP LINK: pull pending orders created by Sales (Dispatch Tracker) =====
+const SHARED_KEY = 'STARKIDZ_SALES_ORDERS';
+function importSharedOrders(){
+  let changed = false;
+  try {
+    const raw = Store.getItem(SHARED_KEY); if(!raw) return false;
+    const data = JSON.parse(raw); const list = (data && data.orders) || [];
+    list.forEach(s=>{
+      if(s.production_status!=='Pending') return;             // only NEW pending orders flow to production
+      if(ORDERS.some(o=>o.order_no===s.order_id)) return;     // already imported
+      const qty = +s.quantity || 0;
+      const del = new Date(s.order_date || todayISO()); del.setDate(del.getDate()+15);
+      const o = mkOrder(
+        s.order_id, s.party_name || 'Customer',
+        (s.article_no||'') + (s.colour ? ' '+s.colour : ''), s.article_no || '-',
+        s.category || 'PU', qty, s.order_date || todayISO(),
+        del.toISOString().slice(0,10), 'Medium'
+      );
+      o.fromSales = true; o.salesPerson = s.salesperson || 'Sales'; o.enteredBy = s.created_by || s.salesperson || 'Sales';
+      ORDERS.unshift(o);   // mkOrder already auto-allotted it to its category dept (Req#2)
+      notify('approval', `New pending order from Sales — ${o.order_no} (${o.customer}) · ${o.qty} prs → 🏷️ ${o.allottedDept} · Upper awaiting GM allotment`);
+      changed = true;
+    });
+  } catch(e){ /* localStorage blocked */ }
+  return changed;
+}
+
+// ---------- PER-PERSON AUTH (each person sees only their own dashboard) ----------
+const PROD_LOGIN_MAP = { 'KOMAL JAIN':'U_GM','SUPERVISOR 1':'U_S1','SUPERVISOR 2':'U_S2','SUPERVISOR:3':'U_S3','SUPERVISOR-4':'U_S4','SUPERVISOR :5':'U_S5' };
+function resolveAuth(){
+  let u=null; try{ u=localStorage.getItem('STARKIDZ_USER'); }catch(_){}
+  if(!u){ location.href='login.html'; return null; }            // must log in
+  if(u==='MASTER') return { master:true };                      // master may view anyone
+  if(PROD_LOGIN_MAP[u]) return { userId:PROD_LOGIN_MAP[u] };    // locked to this GM/supervisor
+  location.href='ojas-dispatch-tracker.html';                   // sales person → their own app
+  return null;
+}
+
+(function init(){
+  const auth = resolveAuth(); if(!auth) return;
+  if(auth.master){
+    $('#userSelect').innerHTML = USERS.map(u=>`<option value="${u.id}">${u.empId} · ${u.name} — ${u.title}</option>`).join('');
+    currentUser = USERS[0];
+  } else {
+    currentUser = USERS.find(x=>x.id===auth.userId) || USERS[0];
+    $('#userSelect').innerHTML = `<option>${currentUser.empId} · ${currentUser.name} — ${currentUser.title}</option>`;
+    $('#userSelect').disabled = true;
+  }
+  // article codes datalist for New Order
+  const codes=[...new Set((window.ARTICLES_RAW||[]).map(r=>r[0]))].sort();
+  $('#articleCodes').innerHTML = codes.map(c=>`<option value="${c}">`).join('');
+  $('[name=odate]') && ($('[name=odate]').value=todayISO());
+  updateClock(); setInterval(updateClock,1000);
+  importSharedOrders();                                   // initial pull from Sales
+  // live update when Sales adds an order in another tab
+  Store.onChange(SHARED_KEY, ()=>{ if(importSharedOrders()){ refresh(); toast('New order from Sales','📥','A pending order arrived for production.'); } });   // real-time: Sales added an order
+  // fallback poll (same-tab / browsers without storage events on file://)
+  setInterval(()=>{ if(importSharedOrders()) refresh(); }, 4000);
+  setInterval(pushProductionStatus, 5000);    // heartbeat so Sales sees us as live
+  checkLink(); setInterval(checkLink, 3000);
+  switchTab('dash'); refresh();
+})();
+
+function checkLink(){
+  const b=$('#linkBadge'), t=$('#linkText'); if(!b) return;
+  if(window.Store && Store.mode()==='firebase'){      // cloud connected → always live
+    t.textContent='Cloud linked';
+    b.className='order-3 sm:order-2 flex items-center gap-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 ring-1 bg-emerald-500/25 ring-emerald-300/50 text-emerald-50';
+    return;
+  }
+  let live=false;
+  try{ const raw=Store.getItem(SHARED_KEY); if(raw){ const u=(JSON.parse(raw)||{}).updated||0; live=(Date.now()-u)<12000; } }catch(e){}
+  t.textContent = live ? 'Sales linked' : 'Sales offline';
+  b.className = 'order-3 sm:order-2 flex items-center gap-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 ring-1 '+(live?'bg-emerald-500/25 ring-emerald-300/50 text-emerald-50':'bg-white/10 ring-white/20 text-white/60');
+}
+</script>
+</body>
+</html>

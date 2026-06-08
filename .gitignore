@@ -1,0 +1,21 @@
+# OS / editor junk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+*~
+*.tmp
+
+# Python backend scaffolding
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.env
+
+# Logs
+*.log
+
+# Local Claude Code settings (machine-specific)
+.claude/settings.local.json

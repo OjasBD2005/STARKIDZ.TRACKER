@@ -1,0 +1,17 @@
+{
+  "name": "STAR Kidz — Ojas Footwear Portal",
+  "short_name": "STAR Kidz",
+  "description": "Sales, Production & Dispatch order tracking for STAR Kidz by Ojas Footwear.",
+  "start_url": "login.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a1430",
+  "theme_color": "#1b3187",
+  "lang": "en-IN",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

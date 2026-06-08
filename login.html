@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STAR Kidz · Secure Login — Ojas Footwear</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme:{ extend:{
+  colors:{ brand:{400:'#f472b6',500:'#ec4899',600:'#db2777',700:'#be185d'}, ink:'#0a1430' },
+  fontFamily:{ sans:['Manrope','system-ui','sans-serif'] }
+}}}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+body{font-family:'Manrope',system-ui,sans-serif}
+
+/* ---- Professional background: shoe photo + dark overlay (gradient fallback if image missing) ---- */
+.bg-stage{
+  position:fixed; inset:0;
+  background:
+    linear-gradient(120deg, rgba(10,20,48,.86), rgba(10,20,48,.72) 45%, rgba(190,24,93,.45)),
+    #0a1430 url('shoes-bg.jpg') center/cover no-repeat;
+}
+.bg-stage::after{ /* soft vignette + brand glow */
+  content:""; position:absolute; inset:0;
+  background:radial-gradient(circle at 75% 30%, rgba(236,72,153,.22), transparent 55%);
+}
+.glass{ background:rgba(15,21,35,.62); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+.inp{ width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+  color:#fff; border-radius:.85rem; padding:.8rem 1rem .8rem 2.6rem; font-size:.92rem; outline:none; transition:.15s; }
+.inp::placeholder{ color:rgba(255,255,255,.45) }
+.inp:focus{ border-color:#ec4899; box-shadow:0 0 0 3px rgba(236,72,153,.25); background:rgba(255,255,255,.09) }
+.field{ position:relative }
+.field .ic{ position:absolute; left:.9rem; top:50%; transform:translateY(-50%); opacity:.6 }
+.signin{ background:linear-gradient(90deg,#ec4899,#db2777); transition:transform .15s, box-shadow .2s, filter .2s; }
+.signin:hover{ transform:translateY(-2px); box-shadow:0 14px 30px -10px rgba(219,39,119,.6) }
+.signin:active{ transform:scale(.98) }
+.card-in{ animation:cin .6s cubic-bezier(.2,.8,.2,1) both }
+@keyframes cin{ from{opacity:0; transform:translateY(20px) scale(.98)} to{opacity:1; transform:none} }
+.shake{ animation:shk .4s }
+@keyframes shk{ 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-7px)} 40%,80%{transform:translateX(7px)} }
+
+/* ---- Star loading animation ---- */
+#loader{ position:fixed; inset:0; z-index:60; display:none; place-items:center;
+  background:rgba(8,12,22,.86); backdrop-filter:blur(6px); }
+#loader.show{ display:grid; animation:fade .3s ease }
+@keyframes fade{ from{opacity:0} to{opacity:1} }
+.loader-wrap{ text-align:center }
+.star-orbit{ width:120px; height:120px; margin:0 auto; position:relative }
+.star-orbit .ring{ position:absolute; inset:0; border-radius:50%;
+  border:4px solid transparent; border-top-color:#ec4899; border-right-color:#db2777;
+  animation:spin 1s linear infinite; filter:drop-shadow(0 0 8px rgba(236,72,153,.5)) }
+.star-orbit .ring2{ inset:14px; border-top-color:#ffffff55; border-right-color:transparent; border-left-color:#db277755;
+  animation:spin 1.6s linear infinite reverse }
+.star-orbit .core{ position:absolute; inset:0; display:grid; place-items:center; animation:pulse 1.1s ease-in-out infinite }
+.spark{ position:absolute; width:7px; height:7px; border-radius:50%; background:#f472b6; box-shadow:0 0 10px #ec4899;
+  top:50%; left:50%; margin:-3.5px; animation:orbit 1.4s linear infinite }
+.spark.s2{ animation-delay:.7s; background:#fff }
+@keyframes spin{ to{ transform:rotate(360deg) } }
+@keyframes pulse{ 0%,100%{ transform:scale(.82) } 50%{ transform:scale(1.08) } }
+@keyframes orbit{ from{ transform:rotate(0) translateX(60px) } to{ transform:rotate(360deg) translateX(60px) } }
+.dots::after{ content:""; animation:dots 1.4s steps(4,end) infinite }
+@keyframes dots{ 0%{content:""} 25%{content:"."} 50%{content:".."} 75%{content:"..."} 100%{content:""} }
+</style>
+<!-- PWA: installable app (website + Microsoft Store) -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1b3187" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<script src="pwa.js" defer></script>
+</head>
+<body class="text-white">
+
+<div class="bg-stage"></div>
+
+<!-- ============ LOGIN CARD ============ -->
+<main class="relative min-h-screen grid place-items-center px-5 py-10">
+  <div class="card-in glass w-full max-w-sm rounded-3xl ring-1 ring-white/15 shadow-2xl p-8">
+
+    <!-- Brand logo (real PNG with SVG fallback) -->
+    <div class="flex flex-col items-center">
+      <img id="logoImg" src="star-kidz-logo-full.svg" alt="STAR Kidz"
+           class="h-16 object-contain drop-shadow-lg" onerror="logoFallback()" />
+      <div id="logoSvg" class="hidden flex-col items-center">
+        <div class="h-16 w-16 grid place-items-center">
+          <svg viewBox="0 0 64 64" class="h-16 w-16">
+            <circle cx="32" cy="32" r="30.5" fill="#ffffff"/>
+            <circle cx="32" cy="32" r="30.5" fill="none" stroke="#d4172a" stroke-width="3"/>
+            <path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/>
+            <path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/>
+          </svg>
+        </div>
+        <p class="mt-1 text-2xl font-extrabold tracking-tight">STAR <span class="text-brand-500">Kidz</span></p>
+      </div>
+    </div>
+
+    <h1 class="mt-6 text-center text-lg font-extrabold">Welcome back</h1>
+    <p class="text-center text-xs text-white/55 mt-1">Sign in to the Ojas Footwear portal</p>
+
+    <form id="loginForm" class="mt-7 space-y-3.5" onsubmit="doLogin(event)">
+      <div class="field">
+        <span class="ic">👤</span>
+        <input id="username" class="inp" placeholder="Username" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <span class="ic">🔒</span>
+        <input id="password" type="password" class="inp" placeholder="Password" autocomplete="current-password" required />
+        <button type="button" onclick="togglePw()" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 text-xs font-semibold">SHOW</button>
+      </div>
+      <p id="err" class="hidden text-rose-300 text-xs font-semibold"></p>
+      <button type="submit" class="signin w-full font-bold rounded-xl py-3 mt-1 shadow-lg">Sign In →</button>
+    </form>
+
+    <p class="mt-6 text-center text-[11px] text-white/40">© 2026 Ojas Footwear Pvt. Ltd. · STAR Kidz</p>
+  </div>
+</main>
+
+<!-- ============ STAR LOADER ============ -->
+<div id="loader">
+  <div class="loader-wrap">
+    <div class="star-orbit">
+      <div class="ring"></div>
+      <div class="ring ring2"></div>
+      <span class="spark"></span><span class="spark s2"></span>
+      <div class="core">
+        <svg viewBox="0 0 64 64" class="h-12 w-12">
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#db2777"/></linearGradient></defs>
+          <path d="M32 8 l6.5 13.2 14.5 2.1 -10.5 10.2 2.5 14.5 -13-6.8 -13 6.8 2.5-14.5 -10.5-10.2 14.5-2.1 z" fill="url(#lg)"/>
+        </svg>
+      </div>
+    </div>
+    <p class="mt-6 text-lg font-extrabold">STAR <span class="text-brand-500">Kidz</span></p>
+    <p id="loadMsg" class="mt-1 text-sm text-white/60 dots">Securing your session</p>
+  </div>
+</div>
+
+<script>
+// identity registry (client-side demo gate — real auth runs on the Python backend)
+const USERS = {
+  'RENU':'9254174722','SANJEEV':'9999534491','DHEERAJ':'9015087041','SHAMSHAD':'9254174708','SHUBHAMI':'9254174722',
+  'KOMAL JAIN':'9215060303','SUPERVISOR 1':'24-25','SUPERVISOR 2':'64-65','SUPERVISOR:3':'24-65',
+  'SUPERVISOR-4':'65-25','SUPERVISOR :5':'64-25','MASTER':'8920250291',
+  'DISPATCH 1':'OJAS64','DISPATCH2':'OJAS65'        // SUSHIL, SANDEEP (Billing / Dispatch)
+};
+
+// route each person to the dashboard they own
+function destFor(u){
+  const sales=['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI','DISPATCH 1','DISPATCH2'];  // Sales + Billing/Dispatch
+  const prod =['KOMAL JAIN','SUPERVISOR 1','SUPERVISOR 2','SUPERVISOR:3','SUPERVISOR-4','SUPERVISOR :5'];
+  if(u==='MASTER') return 'index.html';                 // master = global control
+  if(sales.includes(u)) return 'ojas-dispatch-tracker.html';
+  if(prod.includes(u))  return 'star-kidz-production-system.html';
+  return 'index.html';
+}
+function logoFallback(){ document.getElementById('logoImg').style.display='none';
+  document.getElementById('logoSvg').classList.remove('hidden'); document.getElementById('logoSvg').classList.add('flex'); }
+function togglePw(){ const p=document.getElementById('password'); p.type = p.type==='password'?'text':'password'; }
+
+function doLogin(e){
+  e.preventDefault();
+  const u=document.getElementById('username').value.trim();
+  const p=document.getElementById('password').value.trim();
+  const err=document.getElementById('err'), card=document.querySelector('.card-in');
+  const ok = USERS[u] !== undefined && USERS[u]===p;
+  if(!ok){
+    err.textContent='Invalid username or password. Please try again.';
+    err.classList.remove('hidden'); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    return;
+  }
+  err.classList.add('hidden');
+  // show the star loading design
+  document.getElementById('loader').classList.add('show');
+  try{ localStorage.setItem('STARKIDZ_USER', u); }catch(_){}
+  // brief premium transition, then enter THIS PERSON'S OWN dashboard
+  setTimeout(()=>{ document.getElementById('loadMsg').textContent='Loading your dashboard'; }, 1400);
+  setTimeout(()=>{ window.location.href = destFor(u); }, 2600);
+}
+</script>
+</body>
+</html>

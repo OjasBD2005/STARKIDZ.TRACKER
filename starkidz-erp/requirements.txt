@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-socketio
+sqlalchemy>=2.0
+pymysql
+cryptography
+passlib[bcrypt]
+python-jose[cryptography]
+pydantic>=2

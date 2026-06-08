@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STAR Kidz · Ojas Footwear — Manufacturing & Order Intelligence</title>
+<meta name="description" content="Every step your child takes should be filled with joy, comfort, and style. STAR Kidz by Ojas Footwear — 30 years of kids' footwear manufacturing." />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: {
+    brand:{50:'#eef3ff',100:'#dae4ff',200:'#bdd0ff',400:'#5e80f0',500:'#3358e0',600:'#2442b8',700:'#1b3187',900:'#0c1733'},
+    ink:'#0a1430'
+  },
+  fontFamily:{ sans:['Manrope','system-ui','sans-serif'] }
+}}}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+*{scroll-behavior:smooth}
+body{font-family:'Manrope',system-ui,sans-serif}
+.glass{background:rgba(10,20,48,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.hero-glow{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.hero-glow::before{content:"";position:absolute;width:620px;height:620px;left:-140px;top:-180px;border-radius:50%;
+  background:radial-gradient(circle,#ec489955,transparent 60%);filter:blur(50px)}
+.hero-glow::after{content:"";position:absolute;width:560px;height:560px;right:-140px;bottom:-180px;border-radius:50%;
+  background:radial-gradient(circle,#3358e066,transparent 60%);filter:blur(50px)}
+.fade-up{opacity:0;transform:translateY(24px);animation:fu .8s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes fu{to{opacity:1;transform:translateY(0)}}
+.d1{animation-delay:.1s}.d2{animation-delay:.25s}.d3{animation-delay:.4s}.d4{animation-delay:.55s}
+.card{transition:transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease}
+.card:hover{transform:translateY(-6px);box-shadow:0 24px 50px -20px rgba(51,88,224,.4)}
+.btn{transition:transform .15s ease, box-shadow .2s ease, filter .2s ease}
+.btn:hover{transform:translateY(-2px)}.btn:active{transform:scale(.97)}
+.logo-spin{transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.logo-spin:hover{transform:rotate(-8deg) scale(1.05)}
+.grid-bg{background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:22px 22px}
+.float{animation:fl 5s ease-in-out infinite}@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.pinkgrad{background:linear-gradient(90deg,#ec4899,#db2777)}
+</style>
+<!-- PWA: installable app (website + Microsoft Store) -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1b3187" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<script src="pwa.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ============ REUSABLE LOGO ============ -->
+<template id="logoTpl">
+  <svg viewBox="0 0 64 64" class="w-full h-full">
+    <circle cx="32" cy="32" r="30.5" fill="#ffffff"/>
+    <circle cx="32" cy="32" r="30.5" fill="none" stroke="#e11d2b" stroke-width="3"/>
+    <path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/>
+    <path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/>
+  </svg>
+</template>
+
+<!-- ============ NAV ============ -->
+<header class="fixed top-0 inset-x-0 z-50 glass border-b border-white/10 text-white">
+  <div class="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-3">
+      <div class="logo-spin h-10 w-10 shadow-lg rounded-2xl" data-logo></div>
+      <div class="leading-tight">
+        <p class="font-extrabold tracking-tight">STAR <span class="text-pink-400">Kidz</span></p>
+        <p class="text-[10px] text-white/60 -mt-0.5">by Ojas Footwear</p>
+      </div>
+    </a>
+    <nav class="hidden md:flex items-center gap-7 text-sm font-semibold text-white/80">
+      <a href="#systems" class="hover:text-white">Systems</a>
+      <a href="#features" class="hover:text-white">Capabilities</a>
+      <a href="#about" class="hover:text-white">About</a>
+      <a href="https://www.starkidz.co.in/" target="_blank" rel="noopener" class="hover:text-white">Website ↗</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <a href="#systems" class="btn pinkgrad text-white text-sm font-bold rounded-xl px-4 py-2 shadow-lg shadow-pink-600/30">Open Portal →</a>
+      <button onclick="logout()" title="Sign out" class="text-sm font-semibold text-white/80 hover:text-white bg-white/10 ring-1 ring-white/15 rounded-xl px-3 py-2">⎋ Logout</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section id="top" class="relative bg-ink text-white overflow-hidden grid-bg">
+  <div class="hero-glow"></div>
+  <div class="relative max-w-7xl mx-auto px-5 pt-32 pb-24 sm:pt-40 sm:pb-32 text-center">
+    <div class="fade-up d1 float mx-auto h-24 w-24 sm:h-28 sm:w-28 rounded-[28px] shadow-2xl" data-logo></div>
+    <p class="fade-up d1 mt-7 inline-block text-xs font-bold tracking-[0.2em] uppercase text-pink-300 bg-white/5 ring-1 ring-white/10 rounded-full px-4 py-1.5">Kids' Footwear · Since 1995</p>
+    <h1 class="fade-up d2 mt-6 text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.05]">
+      Every step your child takes<br><span class="bg-gradient-to-r from-pink-400 to-brand-400 bg-clip-text text-transparent">filled with joy, comfort & style.</span>
+    </h1>
+    <p class="fade-up d3 mt-6 max-w-2xl mx-auto text-base sm:text-lg text-white/70">
+      <b class="text-white">STAR Kidz</b> by Ojas Footwear — 30 years of crafting footwear kids love and parents trust. This portal unifies <b class="text-white">Sales</b>, <b class="text-white">Production</b> &amp; <b class="text-white">Dispatch</b> into one real-time loop.
+    </p>
+    <div class="fade-up d4 mt-9 flex flex-wrap gap-3 justify-center">
+      <a href="ojas-dispatch-tracker.html" class="btn pinkgrad text-white font-bold rounded-2xl px-6 py-3.5 shadow-xl shadow-pink-600/30">🚚 Dispatch Tracker</a>
+      <a href="star-kidz-production-system.html" class="btn bg-white/10 ring-1 ring-white/20 text-white font-bold rounded-2xl px-6 py-3.5 hover:bg-white/15">🏭 Production System</a>
+      <a href="https://www.starkidz.co.in/" target="_blank" rel="noopener" class="btn bg-white text-ink font-bold rounded-2xl px-6 py-3.5 hover:bg-white/90">🌐 Shop starkidz.co.in</a>
+    </div>
+    <div class="fade-up d4 mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
+      <div><div class="text-3xl font-extrabold">30 yrs</div><div class="text-xs text-white/55 font-semibold uppercase tracking-wide">Experience</div></div>
+      <div><div class="text-3xl font-extrabold">0–16</div><div class="text-xs text-white/55 font-semibold uppercase tracking-wide">Age range</div></div>
+      <div><div class="text-3xl font-extrabold">8+</div><div class="text-xs text-white/55 font-semibold uppercase tracking-wide">Product lines</div></div>
+      <div><div class="text-3xl font-extrabold">Real-time</div><div class="text-xs text-white/55 font-semibold uppercase tracking-wide">Order sync</div></div>
+    </div>
+  </div>
+  <svg class="block w-full text-slate-50" viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="currentColor" d="M0,40 C360,90 1080,-10 1440,40 L1440,80 L0,80 Z"/></svg>
+</section>
+
+<!-- ============ SYSTEMS ============ -->
+<section id="systems" class="max-w-7xl mx-auto px-5 py-20">
+  <div class="text-center max-w-2xl mx-auto">
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Two connected systems, one live loop</h2>
+    <p class="mt-3 text-slate-500">Sales logs the order, Production manufactures it, and the status flows back automatically — end to end.</p>
+  </div>
+  <div class="mt-12 grid md:grid-cols-2 gap-6">
+    <a href="ojas-dispatch-tracker.html" class="card group bg-white rounded-3xl ring-1 ring-slate-200 p-8 block">
+      <div class="h-14 w-14 rounded-2xl pinkgrad grid place-items-center text-2xl shadow-lg shadow-pink-600/30">🚚</div>
+      <h3 class="mt-5 text-xl font-extrabold text-slate-900">Dispatch &amp; Order Tracker</h3>
+      <p class="mt-2 text-sm text-slate-500 leading-relaxed">Sales logs distributor orders, watches live manufacturing progress, gives dispatch allowance, and Billing ships — with a full audit trail.</p>
+      <div class="mt-5 flex flex-wrap gap-2 text-[11px] font-semibold">
+        <span class="bg-pink-50 text-pink-700 rounded-full px-2.5 py-1">Carton → pairs</span>
+        <span class="bg-pink-50 text-pink-700 rounded-full px-2.5 py-1">Per-person login</span>
+        <span class="bg-pink-50 text-pink-700 rounded-full px-2.5 py-1">Live status</span>
+      </div>
+      <p class="mt-6 font-bold text-pink-600 group-hover:translate-x-1 transition">Open Tracker →</p>
+    </a>
+    <a href="star-kidz-production-system.html" class="card group bg-white rounded-3xl ring-1 ring-slate-200 p-8 block">
+      <div class="h-14 w-14 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-900 grid place-items-center text-2xl shadow-lg">🏭</div>
+      <h3 class="mt-5 text-xl font-extrabold text-slate-900">Production Management</h3>
+      <p class="mt-2 text-sm text-slate-500 leading-relaxed">G.M + department supervisors drive every order through Upper → Moulding → Packing → Dispatch, with GM approval and color-coded progress.</p>
+      <div class="mt-5 flex flex-wrap gap-2 text-[11px] font-semibold">
+        <span class="bg-brand-50 text-brand-700 rounded-full px-2.5 py-1">4-stage pipeline</span>
+        <span class="bg-brand-50 text-brand-700 rounded-full px-2.5 py-1">GM approval</span>
+        <span class="bg-brand-50 text-brand-700 rounded-full px-2.5 py-1">Reports</span>
+      </div>
+      <p class="mt-6 font-bold text-brand-700 group-hover:translate-x-1 transition">Open System →</p>
+    </a>
+  </div>
+</section>
+
+<!-- ============ PRODUCTS / FEATURES ============ -->
+<section id="features" class="bg-white border-y border-slate-100">
+  <div class="max-w-7xl mx-auto px-5 py-20">
+    <div class="text-center max-w-2xl mx-auto">
+      <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">What we make</h2>
+      <p class="mt-3 text-slate-500">A full range of kids' footwear — mom-verified and parent-approved, designed for every developmental stage.</p>
+    </div>
+    <div class="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">👡</div><p class="mt-2 font-bold text-slate-800 text-sm">Sandals</p></div>
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">✨</div><p class="mt-2 font-bold text-slate-800 text-sm">Party Wear</p></div>
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">👟</div><p class="mt-2 font-bold text-slate-800 text-sm">Casual &amp; Daily</p></div>
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">🎒</div><p class="mt-2 font-bold text-slate-800 text-sm">School Wear</p></div>
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">🩴</div><p class="mt-2 font-bold text-slate-800 text-sm">Clogs</p></div>
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">⚽</div><p class="mt-2 font-bold text-slate-800 text-sm">Sports Shoes</p></div>
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">💡</div><p class="mt-2 font-bold text-slate-800 text-sm">LED Shoes</p></div>
+      <div class="card bg-slate-50 rounded-2xl ring-1 ring-slate-100 p-5 text-center"><div class="text-3xl">🧒</div><p class="mt-2 font-bold text-slate-800 text-sm">Ages 0–16</p></div>
+    </div>
+    <div class="mt-10 grid sm:grid-cols-3 gap-4 text-center text-sm">
+      <div class="rounded-2xl bg-pink-50 ring-1 ring-pink-100 p-5"><p class="font-bold text-pink-700">🚚 Free shipping</p><p class="text-slate-500 mt-1">on prepaid orders</p></div>
+      <div class="rounded-2xl bg-brand-50 ring-1 ring-brand-100 p-5"><p class="font-bold text-brand-700">↩️ 7-day returns</p><p class="text-slate-500 mt-1">hassle-free</p></div>
+      <div class="rounded-2xl bg-slate-100 ring-1 ring-slate-200 p-5"><p class="font-bold text-slate-700">🔒 Secure payments</p><p class="text-slate-500 mt-1">trusted checkout</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section id="about" class="max-w-7xl mx-auto px-5 py-20 grid lg:grid-cols-2 gap-12 items-center">
+  <div>
+    <p class="text-xs font-bold tracking-[0.2em] uppercase text-pink-600">About us</p>
+    <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">Ojas Footwear Pvt. Ltd.</h2>
+    <p class="mt-4 text-slate-600 leading-relaxed">For <b>30 years</b> we've crafted high-quality, trendy footwear that kids love and parents trust — under the <b>STAR Kidz</b> brand. From sandals to LED shoes, every pair is built for the perfect fit at every developmental stage. This platform unifies our Sales, Production and Dispatch teams into a single real-time follow-up loop, bridging the gap between an order placed and an order delivered.</p>
+    <div class="mt-7 space-y-2 text-sm text-slate-600">
+      <p>📍 <b>Plot No. 64, HSIIDC Footwear Park, Sector 16, Bahadurgarh, Haryana 124507, India</b></p>
+      <p>💬 WhatsApp: <a class="text-pink-600 font-semibold" href="https://wa.me/919138575474" target="_blank" rel="noopener">+91 91385 75474</a></p>
+      <p>✉️ <a class="text-pink-600 font-semibold" href="mailto:care@starkidz.co.in">care@starkidz.co.in</a></p>
+      <p>🌐 <a class="text-pink-600 font-semibold" href="https://www.starkidz.co.in/" target="_blank" rel="noopener">www.starkidz.co.in</a></p>
+    </div>
+  </div>
+  <div class="relative">
+    <div class="aspect-[4/3] rounded-3xl bg-gradient-to-br from-ink to-brand-700 grid place-items-center shadow-2xl overflow-hidden grid-bg">
+      <div class="text-center">
+        <div class="h-32 w-32 mx-auto rounded-[36px] shadow-2xl float" data-logo></div>
+        <p class="mt-5 text-white font-extrabold text-2xl">STAR <span class="text-pink-300">Kidz</span></p>
+        <p class="text-white/70 text-sm mt-1 px-8 italic">"Every step your child takes should be filled with joy, comfort, and style."</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="bg-slate-950 text-white/60">
+  <div class="max-w-7xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="h-9 w-9 rounded-xl" data-logo></div>
+      <div class="text-sm"><b class="text-white">STAR Kidz</b> · Ojas Footwear Pvt. Ltd.
+        <a href="https://www.starkidz.co.in/" target="_blank" rel="noopener" class="text-pink-400 ml-1">starkidz.co.in</a></div>
+    </div>
+    <p class="text-xs">© 2026 Ojas Footwear Pvt. Ltd. — All rights reserved.</p>
+  </div>
+</footer>
+
+<script>
+try{ if(!localStorage.getItem('STARKIDZ_USER')) location.href='login.html'; }catch(_){}
+function logout(){ try{ localStorage.removeItem('STARKIDZ_USER'); }catch(_){} window.location.href='login.html'; }
+const tpl = document.getElementById('logoTpl').innerHTML;
+document.querySelectorAll('[data-logo]').forEach((el,i)=>{ el.innerHTML = tpl.replace(/skg/g,'skg'+i); });
+</script>
+</body>
+</html>

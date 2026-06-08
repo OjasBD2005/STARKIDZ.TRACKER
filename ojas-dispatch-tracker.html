@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STAR Kidz — Dispatch & Order Tracking</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef3ff',100:'#dae4ff',500:'#3358e0',600:'#2442b8',700:'#1b3187',900:'#0c1733' },
+          },
+          fontFamily: { sans: ['Manrope','system-ui','sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Manrope', system-ui, sans-serif; }
+    .tab-active { background:#fff; color:#26398f; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    /* Toast */
+    .toast { animation: slideIn .3s ease, fadeOut .4s ease 3.6s forwards; }
+    @keyframes slideIn { from{transform:translateY(-12px);opacity:0} to{transform:translateY(0);opacity:1} }
+    @keyframes fadeOut { to{opacity:0;transform:translateY(-12px)} }
+    /* Hide scrollbar on tab strip (mobile) */
+    .no-scrollbar::-webkit-scrollbar{display:none}
+    .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+    /* ===== Professional hover effects ===== */
+    .card-hover{transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, border-color .18s ease}
+    .card-hover:hover{transform:translateY(-4px); box-shadow:0 14px 30px -12px rgba(15,23,42,.28)}
+    button{transition:transform .12s ease, background-color .15s ease, box-shadow .15s ease, filter .15s ease}
+    button:not(:disabled):active{transform:scale(.96)}
+    .tab-btn{transition:background-color .15s ease, color .15s ease, transform .12s ease}
+    .tab-btn:hover{background:rgba(255,255,255,.12)}
+    .kpi-hover{transition:transform .15s ease, box-shadow .15s ease}
+    .kpi-hover:hover{transform:translateY(-3px); box-shadow:0 10px 22px -10px rgba(15,23,42,.25)}
+    /* Logo subtle shine on hover */
+    .brand-logo{transition:transform .25s ease}
+    .brand-logo:hover{transform:rotate(-6deg) scale(1.06)}
+    /* Colour / size cell hover tooltips */
+    .ohover{cursor:help; border-radius:5px; padding:0 3px; transition:background .15s ease, color .15s ease; white-space:nowrap}
+    .ohover:hover{background:#eef3ff; color:#1b3187}
+    .swatch{display:inline-block; width:.7rem; height:.7rem; border-radius:9999px; vertical-align:-1px; box-shadow:0 0 0 1px rgba(15,23,42,.18) inset, 0 0 0 1px rgba(255,255,255,.4)}
+    /* Header live clock */
+    .clock-chip{font-variant-numeric:tabular-nums}
+  </style>
+  <!-- PWA: installable app (website + Microsoft Store) -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1b3187" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <script src="pwa.js" defer></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+  <!-- ============ HEADER ============ -->
+  <header class="bg-brand-900 text-white sticky top-0 z-30 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <!-- STAR Kidz logo (recreated as inline SVG) -->
+        <div class="brand-logo h-11 w-11 rounded-2xl shrink-0 shadow-lg overflow-hidden" aria-label="STAR Kidz">
+          <svg viewBox="0 0 64 64" class="h-11 w-11">
+            <circle cx="32" cy="32" r="30.5" fill="#ffffff"/>
+            <circle cx="32" cy="32" r="30.5" fill="none" stroke="#e11d2b" stroke-width="3"/>
+            <path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/>
+            <path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-extrabold tracking-tight text-base sm:text-lg leading-tight truncate">
+            STAR <span class="text-brand-500">Kidz</span>
+          </h1>
+          <p class="text-[11px] sm:text-xs text-white/70 -mt-0.5">Dispatch & Order Tracking · Ojas Footwear</p>
+        </div>
+      </div>
+      <!-- Live date / time / timezone -->
+      <div id="clock" class="clock-chip order-3 sm:order-2 w-full sm:w-auto flex items-center gap-2 text-xs sm:text-[13px] bg-white/10 ring-1 ring-white/20 rounded-lg px-3 py-1.5">
+        <span>🕒</span><span id="clockText" class="font-semibold tracking-tight">—</span>
+      </div>
+      <div id="linkBadge" class="order-3 sm:order-2 flex items-center gap-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 ring-1 bg-white/10 ring-white/20 text-white/60">🔗 <span id="linkText">…</span></div>
+      <!-- Role switcher (simulates login) -->
+      <div class="order-2 sm:order-3 flex items-center gap-2 shrink-0">
+        <span class="hidden sm:inline text-xs text-white/70">Logged in</span>
+        <select id="userSelect" onchange="onUserChange()"
+          class="bg-white/10 ring-1 ring-white/20 rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/40">
+        </select>
+        <button onclick="logout()" title="Sign out"
+          class="bg-white/10 hover:bg-rose-600 ring-1 ring-white/20 rounded-lg px-3 py-1.5 text-sm font-semibold transition">⎋ Logout</button>
+      </div>
+    </div>
+
+    <!-- ============ NAV TABS ============ -->
+    <nav class="max-w-7xl mx-auto px-2 sm:px-6">
+      <div class="flex gap-1 bg-brand-700/40 rounded-t-xl p-1 overflow-x-auto no-scrollbar">
+        <button data-tab="sales" onclick="switchTab('sales')"
+          class="tab-btn flex-1 min-w-[120px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 transition flex items-center justify-center gap-2">
+          <span>🧾</span> Sales Dashboard
+        </button>
+        <button data-tab="production" onclick="switchTab('production')"
+          class="tab-btn flex-1 min-w-[120px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 transition flex items-center justify-center gap-2">
+          <span>🏭</span> Production Pipeline
+        </button>
+        <button data-tab="billing" onclick="switchTab('billing')"
+          class="tab-btn flex-1 min-w-[120px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 transition flex items-center justify-center gap-2">
+          <span>🚚</span> Billing / Dispatch
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-7">
+
+    <!-- ================= SALES VIEW ================= -->
+    <section id="view-sales" class="tab-view space-y-6">
+      <!-- KPI strip -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" id="salesKpis"></div>
+
+      <!-- Notifications (coordinators see ALL salespersons' pending requests) -->
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-4">
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="font-bold text-slate-900 flex items-center gap-2">🔔 Notifications
+            <span id="notifCount" class="text-[11px] bg-brand-500 text-white rounded-full px-2 py-0.5"></span></h2>
+          <span id="coordTag" class="hidden text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full px-2.5 py-1">⭐ SALES COORDINATOR — all-team view</span>
+        </div>
+        <div id="salesNotifs" class="space-y-2 max-h-60 overflow-y-auto"></div>
+      </div>
+
+      <!-- Req#1: MASTER-only — who LOCKED/entered each pending order, grouped by distributor -->
+      <div id="distLedgerWrap" class="hidden bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-4">
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="font-bold text-slate-900 flex items-center gap-2">🏷️ Pending Orders — by Distributor
+            <span class="text-[10px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">MASTER VIEW</span></h2>
+          <span class="text-[11px] text-slate-400">who entered each pending order · date &amp; time</span>
+        </div>
+        <div id="distLedger" class="space-y-3"></div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Order form -->
+        <div class="lg:col-span-1">
+          <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-5 sticky top-32">
+            <h2 class="font-bold text-slate-900 flex items-center gap-2 mb-4"><span>➕</span> New Distributor Order</h2>
+            <form id="orderForm" onsubmit="addOrder(event)" class="space-y-3.5">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                  <label class="block text-xs font-semibold text-slate-500 mb-1">Party / Distributor Name</label>
+                  <select name="party_name" id="partySelect" required onchange="togglePartyNew(this)"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+                    <option value="">— Select distributor —</option>
+                  </select>
+                  <input name="party_name_new" id="partyNew" type="text" placeholder="Type the new party name…"
+                    class="hidden w-full mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-semibold text-slate-500 mb-1">Order Date</label>
+                  <input name="order_date" type="date" required
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+                </div>
+              </div>
+
+              <!-- Carton-based line items -->
+              <div class="border-t border-slate-100 pt-3">
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-xs font-bold text-slate-600 uppercase tracking-wide">Articles (by carton)</label>
+                  <button type="button" onclick="addLineRow()"
+                    class="text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-md px-2 py-1 transition">+ Add Article</button>
+                </div>
+                <div id="lineItems" class="space-y-2"></div>
+              </div>
+
+              <div class="flex items-center justify-between bg-brand-50 ring-1 ring-brand-100 rounded-lg px-3 py-2.5">
+                <span class="text-xs font-bold text-brand-700 uppercase tracking-wide">Order Total</span>
+                <span id="grandTotal" class="text-base font-extrabold text-brand-900">0 pairs</span>
+              </div>
+
+              <button type="submit"
+                class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg py-2.5 text-sm transition shadow-sm">
+                Log Order → Route to Production
+              </button>
+              <p class="text-[11px] text-slate-400 text-center">Each article line becomes its own production job.</p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Order tracking list -->
+        <div class="lg:col-span-2">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h2 class="font-bold text-slate-900">My Order Pipeline</h2>
+            <input id="salesSearch" oninput="setSalesSearch(this.value)" placeholder="🔍 Order # / distributor"
+              class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:ring-2 focus:ring-brand-500 outline-none" style="max-width:13rem">
+            <div class="flex gap-1 text-xs bg-white rounded-lg ring-1 ring-slate-200 p-1">
+              <button onclick="setSalesFilter('all',this)" class="sfilter px-2.5 py-1 rounded-md font-semibold bg-brand-50 text-brand-700">All</button>
+              <button onclick="setSalesFilter('pending',this)" class="sfilter px-2.5 py-1 rounded-md font-medium text-slate-500">In Production</button>
+              <button onclick="setSalesFilter('ready',this)" class="sfilter px-2.5 py-1 rounded-md font-medium text-slate-500">Ready</button>
+              <button onclick="setSalesFilter('done',this)" class="sfilter px-2.5 py-1 rounded-md font-medium text-slate-500">Dispatched</button>
+            </div>
+          </div>
+          <div id="salesList" class="space-y-3"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PRODUCTION VIEW ================= -->
+    <section id="view-production" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-3 gap-3 sm:gap-4" id="prodKpis"></div>
+      <div class="grid md:grid-cols-3 gap-4">
+        <!-- Kanban columns -->
+        <div class="bg-amber-50/60 rounded-2xl ring-1 ring-amber-200 p-3">
+          <h3 class="font-bold text-amber-800 text-sm px-1 mb-3 flex items-center justify-between">
+            <span>⏳ Pending</span><span id="cnt-Pending" class="text-xs bg-amber-200 text-amber-800 rounded-full px-2 py-0.5"></span>
+          </h3>
+          <div id="col-Pending" class="space-y-3 min-h-[60px]"></div>
+        </div>
+        <div class="bg-blue-50/60 rounded-2xl ring-1 ring-blue-200 p-3">
+          <h3 class="font-bold text-blue-800 text-sm px-1 mb-3 flex items-center justify-between">
+            <span>🔧 In Progress</span><span id="cnt-In Progress" class="text-xs bg-blue-200 text-blue-800 rounded-full px-2 py-0.5"></span>
+          </h3>
+          <div id="col-In Progress" class="space-y-3 min-h-[60px]"></div>
+        </div>
+        <div class="bg-emerald-50/60 rounded-2xl ring-1 ring-emerald-200 p-3">
+          <h3 class="font-bold text-emerald-800 text-sm px-1 mb-3 flex items-center justify-between">
+            <span>✅ Completed / In Stock</span><span id="cnt-Completed" class="text-xs bg-emerald-200 text-emerald-800 rounded-full px-2 py-0.5"></span>
+          </h3>
+          <div id="col-Completed" class="space-y-3 min-h-[60px]"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= BILLING VIEW ================= -->
+    <section id="view-billing" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" id="billKpis"></div>
+
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+          <h2 class="font-bold text-slate-900">🚦 Cleared Dispatch Queue</h2>
+          <span class="text-xs text-slate-400">Shows only: Stock = Completed <b>AND</b> Allowance = Approved</span>
+        </div>
+        <div id="billList" class="divide-y divide-slate-100"></div>
+      </div>
+
+      <details class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-5">
+        <summary class="font-semibold text-slate-600 cursor-pointer text-sm">📦 Recently Dispatched (history)</summary>
+        <div id="dispatchedList" class="mt-4 space-y-2"></div>
+      </details>
+    </section>
+  </main>
+
+  <!-- Toast container -->
+  <div id="toasts" class="fixed top-4 right-4 z-50 space-y-2 w-[calc(100%-2rem)] sm:w-80"></div>
+
+<!-- Cloud data layer: Firebase SDK → your config → the Store abstraction (loads before the app) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="store.js"></script>
+
+<!-- STAR Kidz article master catalog (auto-generated from articles-raw.txt) -->
+<script src="articles-data.js"></script>
+<!-- STAR Kidz distributor / party master list (for the order-form autocomplete) -->
+<script src="parties-data.js"></script>
+<script>
+/* =================================================================
+   OJAS FOOTWEAR — DISPATCH TRACKER  (front-end prototype)
+   In-memory data layer. Swap the data functions for REST/Supabase
+   calls to make production-ready. See architecture notes in chat.
+================================================================= */
+
+// ---------- Seed: USERS ----------
+const USERS = [
+  // --- Sales team (Ojas Footwear) ---
+  { user_id: 'SALES_001', name: 'DHEERAJ',  role: 'Sales',      phone:'+91 90000 00001' },
+  { user_id: 'SALES_002', name: 'SHUBHAMI', role: 'Sales',      phone:'+91 90000 00002' },
+  { user_id: 'SALES_003', name: 'RENU',     role: 'Sales',      phone:'+91 90000 00003' },
+  { user_id: 'SALES_004', name: 'SHAMSHAD', role: 'Sales',      phone:'+91 90000 00004' },
+  { user_id: 'SALES_005', name: 'ASHRAF',   role: 'Sales',      phone:'+91 90000 00005' },
+  { user_id: 'SALES_006', name: 'SANJEEV',  role: 'Sales',      phone:'+91 90000 00006' },
+  // --- Billing / Dispatch (production is managed in the Production System app) ---
+  { user_id: 'BILL_002',  name: 'SANDEEP', title:'Billing Person',     role: 'Billing', phone:'+91 90000 00030' },
+  { user_id: 'BILL_001',  name: 'SUSHIL',  title:'Billing / Dispatch', role: 'Billing', phone:'+91 90000 00044' },
+];
+
+// ---------- ARTICLE MASTER (loaded from articles-data.js) ----------
+// Three cascading indexes: Article Name → Size → Colour
+const ARTICLE_CODES = [];
+const SIZES_BY_CODE = {};   // code -> [size,...]
+const COLOURS_BY_CS = {};   // "code|size" -> [colour,...]
+(function buildArticleIndex(){
+  const raw = window.ARTICLES_RAW || [];
+  raw.forEach(function(r){
+    const c=r[0], s=r[1], k=r[2];
+    if(!SIZES_BY_CODE[c]){ SIZES_BY_CODE[c]=[]; ARTICLE_CODES.push(c); }
+    if(s && SIZES_BY_CODE[c].indexOf(s)<0) SIZES_BY_CODE[c].push(s);
+    const key=c+'|'+s;
+    if(!COLOURS_BY_CS[key]) COLOURS_BY_CS[key]=[];
+    if(k && COLOURS_BY_CS[key].indexOf(k)<0) COLOURS_BY_CS[key].push(k);
+  });
+  ARTICLE_CODES.sort();
+})();
+
+// ---------- Seed: ORDERS ----------
+//                                                              art        size    qty  date         sales       prod          allow      dispatch              ctn ppc prodApproval
+let ORDERS = [
+  mkOrder('ORD-1001','Sharma Footwear, Indore',  'AIR-01',  '40-45',240,'2026-05-28','SALES_001','Pending',    'Pending', 'Awaiting Clearance',10,24,'Pending'),
+  mkOrder('ORD-1002','Verma Traders, Bhopal',    'EARTH-01','36-41',120,'2026-05-30','SALES_001','In Progress','Pending', 'Awaiting Clearance',10,12,'Pending'),
+  mkOrder('ORD-1003','Khan Shoe Mart, Nagpur',   'SKY-1001','41-45',120,'2026-06-01','SALES_003','Completed',  'Pending', 'Awaiting Clearance', 5,24,'Pending'),
+  mkOrder('ORD-1004','Gupta Footwear, Raipur',   'EARTH-01','36-41',180,'2026-06-02','SALES_002','Completed',  'Approved','Ready to Bill',      15,12,'Approved'),
+  mkOrder('ORD-1005','Singh Distributors, Jaipur','EARTH-01','36-41', 60,'2026-06-03','SALES_005','Dispatched', 'Approved','Dispatched',          5,12,'Approved'),
+  mkOrder('ORD-1006','Ansari Traders, Kanpur',   'SKY-1001','41-45',240,'2026-06-04','SALES_004','Pending',    'Pending', 'Awaiting Clearance',10,24,'Pending'),
+  mkOrder('ORD-1007','Mehra Footwear, Lucknow',  'EARTH-01','36-41',180,'2026-06-05','SALES_006','In Progress','Pending', 'Awaiting Clearance',15,12,'Pending'),
+];
+
+let LOGS = [];
+let logSeq = 1, orderSeq = 1008;
+
+function mkOrder(id,party,art,size,qty,date,sp,prod,allow,disp,cartons,ppc,prodApproval,colour){
+  return { order_id:id, party_name:party, article_no:art, size:size, colour: colour ?? null, quantity:qty,
+           cartons: cartons ?? null, pairs_per_carton: ppc ?? null,
+           order_date:date, salesperson_id:sp, production_status:prod,
+           production_approval: prodApproval ?? 'Pending',   // Production sign-off: order packed & Ready to Dispatch
+           dispatch_allowance:allow, dispatch_status:disp };
+}
+
+// ---------- AUDIT LOG ----------
+function logAction(order_id, action){
+  LOGS.unshift({ log_id:'L'+(logSeq++), order_id, action_performed:action,
+                 updated_by:currentUser.user_id, timestamp:new Date().toISOString() });
+}
+
+// ---------- SESSION (acting user) ----------
+let currentUser = USERS[0];
+let salesFilter = 'all';
+let salesSearch = '';      // Req#4: order-number search in the Sales pipeline
+let IS_MASTER = false;     // Req#1: MASTER sees the distributor-wise "who entered" ledger
+
+// =================================================================
+//  RENDER HELPERS
+// =================================================================
+const $ = s => document.querySelector(s);
+
+function badge(text, tone){
+  const map = {
+    gray:'bg-slate-100 text-slate-600', amber:'bg-amber-100 text-amber-700',
+    blue:'bg-blue-100 text-blue-700', green:'bg-emerald-100 text-emerald-700',
+    purple:'bg-violet-100 text-violet-700', red:'bg-rose-100 text-rose-700'
+  };
+  return `<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${map[tone]}">${text}</span>`;
+}
+function prodTone(s){ return s==='Pending'?'amber':s==='In Progress'?'blue':s==='Dispatched'?'purple':'green'; }
+
+function kpiCard(label, value, emoji, tone){
+  const ring = { brand:'ring-brand-200 bg-brand-50', amber:'ring-amber-200 bg-amber-50',
+                 green:'ring-emerald-200 bg-emerald-50', blue:'ring-blue-200 bg-blue-50',
+                 purple:'ring-violet-200 bg-violet-50', slate:'ring-slate-200 bg-white' }[tone];
+  return `<div class="kpi-hover rounded-2xl ring-1 ${ring} p-4">
+      <div class="text-2xl">${emoji}</div>
+      <div class="mt-1 text-2xl font-extrabold text-slate-900">${value}</div>
+      <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">${label}</div>
+    </div>`;
+}
+
+// =================================================================
+//  SALES VIEW
+// =================================================================
+function renderSales(){
+  const mine = ORDERS.filter(o => o.salesperson_id === currentUser.user_id || currentUser.role!=='Sales');
+  // KPIs
+  $('#salesKpis').innerHTML =
+    kpiCard('Total Orders', mine.length, '📋','brand') +
+    kpiCard('In Production', mine.filter(o=>o.production_status!=='Completed'&&o.dispatch_status!=='Dispatched').length,'🏭','amber') +
+    kpiCard('Ready / Action', mine.filter(o=>o.production_status==='Completed'&&o.production_approval==='Approved'&&o.dispatch_allowance==='Pending').length,'🔔','green') +
+    kpiCard('Dispatched', mine.filter(o=>o.dispatch_status==='Dispatched').length,'🚚','purple');
+
+  // Filter
+  let list = mine;
+  if(salesFilter==='pending') list = mine.filter(o=>o.production_status!=='Completed' && o.dispatch_status!=='Dispatched');
+  if(salesFilter==='ready')   list = mine.filter(o=>o.production_status==='Completed' && o.dispatch_status!=='Dispatched');
+  if(salesFilter==='done')    list = mine.filter(o=>o.dispatch_status==='Dispatched');
+  // Req#4: order-number / distributor search
+  if(salesSearch) list = list.filter(o=>(o.order_id+' '+o.party_name+' '+o.article_no).toLowerCase().includes(salesSearch));
+
+  if(!list.length){ $('#salesList').innerHTML = emptyState('No orders here yet.'); return; }
+
+  $('#salesList').innerHTML = list.map(o=>{
+    // Sales can only allow dispatch AFTER production has signed off "Ready to Dispatch".
+    const prodReady = o.production_status==='Completed' && o.production_approval==='Approved';
+    const canAllow  = prodReady && o.dispatch_allowance==='Pending';
+    const isReadOnly = currentUser.role!=='Sales';
+    let actionZone;
+    if(o.dispatch_status==='Dispatched'){
+      actionZone = `<div class="text-xs font-semibold text-violet-600 flex items-center gap-1">🎉 Dispatched</div>`;
+    } else if(o.dispatch_allowance==='Approved'){
+      actionZone = badge('Allowance given — at Billing','green');
+    } else if(canAllow){
+      actionZone = isReadOnly
+        ? badge('Awaiting Sales approval','amber')
+        : `<button onclick="approveDispatch('${o.order_id}')"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg px-3 py-2 shadow-sm transition animate-pulse">
+            ✔ Allow Dispatch</button>`;
+    } else if(o.production_status==='Completed' && o.production_approval!=='Approved'){
+      actionZone = badge('In stock — awaiting Production sign-off','amber');
+    } else {
+      actionZone = badge('Awaiting production','gray');
+    }
+
+    const delBtn = canDelete(o)
+      ? `<button onclick="deleteOrder('${o.order_id}')" class="text-rose-600 hover:text-white hover:bg-rose-600 text-xs font-bold rounded-lg px-3 py-2 ring-1 ring-rose-200 transition">🗑 Delete</button>`
+      : '';
+
+    // progress steps (5-stage)
+    const steps = ['Ordered',
+                   o.production_status==='Completed'?'Produced':'Producing',
+                   o.production_approval==='Approved'?'Prod-OK':'Pack',
+                   o.dispatch_allowance==='Approved'?'Allowed':'Allow?',
+                   o.dispatch_status==='Dispatched'?'Dispatched':'Ship'];
+    const stage = o.dispatch_status==='Dispatched'?4
+                : o.dispatch_allowance==='Approved'?3
+                : prodReady?2
+                : o.production_status==='Completed'?1:0;
+
+    return `<div class="card-hover bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-bold text-slate-900">${o.party_name}</span>
+            <span class="text-xs text-slate-400">#${o.order_id}</span>
+          </div>
+          <div class="text-xs text-slate-500 mt-0.5">Art <b>${o.article_no}</b>${o.colour?' '+colourLabel(o):''} · Size ${sizeLabel(o)} · ${qtyLabel(o)} · ${fmtDate(o.order_date)}</div>
+          ${(IS_MASTER && o.created_by)?`<div class="text-[10px] text-slate-400 mt-0.5">🔒 entered by <b class="text-slate-600">${o.created_by}</b>${o.created_stamp?' · '+o.created_stamp:''}</div>`:''}
+        </div>
+        <div>${badge(o.production_status, prodTone(o.production_status))}</div>
+      </div>
+      <!-- stepper -->
+      <div class="flex items-center gap-1 mt-3">
+        ${steps.map((s,i)=>`
+          <div class="flex-1 flex items-center gap-1">
+            <div class="h-1.5 flex-1 rounded-full ${i<=stage?'bg-brand-500':'bg-slate-200'}"></div>
+          </div>`).join('')}
+      </div>
+      <div class="flex justify-between text-[10px] text-slate-400 mt-1 font-medium">
+        ${steps.map((s,i)=>`<span class="${i<=stage?'text-brand-600':''}">${s}</span>`).join('')}
+      </div>
+      ${o.prodInfo?`<div class="mt-3 bg-slate-50 rounded-lg p-2 ring-1 ring-slate-100">
+        <div class="flex justify-between text-[11px] font-semibold text-slate-500"><span>🏭 Live Manufacturing</span><span>${o.prodInfo.prodPct}% · ${o.prodInfo.stage}</span></div>
+        ${miniBar(o.prodInfo.prodPct)}
+      </div>`:''}
+      <div class="mt-3 flex justify-between items-center gap-2">
+        <div>${delBtn}</div>
+        <div>${actionZone}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setSalesFilter(f, btn){
+  salesFilter = f;
+  document.querySelectorAll('.sfilter').forEach(b=>b.className='sfilter px-2.5 py-1 rounded-md font-medium text-slate-500');
+  btn.className='sfilter px-2.5 py-1 rounded-md font-semibold bg-brand-50 text-brand-700';
+  renderSales();
+}
+function setSalesSearch(v){ salesSearch=(v||'').trim().toLowerCase(); renderSales(); }   // Req#4
+
+// Req#1: MASTER-only ledger — pending orders grouped by distributor, showing who entered each
+function renderDistributorLedger(){
+  const wrap=$('#distLedgerWrap'); if(!wrap) return;
+  wrap.classList.toggle('hidden', !IS_MASTER);
+  if(!IS_MASTER) return;
+  const pend = ORDERS.filter(o=>o.production_status!=='Completed' && o.dispatch_status!=='Dispatched');
+  const byParty={};
+  pend.forEach(o=>{ (byParty[o.party_name]=byParty[o.party_name]||[]).push(o); });
+  const parties=Object.keys(byParty).sort();
+  $('#distLedger').innerHTML = parties.length ? parties.map(p=>{
+    const rows=byParty[p].map(o=>{
+      const sp=USERS.find(u=>u.user_id===o.salesperson_id); const who=o.created_by||(sp?sp.name:'Sales');
+      return `<div class="flex flex-wrap items-center justify-between gap-1 text-xs bg-slate-50 rounded-lg px-3 py-2">
+        <span><b>#${o.order_id}</b> · ${o.article_no} · ${o.quantity} prs</span>
+        <span class="text-slate-500">🔒 entered by <b class="text-slate-700">${who}</b>${o.created_stamp?' · '+o.created_stamp:' · '+fmtDate(o.order_date)}</span>
+      </div>`;}).join('');
+    return `<div class="rounded-xl ring-1 ring-slate-200 p-3">
+      <div class="font-bold text-slate-800 text-sm mb-2">🏪 ${p} <span class="text-[11px] font-normal text-slate-400">(${byParty[p].length} pending)</span></div>
+      <div class="space-y-1.5">${rows}</div></div>`;
+  }).join('') : emptyState('No pending orders.');
+}
+
+// ----- Carton-based line item builder -----
+function lineRowHTML(){
+  const opts = '<option value="">— Select Article —</option>' +
+               ARTICLE_CODES.map(c=>`<option value="${c}">${c}</option>`).join('');
+  return `<div class="line-row bg-slate-50 rounded-lg p-2.5 ring-1 ring-slate-200">
+      <select onchange="onArticleChange(this)" class="line-article w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs font-semibold bg-white focus:ring-2 focus:ring-brand-500 outline-none">
+        ${opts}
+      </select>
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <select onchange="onSizeChange(this)" disabled class="line-size rounded-md border border-slate-300 px-2 py-1.5 text-xs bg-white disabled:bg-slate-100 disabled:text-slate-400 focus:ring-2 focus:ring-brand-500 outline-none">
+          <option value="">Size</option>
+        </select>
+        <select onchange="recalc()" disabled class="line-colour rounded-md border border-slate-300 px-2 py-1.5 text-xs bg-white disabled:bg-slate-100 disabled:text-slate-400 focus:ring-2 focus:ring-brand-500 outline-none">
+          <option value="">Colour</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2 mt-2">
+        <input type="number" min="1" value="1" oninput="recalc()" title="Cartons"
+          class="line-cartons w-14 rounded-md border border-slate-300 px-2 py-1.5 text-sm font-bold text-center focus:ring-2 focus:ring-brand-500 outline-none" />
+        <span class="text-[11px] text-slate-400 font-semibold">ctn ×</span>
+        <input type="number" min="1" value="24" oninput="recalc()" title="Pairs per carton (editable)"
+          class="line-ppc w-12 rounded-md border border-slate-300 px-1.5 py-1.5 text-sm text-center text-slate-600 focus:ring-2 focus:ring-brand-500 outline-none" />
+        <span class="line-pairs flex-1 text-right text-sm font-bold text-emerald-600">24 pairs</span>
+        <button type="button" onclick="removeLineRow(this)" title="Remove"
+          class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md w-7 h-7 grid place-items-center transition">✕</button>
+      </div>
+    </div>`;
+}
+
+// Article → Size cascade
+function onArticleChange(sel){
+  const row = sel.closest('.line-row');
+  const code = sel.value;
+  const sizeSel = row.querySelector('.line-size');
+  const colSel  = row.querySelector('.line-colour');
+  const sizes = SIZES_BY_CODE[code] || [];
+  sizeSel.innerHTML = '<option value="">Size</option>' + sizes.map(s=>`<option value="${s}">${s||'(none)'}</option>`).join('');
+  sizeSel.disabled = sizes.length===0;
+  colSel.innerHTML = '<option value="">Colour</option>';
+  colSel.disabled = true;
+  recalc();
+}
+// Size → Colour cascade
+function onSizeChange(sel){
+  const row = sel.closest('.line-row');
+  const code = row.querySelector('.line-article').value;
+  const cols = COLOURS_BY_CS[code+'|'+sel.value] || [];
+  const colSel = row.querySelector('.line-colour');
+  colSel.innerHTML = '<option value="">'+(cols.length?'Colour':'(none)')+'</option>' + cols.map(k=>`<option value="${k}">${k}</option>`).join('');
+  colSel.disabled = cols.length===0;
+  recalc();
+}
+function addLineRow(){
+  const tmp = document.createElement('div');
+  tmp.innerHTML = lineRowHTML();
+  document.getElementById('lineItems').appendChild(tmp.firstElementChild);
+  recalc();
+}
+function removeLineRow(btn){
+  if(document.querySelectorAll('.line-row').length <= 1){
+    toast('Keep one article','⚠️','An order needs at least one article line.','amber'); return;
+  }
+  btn.closest('.line-row').remove();
+  recalc();
+}
+function recalc(){
+  let total = 0;
+  document.querySelectorAll('.line-row').forEach(row=>{
+    const ctn = Math.max(0, +row.querySelector('.line-cartons').value || 0);
+    const ppc = Math.max(0, +row.querySelector('.line-ppc').value || 0);
+    const pairs = ctn * ppc;
+    row.querySelector('.line-pairs').textContent = pairs.toLocaleString('en-IN') + ' pairs';
+    total += pairs;
+  });
+  $('#grandTotal').textContent = total.toLocaleString('en-IN') + ' pairs';
+}
+function resetLineItems(){
+  $('#lineItems').innerHTML = '';
+  addLineRow();
+}
+
+// Show/hide the "type a new party" box when "Other" is chosen in the dropdown
+function togglePartyNew(sel){
+  const inp=document.getElementById('partyNew'); if(!inp) return;
+  const isNew = sel.value==='__NEW__';
+  inp.classList.toggle('hidden', !isNew);
+  if(isNew){ inp.required=true; inp.focus(); } else { inp.required=false; inp.value=''; }
+}
+
+function addOrder(e){
+  e.preventDefault();
+  const f = e.target;
+  // Party comes from the dropdown — unless "Other" is picked, then from the new-party box.
+  let party = f.party_name.value;
+  party = (party==='__NEW__') ? (f.party_name_new ? f.party_name_new.value.trim() : '') : party.trim();
+  if(!party){ toast('Pick a distributor','⚠️','Choose a party from the dropdown, or pick “Other” and type one.','amber'); return; }
+  const date  = f.order_date.value;
+  const category = f.category ? f.category.value : 'PU';
+  const created = [];
+  let invalid = false;
+  document.querySelectorAll('.line-row').forEach(row=>{
+    const code   = row.querySelector('.line-article').value;
+    const size   = row.querySelector('.line-size').value;
+    const colour = row.querySelector('.line-colour').value;
+    const ctn = Math.max(0, +row.querySelector('.line-cartons').value || 0);
+    const ppc = Math.max(0, +row.querySelector('.line-ppc').value || 0);
+    if(!code) return;
+    if(ctn < 1 || ppc < 1){ invalid = true; return; }
+    const qty = ctn * ppc;
+    const o = mkOrder('ORD-'+(orderSeq++), party, code, size, qty, date,
+                      currentUser.user_id, 'Pending','Pending','Awaiting Clearance', ctn, ppc, 'Pending', colour);
+    o.category = category;
+    o.created_by = currentUser.name;   // Req#1: who entered this pending order
+    o.created_stamp = nowFull();       // Req#5: real date · day · time it was entered
+    ORDERS.unshift(o);
+    logAction(o.order_id, `Order: ${code} ${size||''} ${colour||''} (${ctn} ctn × ${ppc} = ${qty} prs) → Production`);
+    created.push(o.order_id);
+  });
+  if(invalid){ toast('Check entries','⚠️','Cartons and pairs/carton must be at least 1.','amber'); return; }
+  if(!created.length){ toast('No article selected','⚠️','Pick an article from the dropdown first.','amber'); return; }
+  f.reset();
+  const pn=document.getElementById('partyNew'); if(pn){ pn.classList.add('hidden'); pn.required=false; pn.value=''; }
+  document.querySelector('[name=order_date]').value = todayISO();
+  resetLineItems();
+  toast('Order Logged','📨', `${created.length} article job(s) sent to Production.`,'brand');
+  renderAll();
+}
+
+// Only RENU & SHUBHAMI may delete, and only while the order is still Pending
+const DELETE_ALLOWED = ['SALES_003','SALES_002']; // RENU, SHUBHAMI
+function canDelete(o){
+  return currentUser.role==='Sales'
+      && DELETE_ALLOWED.includes(currentUser.user_id)
+      && o.production_status==='Pending'
+      && o.dispatch_status!=='Dispatched';
+}
+function deleteOrder(id){
+  const o = ORDERS.find(x=>x.order_id===id);
+  if(!o || !canDelete(o)) return;
+  if(!confirm(`Delete pending order ${id} (${o.party_name})? This cannot be undone.`)) return;
+  ORDERS = ORDERS.filter(x=>x.order_id!==id);
+  logAction(id, `Pending order deleted by ${currentUser.name}`);
+  toast('Order Deleted','🗑️',`${id} removed from the pending list.`,'amber');
+  renderAll();
+}
+
+function approveDispatch(id){
+  const o = ORDERS.find(x=>x.order_id===id);
+  o.dispatch_allowance = 'Approved';
+  o.dispatch_status = 'Ready to Bill';
+  logAction(id,'Dispatch allowance APPROVED by Sales');
+  toast('Allowance Approved','✅',`${id} is now visible to Billing.`,'green');
+  renderAll();
+}
+
+// =================================================================
+//  PRODUCTION VIEW
+// =================================================================
+function renderProduction(){
+  const open = ORDERS.filter(o=>o.dispatch_status!=='Dispatched');
+  const c = s => open.filter(o=>o.production_status===s);
+  $('#prodKpis').innerHTML =
+    kpiCard('Pending', c('Pending').length,'⏳','amber') +
+    kpiCard('In Progress', c('In Progress').length,'🔧','blue') +
+    kpiCard('Completed', c('Completed').length,'✅','green');
+
+  ['Pending','In Progress','Completed'].forEach(stage=>{
+    const items = c(stage);
+    $('#cnt-'+stage).textContent = items.length;
+    $('#col-'+stage).innerHTML = items.length ? items.map(o=>prodCard(o,stage)).join('') : `<p class="text-xs text-slate-400 text-center py-4">— empty —</p>`;
+  });
+}
+
+function prodCard(o, stage){
+  const canEdit = currentUser.role==='Production';
+  let btn = '';
+  if(canEdit){
+    if(stage==='Pending')      btn = `<button onclick="advanceProd('${o.order_id}','In Progress')" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg py-2 transition">▶ Start Production</button>`;
+    if(stage==='In Progress')  btn = `<button onclick="advanceProd('${o.order_id}','Completed')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg py-2 transition">✔ Mark Completed / In Stock</button>`;
+    if(stage==='Completed')
+      btn = o.production_approval==='Approved'
+        ? `<div class="text-center text-[11px] font-bold text-emerald-600">✓ Ready to Dispatch · Sales notified</div>`
+        : `<button onclick="approveProduction('${o.order_id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg py-2 transition animate-pulse">✔ Approve — Ready to Dispatch</button>`;
+  } else {
+    btn = stage==='Completed' && o.production_approval==='Approved'
+      ? `<div class="text-center text-[11px] font-bold text-emerald-600">✓ Ready to Dispatch</div>`
+      : `<div class="text-center text-[11px] text-slate-400">read-only (${currentUser.role})</div>`;
+  }
+  return `<div class="card-hover bg-white rounded-xl ring-1 ring-slate-200 p-3 shadow-sm">
+    <div class="flex justify-between items-start">
+      <span class="font-bold text-sm text-slate-900">${o.article_no}</span>
+      <span class="text-[10px] text-slate-400">#${o.order_id}</span>
+    </div>
+    <div class="text-xs text-slate-500 mt-0.5">${o.party_name}</div>
+    <div class="text-[11px] text-slate-400 mt-1">Size ${sizeLabel(o)}${o.colour?' · '+colourLabel(o):''} · ${qtyLabel(o)} · ${fmtDate(o.order_date)}</div>
+    <div class="mt-2.5">${btn}</div>
+  </div>`;
+}
+
+function advanceProd(id, to){
+  const o = ORDERS.find(x=>x.order_id===id);
+  o.production_status = to;
+  logAction(id, 'Production status → '+to);
+  if(to==='Completed'){
+    toast('Item In Stock','🔔',`${id} completed. Approve “Ready to Dispatch” to notify Sales.`,'green');
+  } else {
+    toast('Production Updated','🔧',`${id} moved to ${to}.`,'blue');
+  }
+  renderAll();
+}
+
+// Production sign-off: order is packed & physically ready to leave the floor.
+function approveProduction(id){
+  const o = ORDERS.find(x=>x.order_id===id);
+  o.production_approval = 'Approved';
+  logAction(id, `Production sign-off: Ready to Dispatch (by ${currentUser.name})`);
+  toast('Ready to Dispatch','✅',`${id} signed off by Production. Sales notified to give allowance.`,'green');
+  renderAll();
+}
+
+// =================================================================
+//  BILLING VIEW  (gated: Completed AND Approved)
+// =================================================================
+function renderBilling(){
+  const cleared   = ORDERS.filter(o=>o.production_status==='Completed' && o.production_approval==='Approved' && o.dispatch_allowance==='Approved' && o.dispatch_status!=='Dispatched');
+  const dispatched= ORDERS.filter(o=>o.dispatch_status==='Dispatched');
+  const blockedStock = ORDERS.filter(o=>o.dispatch_allowance==='Approved' && o.production_status!=='Completed').length;
+  const blockedAllow = ORDERS.filter(o=>o.production_status==='Completed' && o.production_approval==='Approved' && o.dispatch_allowance!=='Approved').length;
+
+  $('#billKpis').innerHTML =
+    kpiCard('Cleared to Bill', cleared.length,'🚦','green') +
+    kpiCard('Waiting on Sales', blockedAllow,'⏳','amber') +
+    kpiCard('Waiting on Stock', blockedStock,'🏭','blue') +
+    kpiCard('Dispatched', dispatched.length,'🚚','purple');
+
+  const canDispatch = currentUser.role==='Billing';
+  $('#billList').innerHTML = cleared.length ? cleared.map(o=>`
+    <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-slate-900">${o.party_name}</span>
+          <span class="text-xs text-slate-400">#${o.order_id}</span>
+          ${badge('Stock ✓','green')}${badge('Prod-OK ✓','green')}${badge('Allowance ✓','green')}
+        </div>
+        <div class="text-xs text-slate-500 mt-0.5">Art <b>${o.article_no}</b>${o.colour?' '+colourLabel(o):''} · Size ${sizeLabel(o)} · ${qtyLabel(o)}</div>
+      </div>
+      ${canDispatch
+        ? `<button onclick="dispatchOrder('${o.order_id}')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-lg px-4 py-2 shadow-sm transition shrink-0">🚚 Bill & Dispatch</button>`
+        : badge('Billing team only','gray')}
+    </div>`).join('') : emptyState('No orders cleared for dispatch yet.');
+
+  $('#dispatchedList').innerHTML = dispatched.length ? dispatched.map(o=>`
+    <div class="flex items-center justify-between text-sm bg-violet-50/60 rounded-lg px-3 py-2">
+      <span><b>${o.party_name}</b> · ${o.article_no} · ${o.quantity} pairs <span class="text-xs text-slate-400">#${o.order_id}</span></span>
+      ${badge('Dispatched','purple')}
+    </div>`).join('') : `<p class="text-xs text-slate-400">Nothing dispatched yet.</p>`;
+}
+
+function dispatchOrder(id){
+  const o = ORDERS.find(x=>x.order_id===id);
+  o.dispatch_status='Dispatched';
+  logAction(id,'Billed & Dispatched — truck left warehouse');
+  toast('Dispatched','🚚',`${id} billed & shipped. Sales pipeline updated.`,'purple');
+  renderAll();
+}
+
+// =================================================================
+//  SHARED / SHELL
+// =================================================================
+function emptyState(msg){
+  return `<div class="bg-white rounded-2xl ring-1 ring-dashed ring-slate-300 p-8 text-center text-slate-400 text-sm">${msg}</div>`;
+}
+function fmtDate(d){ return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}); }
+// Req#5: today's date for <input type=date>, and a full "Day · Date · Time" stamp
+function todayISO(){ const d=new Date(), z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function nowFull(){ const n=new Date();
+  return n.toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'short',year:'numeric'})
+       + ' · ' + n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); }
+// Shows "10 ctn · 240 pairs" when carton data exists, else just pairs.
+function qtyLabel(o){
+  return o.cartons ? `${o.cartons} ctn · <b>${o.quantity}</b> pairs` : `<b>${o.quantity}</b> pairs`;
+}
+
+// ---- Colour column: swatch + hover tooltip ----
+const COLOUR_HEX = {
+  BLK:'#1f2937', WHT:'#f8fafc', RED:'#dc2626', NBL:'#1e3a8a', GRY:'#9ca3af', GRN:'#16a34a',
+  PNK:'#ec4899','B.PNK':'#f472b6','D.PNK':'#db2777', ORG:'#f97316', YLW:'#facc15','G.YLW':'#eab308',
+  SBL:'#38bdf8', MHD:'#7e22ce', BRN:'#78350f', BEG:'#d6c7a1', OLV:'#4d7c0f', PCH:'#fda4af',
+  CGN:'#0891b2', NBW:'#1e3a8a', BKW:'#1f2937', DGR:'#374151', LGR:'#cbd5e1', TAN:'#d2b48c',
+  MRN:'#7f1d1d', RNI:'#be185d','R.GOLD':'#b8860b','R.GLD':'#b8860b', GOLD:'#d4af37', PST:'#a7f3d0',
+  AGN:'#155e75', AFB:'#1e40af', MNT:'#99f6e4', MINT:'#99f6e4', PPL:'#7c3aed','L.PPL':'#c4b5fd',
+  WINE:'#722f37', RUST:'#b7410e', PISTA:'#bef264', AQUA:'#22d3ee', CRM:'#fef9c3', BNT:'#9a3412',
+  KHK:'#bda55d','T.BLU':'#0ea5e9','M.BLU':'#2563eb', RBL:'#1d4ed8', SKY:'#7dd3fc', FRZ:'#a5f3fc',
+  ONION:'#a855f7','N.PCH':'#fda4af', SIL:'#c0c0c0', DGRY:'#4b5563','D.PCH':'#fb7185', FGN:'#15803d'
+};
+function colourDot(colour){
+  if(!colour) return '';
+  const first = colour.split('/')[0].trim().toUpperCase();
+  const hex = COLOUR_HEX[first] || '#cbd5e1';
+  return `<span class="swatch" style="background:${hex}"></span>`;
+}
+function colourLabel(o){
+  if(!o.colour) return '';
+  return `${colourDot(o.colour)} <span class="ohover" title="Colour: ${o.colour}">${o.colour}</span>`;
+}
+// ---- Size column: show readable range on hover ----
+function sizeRange(sz){
+  if(!sz) return '—';
+  const m = String(sz).match(/^(\d+)\s*[Xx]\s*(\d+)/);
+  if(m) return 'sizes ' + m[1] + '–' + m[2];
+  return String(sz);
+}
+function sizeLabel(o){
+  if(!o.size) return '—';
+  return `<span class="ohover" title="Size range: ${sizeRange(o.size)}">${o.size}</span>`;
+}
+
+// ---- Header live clock (IST) ----
+function updateClock(){
+  const el = $('#clockText'); if(!el) return;
+  const now = new Date();
+  const date = now.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'});
+  const time = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZone:'Asia/Kolkata'});
+  el.innerHTML = `<span class="hidden sm:inline">${date} · </span>${time} <span class="text-white/55">IST</span>`;
+}
+
+function toast(title, emoji, body, tone){
+  const ring={brand:'ring-brand-200',green:'ring-emerald-200',blue:'ring-blue-200',purple:'ring-violet-200',amber:'ring-amber-200'}[tone];
+  const el=document.createElement('div');
+  el.className=`toast bg-white rounded-xl shadow-lg ring-1 ${ring} p-3.5 flex gap-3`;
+  el.innerHTML=`<div class="text-xl">${emoji}</div><div class="min-w-0"><p class="font-bold text-sm text-slate-900">${title}</p><p class="text-xs text-slate-500">${body}</p></div>`;
+  $('#toasts').appendChild(el);
+  setTimeout(()=>el.remove(),4200);
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-view').forEach(v=>v.classList.add('hidden'));
+  $('#view-'+tab).classList.remove('hidden');
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.classList.toggle('tab-active', b.dataset.tab===tab);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function onUserChange(){
+  currentUser = USERS.find(u=>u.user_id===$('#userSelect').value);
+  // jump to that role's default tab
+  const map={Sales:'sales',Production:'production',Billing:'billing'};
+  switchTab(map[currentUser.role]);
+  renderAll();
+  toast('Role switched','🔄',`Now acting as ${currentUser.name}.`,'brand');
+}
+
+// ===== Sales notifications — coordinators (RENU, SHUBHAMI) see ALL salespersons' pending requests =====
+const COORDINATORS = ['SALES_003','SALES_002']; // RENU, SHUBHAMI
+function renderSalesNotifs(){
+  const box=$('#salesNotifs'), cnt=$('#notifCount'), tag=$('#coordTag'); if(!box) return;
+  const isSales = currentUser.role==='Sales';
+  const isCoord = COORDINATORS.includes(currentUser.user_id);
+  tag.classList.toggle('hidden', !isCoord);
+  if(!isSales){ box.innerHTML='<p class="text-sm text-slate-400">Notifications are shown for Sales users.</p>'; cnt.textContent=''; return; }
+  const items=[];
+  ORDERS.forEach(o=>{
+    const sp=USERS.find(u=>u.user_id===o.salesperson_id); const spName=sp?sp.name:'Sales';
+    const mine = o.salesperson_id===currentUser.user_id;
+    if(!(isCoord||mine)) return;                       // coordinators see everyone; others see only their own
+    if(o.production_status==='Pending' && o.dispatch_status!=='Dispatched')
+      items.push({tone:'amber',ic:'🆕',text:`<b>${spName}</b> entered pending order <b>${o.order_id}</b> — ${o.party_name} · ${o.article_no} · ${o.quantity} prs`});
+    if(o.prodInfo){
+      if(o.prodInfo.completed && o.dispatch_status!=='Dispatched')
+        items.push({tone:'green',ic:'✅',text:`✅ <b>Order DONE</b> — <b>${o.order_id}</b> (${o.party_name}) production completed, ready to allow dispatch${o.prodInfo.doneAt?' · '+o.prodInfo.doneAt:''}${isCoord?' · '+spName:''}`});
+      else if(o.prodInfo.prodPct>0)
+        items.push({tone:'blue',ic:'🏭',text:`<b>${o.order_id}</b> (${o.party_name}) manufacturing ${o.prodInfo.prodPct}% · ${o.prodInfo.stage}${isCoord?' · '+spName:''}`});
+    }
+    if(o.dispatch_status==='Dispatched')
+      items.push({tone:'purple',ic:'🚚',text:`<b>${o.order_id}</b> (${o.party_name}) dispatched${isCoord?' · '+spName:''}`});
+  });
+  cnt.textContent = items.length||'';
+  const T={amber:'bg-amber-50 ring-amber-200 text-amber-800',green:'bg-emerald-50 ring-emerald-200 text-emerald-700',blue:'bg-blue-50 ring-blue-200 text-blue-700',purple:'bg-violet-50 ring-violet-200 text-violet-700'};
+  box.innerHTML = items.length
+    ? items.map(n=>`<div class="rounded-xl ring-1 ${T[n.tone]} p-2.5 text-xs flex gap-2"><span>${n.ic}</span><span>${n.text}</span></div>`).join('')
+    : '<p class="text-sm text-slate-400">No notifications yet.</p>';
+}
+function logout(){ try{ localStorage.removeItem('STARKIDZ_USER'); }catch(_){} window.location.href='login.html'; }
+
+function renderAll(){ renderSales(); renderProduction(); renderBilling(); renderSalesNotifs(); renderDistributorLedger(); syncShared(); }
+
+// ===== APP LINK: push Sales orders to shared storage for the Production System =====
+const SHARED_KEY = 'STARKIDZ_SALES_ORDERS';
+function syncShared(){
+  try {
+    const payload = ORDERS.map(o=>{
+      const sp = USERS.find(u=>u.user_id===o.salesperson_id);
+      return {
+        order_id:o.order_id, party_name:o.party_name, article_no:o.article_no,
+        size:o.size, colour:o.colour, quantity:o.quantity, cartons:o.cartons,
+        order_date:o.order_date, category:o.category||'PU',
+        production_status:o.production_status, dispatch_status:o.dispatch_status,
+        salesperson: sp?sp.name:'Sales',
+        created_by: o.created_by || (sp?sp.name:'Sales'),   // Req#1: who entered the order
+        created_stamp: o.created_stamp || null
+      };
+    });
+    Store.setItem(SHARED_KEY, JSON.stringify({ updated:Date.now(), orders:payload }));
+  } catch(e){ /* storage blocked (e.g. some file:// modes) — link silently disabled */ }
+}
+
+// ===== APP LINK: pull live manufacturing status from the Production System =====
+const PROD_STATUS_KEY = 'STARKIDZ_PROD_STATUS';
+function pullProductionStatus(){
+  let changed = false;
+  try{
+    const raw = Store.getItem(PROD_STATUS_KEY); if(!raw) return false;
+    const st = (JSON.parse(raw)||{}).statuses || {};
+    ORDERS.forEach(o=>{
+      const p = st[o.order_id]; if(!p) return;
+      const prev = o.prodInfo ? JSON.stringify(o.prodInfo) : '';
+      o.prodInfo = p;   // {stage, prodPct, packingPct, completed, ...}
+      if(JSON.stringify(p)!==prev) changed=true;   // any progress change re-renders the live bar
+      // Reflect production progress into the Sales workflow:
+      if(p.completed && o.production_status!=='Completed'){
+        o.production_status='Completed'; o.production_approval='Approved'; changed=true;   // ready for Sales to allow dispatch
+      } else if(!p.completed && p.prodPct>0 && o.production_status==='Pending'){
+        o.production_status='In Progress'; changed=true;
+      }
+    });
+  }catch(e){}
+  return changed;
+}
+// small inline progress bar
+function miniBar(pct){
+  const c = pct>=100?'bg-emerald-500':pct>0?'bg-amber-500':'bg-slate-300';
+  return `<div class="h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1"><div class="${c} h-full rounded-full" style="width:${Math.min(100,pct||0)}%"></div></div>`;
+}
+
+// ---------- PER-PERSON AUTH (no one can view another person's ID) ----------
+const SALES_LOGIN_MAP = {
+  'RENU':'SALES_003','SHUBHAMI':'SALES_002','DHEERAJ':'SALES_001','SHAMSHAD':'SALES_004','SANJEEV':'SALES_006',
+  'DISPATCH 1':'BILL_001',   // SUSHIL  (Billing / Dispatch)
+  'DISPATCH2':'BILL_002'     // SANDEEP (Billing Person)
+};
+function resolveAuth(){
+  let u=null; try{ u=localStorage.getItem('STARKIDZ_USER'); }catch(_){}
+  if(!u){ location.href='login.html'; return null; }            // must log in
+  if(u==='MASTER') return { master:true };                      // master may view anyone
+  if(SALES_LOGIN_MAP[u]) return { userId:SALES_LOGIN_MAP[u] };  // locked to this salesperson
+  location.href='star-kidz-production-system.html';             // production person → their own app
+  return null;
+}
+
+// ---------- INIT ----------
+(function init(){
+  const auth = resolveAuth(); if(!auth) return;
+  if(auth.master){
+    // MASTER: full registry, switcher enabled
+    IS_MASTER = true;                                  // Req#1: unlock the distributor-wise ledger
+    $('#userSelect').innerHTML = ['Sales','Billing'].map(r=>{
+      const group = USERS.filter(u=>u.role===r);
+      if(!group.length) return '';
+      return `<optgroup label="${r}">` + group.map(u=>
+        `<option value="${u.user_id}">${u.name}${u.title && u.title!==r ? ' — '+u.title : ''}</option>`
+      ).join('') + `</optgroup>`;
+    }).join('');
+    currentUser = USERS[0];
+  } else {
+    // LOCKED to the logged-in person — switcher shows only them, disabled
+    currentUser = USERS.find(x=>x.user_id===auth.userId) || USERS[0];
+    $('#userSelect').innerHTML = `<option>${currentUser.name} — ${currentUser.title||currentUser.role}</option>`;
+    $('#userSelect').disabled = true;
+  }
+  // default order_date = today (Req#5: live system date)
+  document.querySelector('[name=order_date]').value = todayISO();
+  resetLineItems();           // seed the first article line
+  // Party / Distributor dropdown (from parties-data.js) — grouped by region, plus "Other"
+  (function fillParties(){
+    const sel=$('#partySelect'); if(!sel || !window.PARTY_GROUPS) return;
+    const frag=document.createDocumentFragment();
+    window.PARTY_GROUPS.forEach(g=>{
+      const og=document.createElement('optgroup'); og.label=g.region;
+      g.names.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; og.appendChild(o); });
+      frag.appendChild(og);
+    });
+    const other=document.createElement('option'); other.value='__NEW__'; other.textContent='➕ Other — type a new party';
+    frag.appendChild(other);
+    sel.appendChild(frag);
+  })();
+  updateClock(); setInterval(updateClock, 1000);   // live IST clock
+  switchTab('sales');
+  renderAll();
+  // ----- two-way link with Production System -----
+  pullProductionStatus();
+  Store.onChange(PROD_STATUS_KEY, ()=>{ if(pullProductionStatus()) renderAll(); });   // real-time: Production updated
+  setInterval(()=>{ if(pullProductionStatus()) renderAll(); }, 4000);
+  setInterval(syncShared, 5000);          // heartbeat so Production sees us as live
+  checkLink(); setInterval(checkLink, 3000);
+})();
+
+function checkLink(){
+  const b=$('#linkBadge'), t=$('#linkText'); if(!b) return;
+  if(window.Store && Store.mode()==='firebase'){      // cloud connected → always live
+    t.textContent='Cloud linked';
+    b.className='order-3 sm:order-2 flex items-center gap-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 ring-1 bg-emerald-500/25 ring-emerald-300/50 text-emerald-50';
+    return;
+  }
+  let live=false;
+  try{ const raw=Store.getItem(PROD_STATUS_KEY); if(raw){ const u=(JSON.parse(raw)||{}).updated||0; live=(Date.now()-u)<12000; } }catch(e){}
+  t.textContent = live ? 'Production linked' : 'Production offline';
+  b.className = 'order-3 sm:order-2 flex items-center gap-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 ring-1 '+(live?'bg-emerald-500/25 ring-emerald-300/50 text-emerald-50':'bg-white/10 ring-white/20 text-white/60');
+}
+</script>
+</body>
+</html>
