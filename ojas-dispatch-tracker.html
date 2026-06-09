@@ -21,6 +21,13 @@
     @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
     body { font-family: 'Manrope', system-ui, sans-serif; }
     .tab-active { background:#fff; color:#26398f; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    /* Billing form inputs */
+    .billinp{display:block;width:100%;margin-top:2px;border:1px solid #cbd5e1;border-radius:.5rem;padding:.4rem .6rem;font-size:.8rem;outline:none}
+    .billinp:focus{box-shadow:0 0 0 2px rgba(51,88,224,.4);border-color:#3358e0}
+    /* Pipeline filter dropdowns */
+    .filterdd{border:1px solid #cbd5e1;border-radius:.5rem;padding:.25rem .5rem;font-size:.72rem;font-weight:600;background:#fff;color:#334155;outline:none}
+    .filterdd:focus{box-shadow:0 0 0 2px rgba(51,88,224,.4);border-color:#3358e0}
+    .filterdd.active{background:#eef3ff;border-color:#3358e0;color:#1b3187}
     /* Toast */
     .toast { animation: slideIn .3s ease, fadeOut .4s ease 3.6s forwards; }
     @keyframes slideIn { from{transform:translateY(-12px);opacity:0} to{transform:translateY(0);opacity:1} }
@@ -158,6 +165,7 @@
                   <label class="block text-xs font-semibold text-slate-500 mb-1">Order Date</label>
                   <input name="order_date" type="date" required
                     class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+                  <p class="text-[10px] text-slate-400 mt-1">🏷️ Moulding category is set by Komal Jain (Production) when she allots the article.</p>
                 </div>
               </div>
 
@@ -188,7 +196,7 @@
         <!-- Order tracking list -->
         <div class="lg:col-span-2">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h2 class="font-bold text-slate-900">My Order Pipeline</h2>
+            <h2 id="pipelineTitle" class="font-bold text-slate-900">My Order Pipeline</h2>
             <input id="salesSearch" oninput="setSalesSearch(this.value)" placeholder="🔍 Order # / distributor"
               class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:ring-2 focus:ring-brand-500 outline-none" style="max-width:13rem">
             <div class="flex gap-1 text-xs bg-white rounded-lg ring-1 ring-slate-200 p-1">
@@ -197,6 +205,19 @@
               <button onclick="setSalesFilter('ready',this)" class="sfilter px-2.5 py-1 rounded-md font-medium text-slate-500">Ready</button>
               <button onclick="setSalesFilter('done',this)" class="sfilter px-2.5 py-1 rounded-md font-medium text-slate-500">Dispatched</button>
             </div>
+          </div>
+          <!-- Filter criteria: salesperson (MASTER) · distributor · article · category -->
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Filter:</span>
+            <select id="salesPersonFilter" onchange="setSalesPersonFilter(this.value)" title="Filter by salesperson"
+              class="hidden filterdd"><option value="all">👥 All salespersons</option></select>
+            <select id="distributorFilter" onchange="setDistributorFilter(this.value)" title="Filter by distributor"
+              class="filterdd"><option value="all">🏬 All distributors</option></select>
+            <select id="articleFilter" onchange="setArticleFilter(this.value)" title="Filter by article"
+              class="filterdd"><option value="all">👟 All articles</option></select>
+            <select id="categoryFilter" onchange="setCategoryFilter(this.value)" title="Filter by category"
+              class="filterdd"><option value="all">🏷️ All categories</option></select>
+            <button id="clearFiltersBtn" onclick="clearPipelineFilters()" class="hidden text-[11px] font-semibold text-rose-600 hover:text-white hover:bg-rose-600 ring-1 ring-rose-200 rounded-md px-2 py-1 transition">✕ Clear</button>
           </div>
           <div id="salesList" class="space-y-3"></div>
         </div>
@@ -312,6 +333,13 @@ let ORDERS = [
   mkOrder('ORD-1006','Ansari Traders, Kanpur',   'SKY-1001','41-45',240,'2026-06-04','SALES_004','Pending',    'Pending', 'Awaiting Clearance',10,24,'Pending'),
   mkOrder('ORD-1007','Mehra Footwear, Lucknow',  'EARTH-01','36-41',180,'2026-06-05','SALES_006','In Progress','Pending', 'Awaiting Clearance',15,12,'Pending'),
 ];
+// Category is a property of the ARTICLE, authoritatively set by Komal Jain when she allots it in the
+// Production System. This map is the Sales-side cache of those allotments (interlinked via STARKIDZ_PROD_STATUS).
+// Seeded here for demo articles as if Komal had already allotted them.
+let ARTICLE_CATEGORY = { 'AIR-01':'PU', 'EARTH-01':'PVC', 'SKY-1001':'Stuckon' };
+const CATEGORY_UNSET = 'Unallotted';
+function categoryOf(o){ return ARTICLE_CATEGORY[o.article_no] || o.category || CATEGORY_UNSET; }
+ORDERS.forEach(o=>{ o.category = ARTICLE_CATEGORY[o.article_no] || CATEGORY_UNSET; });
 
 let LOGS = [];
 let logSeq = 1, orderSeq = 1008;
@@ -334,6 +362,10 @@ function logAction(order_id, action){
 let currentUser = USERS[0];
 let salesFilter = 'all';
 let salesSearch = '';      // Req#4: order-number search in the Sales pipeline
+let salesPersonFilter = 'all';   // MASTER only: filter the pipeline to one salesperson
+let distributorFilter = 'all';   // filter the pipeline to one distributor / party
+let articleFilter     = 'all';   // filter the pipeline to one article
+let categoryFilter    = 'all';   // filter the pipeline to one moulding category (PU/PVC/Stuckon)
 let IS_MASTER = false;     // Req#1: MASTER sees the distributor-wise "who entered" ledger
 
 // =================================================================
@@ -366,7 +398,24 @@ function kpiCard(label, value, emoji, tone){
 //  SALES VIEW
 // =================================================================
 function renderSales(){
-  const mine = ORDERS.filter(o => o.salesperson_id === currentUser.user_id || currentUser.role!=='Sales');
+  refreshFilterOptions();   // keep the dropdown choices in sync with current orders
+  let mine = ORDERS.filter(o => IS_MASTER || currentUser.role!=='Sales' || o.salesperson_id === currentUser.user_id);
+  // Apply the filter criteria (narrows KPIs + list together)
+  if(IS_MASTER && salesPersonFilter!=='all') mine = mine.filter(o=>o.salesperson_id===salesPersonFilter);
+  if(distributorFilter!=='all') mine = mine.filter(o=>o.party_name===distributorFilter);
+  if(articleFilter!=='all')     mine = mine.filter(o=>o.article_no===articleFilter);
+  if(categoryFilter!=='all')    mine = mine.filter(o=>categoryOf(o)===categoryFilter);
+
+  // Title reflects an active salesperson filter; highlight active dropdowns + show Clear
+  const ttl = $('#pipelineTitle');
+  if(ttl){
+    const who = (salesPersonFilter!=='all') ? (USERS.find(u=>u.user_id===salesPersonFilter)||{}).name : null;
+    ttl.textContent = IS_MASTER ? (who ? `${who}'s Pipeline` : 'All-Team Order Pipeline') : 'My Order Pipeline';
+  }
+  const anyActive = (IS_MASTER&&salesPersonFilter!=='all')||distributorFilter!=='all'||articleFilter!=='all'||categoryFilter!=='all';
+  [['#salesPersonFilter',salesPersonFilter],['#distributorFilter',distributorFilter],['#articleFilter',articleFilter],['#categoryFilter',categoryFilter]]
+    .forEach(([sel,val])=>{ const e=$(sel); if(e) e.classList.toggle('active', val!=='all'); });
+  const clr=$('#clearFiltersBtn'); if(clr) clr.classList.toggle('hidden', !anyActive);
   // KPIs
   $('#salesKpis').innerHTML =
     kpiCard('Total Orders', mine.length, '📋','brand') +
@@ -427,6 +476,9 @@ function renderSales(){
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-bold text-slate-900">${o.party_name}</span>
             <span class="text-xs text-slate-400">#${o.order_id}</span>
+            ${(categoryOf(o)===CATEGORY_UNSET)
+              ? `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700" title="Komal Jain has not allotted this article's category yet">🏷️ Awaiting category</span>`
+              : `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-indigo-100 text-indigo-700" title="Moulding category allotted by Komal Jain">🏷️ ${categoryOf(o)}</span>`}
           </div>
           <div class="text-xs text-slate-500 mt-0.5">Art <b>${o.article_no}</b>${o.colour?' '+colourLabel(o):''} · Size ${sizeLabel(o)} · ${qtyLabel(o)} · ${fmtDate(o.order_date)}</div>
           ${(IS_MASTER && o.created_by)?`<div class="text-[10px] text-slate-400 mt-0.5">🔒 entered by <b class="text-slate-600">${o.created_by}</b>${o.created_stamp?' · '+o.created_stamp:''}</div>`:''}
@@ -446,6 +498,22 @@ function renderSales(){
       ${o.prodInfo?`<div class="mt-3 bg-slate-50 rounded-lg p-2 ring-1 ring-slate-100">
         <div class="flex justify-between text-[11px] font-semibold text-slate-500"><span>🏭 Live Manufacturing</span><span>${o.prodInfo.prodPct}% · ${o.prodInfo.stage}</span></div>
         ${miniBar(o.prodInfo.prodPct)}
+        <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[10px] font-semibold">
+          ${o.prodInfo.allottedDept && o.prodInfo.allottedDept!=='Unassigned'
+            ? `<span class="text-indigo-600">🏷️ Allotted: ${o.prodInfo.allottedDept}</span>`
+            : `<span class="text-rose-500">⚠ Awaiting Komal's allotment</span>`}
+          ${o.prodInfo.deliveryDate?`<span class="text-sky-700">🗓️ Delivery ${fmtDate(o.prodInfo.deliveryDate)}${o.prodInfo.deliveryChange?' <span class="text-amber-600">(revised)</span>':''}</span>`:''}
+          ${o.prodInfo.upperMode?`<span class="text-slate-600">🧵 Upper: ${o.prodInfo.upperMode==='Out-house'?('Out-house'+(o.prodInfo.upperVendor?' · '+o.prodInfo.upperVendor:'')):'In-house'}</span>`:''}
+          ${o.prodInfo.mouldingLastDate?`<span class="text-slate-600">📅 Moulding given ${fmtDate(o.prodInfo.mouldingLastDate)}</span>`:''}
+          ${(o.prodInfo.dispatchPct>0)?`<span class="text-violet-600">🚚 Dispatch ${o.prodInfo.dispatchPct}%</span>`:''}
+        </div>
+        ${o.prodInfo.delayNarration?`<div class="mt-1.5 text-[10px] text-rose-700 bg-rose-50 ring-1 ring-rose-100 rounded px-2 py-1">📝 Delay: ${o.prodInfo.delayNarration}</div>`:''}
+      </div>`:''}
+      ${(o.bill_no||o.vehicle_no||o.dispatch_status==='Dispatched')?`<div class="mt-2 bg-violet-50 rounded-lg p-2 ring-1 ring-violet-100 text-[10px] font-semibold text-violet-800 flex flex-wrap gap-x-3 gap-y-1">
+        <span>🧾 Bill <b>${o.bill_no||'—'}</b></span>
+        <span>🚚 <b>${o.vehicle_no||'—'}</b></span>
+        ${o.transporter?`<span>🚛 ${o.transporter}${o.lr_no?' · LR '+o.lr_no:''}</span>`:''}
+        ${o.dispatched_at?`<span class="text-violet-500">${o.dispatched_at}</span>`:''}
       </div>`:''}
       <div class="mt-3 flex justify-between items-center gap-2">
         <div>${delBtn}</div>
@@ -462,6 +530,45 @@ function setSalesFilter(f, btn){
   renderSales();
 }
 function setSalesSearch(v){ salesSearch=(v||'').trim().toLowerCase(); renderSales(); }   // Req#4
+// ----- Pipeline filter criteria: salesperson (MASTER) · distributor · article · category -----
+function setSalesPersonFilter(v){ salesPersonFilter=v||'all'; renderSales(); }
+function setDistributorFilter(v){ distributorFilter=v||'all'; renderSales(); }
+function setArticleFilter(v){ articleFilter=v||'all'; renderSales(); }
+function setCategoryFilter(v){ categoryFilter=v||'all'; renderSales(); }
+function clearPipelineFilters(){
+  salesPersonFilter=distributorFilter=articleFilter=categoryFilter='all';
+  renderSales();
+}
+let _filterSig='';
+// Populate the filter dropdowns from the current orders (distinct values), preserving selections.
+// Salesperson list is MASTER-only; the rest are available to everyone.
+function refreshFilterOptions(){
+  const visible = ORDERS.filter(o => IS_MASTER || currentUser.role!=='Sales' || o.salesperson_id === currentUser.user_id);
+  const distinct = key => [...new Set(visible.map(o=>o[key]).filter(Boolean))].sort();
+  const sales = USERS.filter(u=>u.role==='Sales');
+  const parties = distinct('party_name'), arts = distinct('article_no');
+  const cats = [...new Set(visible.map(o=>categoryOf(o)).filter(Boolean))].sort();   // live article categories (Komal's allotments)
+  const sig = JSON.stringify([IS_MASTER, sales.map(u=>u.user_id), parties, arts, cats]);
+  if(sig===_filterSig) return;        // unchanged → don't rebuild (keeps an open dropdown stable)
+  _filterSig = sig;
+  const sp=$('#salesPersonFilter');
+  if(sp){
+    sp.classList.toggle('hidden', !IS_MASTER);
+    if(IS_MASTER){
+      sp.innerHTML = `<option value="all">👥 All salespersons</option>` +
+        sales.map(u=>`<option value="${u.user_id}">${u.name}</option>`).join('');
+      sp.value = salesPersonFilter;
+    }
+  }
+  fillDD('#distributorFilter','🏬 All distributors', parties, ()=>distributorFilter);
+  fillDD('#articleFilter','👟 All articles', arts, ()=>articleFilter);
+  fillDD('#categoryFilter','🏷️ All categories', cats, ()=>categoryFilter);
+  function fillDD(sel, allLabel, vals, getCur){
+    const e=$(sel); if(!e) return;
+    e.innerHTML = `<option value="all">${allLabel}</option>` + vals.map(v=>`<option value="${v}">${v}</option>`).join('');
+    const cur=getCur(); e.value = (cur==='all'||vals.includes(cur)) ? cur : 'all';
+  }
+}
 
 // Req#1: MASTER-only ledger — pending orders grouped by distributor, showing who entered each
 function renderDistributorLedger(){
@@ -582,7 +689,6 @@ function addOrder(e){
   party = (party==='__NEW__') ? (f.party_name_new ? f.party_name_new.value.trim() : '') : party.trim();
   if(!party){ toast('Pick a distributor','⚠️','Choose a party from the dropdown, or pick “Other” and type one.','amber'); return; }
   const date  = f.order_date.value;
-  const category = f.category ? f.category.value : 'PU';
   const created = [];
   let invalid = false;
   document.querySelectorAll('.line-row').forEach(row=>{
@@ -596,7 +702,7 @@ function addOrder(e){
     const qty = ctn * ppc;
     const o = mkOrder('ORD-'+(orderSeq++), party, code, size, qty, date,
                       currentUser.user_id, 'Pending','Pending','Awaiting Clearance', ctn, ppc, 'Pending', colour);
-    o.category = category;
+    o.category = ARTICLE_CATEGORY[code] || CATEGORY_UNSET;   // category comes from Komal's article allotment, not Sales
     o.created_by = currentUser.name;   // Req#1: who entered this pending order
     o.created_stamp = nowFull();       // Req#5: real date · day · time it was entered
     ORDERS.unshift(o);
@@ -653,8 +759,10 @@ function renderProduction(){
 
   ['Pending','In Progress','Completed'].forEach(stage=>{
     const items = c(stage);
-    $('#cnt-'+stage).textContent = items.length;
-    $('#col-'+stage).innerHTML = items.length ? items.map(o=>prodCard(o,stage)).join('') : `<p class="text-xs text-slate-400 text-center py-4">— empty —</p>`;
+    // NOTE: ids contain a space ("cnt-In Progress") — querySelector treats the space as a
+    // descendant combinator and returns null, so use getElementById here (space-safe).
+    document.getElementById('cnt-'+stage).textContent = items.length;
+    document.getElementById('col-'+stage).innerHTML = items.length ? items.map(o=>prodCard(o,stage)).join('') : `<p class="text-xs text-slate-400 text-center py-4">— empty —</p>`;
   });
 }
 
@@ -722,33 +830,62 @@ function renderBilling(){
 
   const canDispatch = currentUser.role==='Billing';
   $('#billList').innerHTML = cleared.length ? cleared.map(o=>`
-    <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50">
-      <div class="min-w-0">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="font-bold text-slate-900">${o.party_name}</span>
-          <span class="text-xs text-slate-400">#${o.order_id}</span>
-          ${badge('Stock ✓','green')}${badge('Prod-OK ✓','green')}${badge('Allowance ✓','green')}
+    <div class="px-5 py-4 hover:bg-slate-50">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-bold text-slate-900">${o.party_name}</span>
+            <span class="text-xs text-slate-400">#${o.order_id}</span>
+            ${badge('Stock ✓','green')}${badge('Prod-OK ✓','green')}${badge('Allowance ✓','green')}
+          </div>
+          <div class="text-xs text-slate-500 mt-0.5">Art <b>${o.article_no}</b>${o.colour?' '+colourLabel(o):''} · Size ${sizeLabel(o)} · ${qtyLabel(o)}</div>
         </div>
-        <div class="text-xs text-slate-500 mt-0.5">Art <b>${o.article_no}</b>${o.colour?' '+colourLabel(o):''} · Size ${sizeLabel(o)} · ${qtyLabel(o)}</div>
       </div>
-      ${canDispatch
-        ? `<button onclick="dispatchOrder('${o.order_id}')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-lg px-4 py-2 shadow-sm transition shrink-0">🚚 Bill & Dispatch</button>`
-        : badge('Billing team only','gray')}
+      ${canDispatch ? `
+      <div class="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <label class="text-[11px] text-slate-500">Bill / Invoice no.<input id="bill-no-${o.order_id}" class="billinp" placeholder="e.g. INV-2026-114"></label>
+        <label class="text-[11px] text-slate-500">Vehicle no.<input id="bill-veh-${o.order_id}" class="billinp" placeholder="e.g. HR-55 AB 1234"></label>
+        <label class="text-[11px] text-slate-500">Transporter<input id="bill-trn-${o.order_id}" class="billinp" placeholder="e.g. VRL Logistics"></label>
+        <label class="text-[11px] text-slate-500">LR / Docket no.<input id="bill-lr-${o.order_id}" class="billinp" placeholder="e.g. LR-99821"></label>
+      </div>
+      <div class="mt-2 flex justify-end">
+        <button onclick="dispatchOrder('${o.order_id}')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-lg px-4 py-2 shadow-sm transition shrink-0">🧾 Bill & Dispatch</button>
+      </div>`
+      : `<div class="mt-2 flex justify-end">${badge('Billing team only','gray')}</div>`}
     </div>`).join('') : emptyState('No orders cleared for dispatch yet.');
 
   $('#dispatchedList').innerHTML = dispatched.length ? dispatched.map(o=>`
-    <div class="flex items-center justify-between text-sm bg-violet-50/60 rounded-lg px-3 py-2">
-      <span><b>${o.party_name}</b> · ${o.article_no} · ${o.quantity} pairs <span class="text-xs text-slate-400">#${o.order_id}</span></span>
-      ${badge('Dispatched','purple')}
+    <div class="text-sm bg-violet-50/60 rounded-lg px-3 py-2">
+      <div class="flex items-center justify-between">
+        <span><b>${o.party_name}</b> · ${o.article_no} · ${o.quantity} pairs <span class="text-xs text-slate-400">#${o.order_id}</span></span>
+        ${badge('Dispatched','purple')}
+      </div>
+      <div class="text-[11px] text-violet-700 font-semibold mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+        <span>🧾 Bill <b>${o.bill_no||'—'}</b></span>
+        <span>🚚 <b>${o.vehicle_no||'—'}</b></span>
+        ${o.transporter?`<span>🚛 ${o.transporter}${o.lr_no?' · LR '+o.lr_no:''}</span>`:''}
+        ${o.dispatched_at?`<span class="text-violet-500">${o.dispatched_at}</span>`:''}
+      </div>
     </div>`).join('') : `<p class="text-xs text-slate-400">Nothing dispatched yet.</p>`;
 }
 
 function dispatchOrder(id){
   const o = ORDERS.find(x=>x.order_id===id);
-  o.dispatch_status='Dispatched';
-  logAction(id,'Billed & Dispatched — truck left warehouse');
-  toast('Dispatched','🚚',`${id} billed & shipped. Sales pipeline updated.`,'purple');
-  renderAll();
+  const billNo  = ($('#bill-no-'+id) ||{}).value?.trim() || '';
+  const vehicle = ($('#bill-veh-'+id)||{}).value?.trim() || '';
+  const transporter = ($('#bill-trn-'+id)||{}).value?.trim() || '';
+  const lrNo    = ($('#bill-lr-'+id) ||{}).value?.trim() || '';
+  if(!billNo || !vehicle){
+    toast('Missing details','⚠️','Enter both the Bill/Invoice no. and Vehicle no. before dispatching.','amber');
+    return;
+  }
+  o.bill_no = billNo; o.vehicle_no = vehicle; o.transporter = transporter; o.lr_no = lrNo;
+  o.dispatched_at = nowFull();                 // auto-stamp dispatch date & time
+  o.dispatched_by = currentUser.name;
+  o.dispatch_status = 'Dispatched';
+  logAction(id,`Billed & Dispatched — Bill ${billNo} · Vehicle ${vehicle}${transporter?' · '+transporter:''}${lrNo?' · LR '+lrNo:''}`);
+  toast('Dispatched','🚚',`${id} billed (${billNo}) & shipped on ${vehicle}. Sales + Production updated.`,'purple');
+  renderAll();   // syncShared() pushes the bill/vehicle/transport to Production & the salesperson
 }
 
 // =================================================================
@@ -854,6 +991,12 @@ function renderSalesNotifs(){
     if(o.production_status==='Pending' && o.dispatch_status!=='Dispatched')
       items.push({tone:'amber',ic:'🆕',text:`<b>${spName}</b> entered pending order <b>${o.order_id}</b> — ${o.party_name} · ${o.article_no} · ${o.quantity} prs`});
     if(o.prodInfo){
+      // Req#1: delivery-date change pushed from Production (GM/Komal) — instant on the Master/Sales screen
+      if(o.prodInfo.deliveryChange){ const dc=o.prodInfo.deliveryChange;
+        items.push({tone:'sky',ic:'🗓️',text:`<b>Delivery date changed</b> — <b>${o.order_id}</b> (${o.party_name}): ${fmtDate(dc.from)} → <b>${fmtDate(dc.to)}</b> by ${dc.by} · ${dc.at}`}); }
+      // Req#4: delay narration entered by the Production person
+      if(o.prodInfo.delayNarration)
+        items.push({tone:'amber',ic:'📝',text:`<b>${o.order_id}</b> (${o.party_name}) delay note: ${o.prodInfo.delayNarration}`});
       if(o.prodInfo.completed && o.dispatch_status!=='Dispatched')
         items.push({tone:'green',ic:'✅',text:`✅ <b>Order DONE</b> — <b>${o.order_id}</b> (${o.party_name}) production completed, ready to allow dispatch${o.prodInfo.doneAt?' · '+o.prodInfo.doneAt:''}${isCoord?' · '+spName:''}`});
       else if(o.prodInfo.prodPct>0)
@@ -863,7 +1006,7 @@ function renderSalesNotifs(){
       items.push({tone:'purple',ic:'🚚',text:`<b>${o.order_id}</b> (${o.party_name}) dispatched${isCoord?' · '+spName:''}`});
   });
   cnt.textContent = items.length||'';
-  const T={amber:'bg-amber-50 ring-amber-200 text-amber-800',green:'bg-emerald-50 ring-emerald-200 text-emerald-700',blue:'bg-blue-50 ring-blue-200 text-blue-700',purple:'bg-violet-50 ring-violet-200 text-violet-700'};
+  const T={amber:'bg-amber-50 ring-amber-200 text-amber-800',green:'bg-emerald-50 ring-emerald-200 text-emerald-700',blue:'bg-blue-50 ring-blue-200 text-blue-700',purple:'bg-violet-50 ring-violet-200 text-violet-700',sky:'bg-sky-50 ring-sky-200 text-sky-700'};
   box.innerHTML = items.length
     ? items.map(n=>`<div class="rounded-xl ring-1 ${T[n.tone]} p-2.5 text-xs flex gap-2"><span>${n.ic}</span><span>${n.text}</span></div>`).join('')
     : '<p class="text-sm text-slate-400">No notifications yet.</p>';
@@ -881,11 +1024,14 @@ function syncShared(){
       return {
         order_id:o.order_id, party_name:o.party_name, article_no:o.article_no,
         size:o.size, colour:o.colour, quantity:o.quantity, cartons:o.cartons,
-        order_date:o.order_date, category:o.category||'PU',
+        order_date:o.order_date, category:o.category||CATEGORY_UNSET,
         production_status:o.production_status, dispatch_status:o.dispatch_status,
         salesperson: sp?sp.name:'Sales',
         created_by: o.created_by || (sp?sp.name:'Sales'),   // Req#1: who entered the order
-        created_stamp: o.created_stamp || null
+        created_stamp: o.created_stamp || null,
+        // Billing details (entered by the Billing person) → carried to Production
+        bill_no:o.bill_no||'', vehicle_no:o.vehicle_no||'', transporter:o.transporter||'',
+        lr_no:o.lr_no||'', dispatched_at:o.dispatched_at||''
       };
     });
     Store.setItem(SHARED_KEY, JSON.stringify({ updated:Date.now(), orders:payload }));
@@ -902,8 +1048,14 @@ function pullProductionStatus(){
     ORDERS.forEach(o=>{
       const p = st[o.order_id]; if(!p) return;
       const prev = o.prodInfo ? JSON.stringify(o.prodInfo) : '';
-      o.prodInfo = p;   // {stage, prodPct, packingPct, completed, ...}
+      o.prodInfo = p;   // {stage, prodPct, packingPct, completed, category, deliveryDate, deliveryChange, delayNarration, upperMode, upperVendor, mouldingLastDate, ...}
       if(JSON.stringify(p)!==prev) changed=true;   // any progress change re-renders the live bar
+      // INTERLINK: Komal allotted this article's moulding category → make it the article's category
+      if(p.category && ARTICLE_CATEGORY[o.article_no]!==p.category){ ARTICLE_CATEGORY[o.article_no]=p.category; changed=true; }
+      // Req#1: GM/Master changed the delivery date → flag a fresh notification for the Master/Sales screen
+      if(p.deliveryChange && p.deliveryChange.at && o._deliveryNotifiedAt!==p.deliveryChange.at){
+        o._deliveryNotifiedAt = p.deliveryChange.at; changed=true;
+      }
       // Reflect production progress into the Sales workflow:
       if(p.completed && o.production_status!=='Completed'){
         o.production_status='Completed'; o.production_approval='Approved'; changed=true;   // ready for Sales to allow dispatch
@@ -911,6 +1063,8 @@ function pullProductionStatus(){
         o.production_status='In Progress'; changed=true;
       }
     });
+    // Propagate the article→category map to every order of that article (same article = same category)
+    ORDERS.forEach(o=>{ const c=ARTICLE_CATEGORY[o.article_no]; if(c && o.category!==c){ o.category=c; changed=true; } });
   }catch(e){}
   return changed;
 }

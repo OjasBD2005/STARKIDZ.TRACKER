@@ -187,15 +187,18 @@ const USERS = [
   { id:'U_S5', empId:'PRD-105', name:'Supervisor 5', title:'Raw Material & Dispatch',  role:'RMDISP' },
 ];
 let currentUser = USERS[0];
+let IS_MASTER = false;                 // Req#2: universal master access across both windows
+function isMaster(){ return IS_MASTER; }
+function canEditDelivery(){ return currentUser.role==='GM' || IS_MASTER; }   // Req#3: delivery date locked to Komal Jain (GM) + Master
 
 // who can edit which stage of which order
 function canEdit(stage, o){
   const r = currentUser.role;
-  if(r==='GM') return true;
+  if(r==='GM' || IS_MASTER) return true;   // Req#2: Master can view & update everything in this window
   if(r==='UPPER') return stage==='upper' && o.upperAllotted;            // Req#3: Upper waits for GM allotment
   if(r==='RMDISP') return stage==='raw' || stage==='dispatch';
-  if(['PU','PVC','STUCKON'].includes(r))                                // Req#2: dept edits only its own category
-    return (stage==='moulding'||stage==='packing') && catRoleOf(o.category)===r;
+  if(['PU','PVC','STUCKON'].includes(r))                                // dept edits only orders KOMAL allotted to it
+    return (stage==='moulding'||stage==='packing') && o.allottedRole===r;
   return false;
 }
 
@@ -225,8 +228,12 @@ function mkOrder(no,cust,aname,code,cat,qty,od,dd,prio,fill){
     gm:{ requested:false, approved:false, completionDate:'—', completionStamp:'', remarks:'' },
     upperAllotted:false, upperAllottedBy:'—', upperAllottedDate:'—',   // Req#3: GM must allot Upper program
     allottedDept:'—', allottedRole:null,                                // Req#2: category department
+    deliveryHistory:[],                                                 // Req#1: audit trail of delivery-date changes
+    delayNarration:'', delayNarrationBy:'', delayNarrationAt:'',        // Req#4: note explaining a delayed order
     closed:false
   };
+  o.upper.mode = 'In-house'; o.upper.vendor = '';   // Req#5: stitching In-house/Out-house + vendor
+  o.moulding.lastGivenDate = '';                    // Req#6: last date of giving moulding
   if(fill) fill(o);
   autoAllot(o);                 // Req#2: route to its category department automatically
   return o;
@@ -292,6 +299,24 @@ function stageName(o){
   return 'New Order';
 }
 function prioBadge(p){ const m={High:'bg-rose-100 text-rose-700',Medium:'bg-amber-100 text-amber-700',Low:'bg-emerald-100 text-emerald-700'}; return `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 ${m[p]}">${p}</span>`; }
+// Req#6: ordered process-flow check — lets a supervisor verify the whole chain is complete
+function processStages(o){
+  return [
+    ['Raw',      o.raw.available>=o.raw.required],
+    ['Upper',    o.upper.pct>=100],
+    ['Moulding', o.moulding.pct>=100],
+    ['Packing',  o.packing.pct>=100],
+    ['Dispatch', o.dispatch.dispatched>=o.qty]
+  ];
+}
+function processComplete(o){ return processStages(o).every(s=>s[1]); }
+function processStrip(o){
+  const st=processStages(o); const done=st.filter(s=>s[1]).length;
+  return `<div class="flex flex-wrap items-center gap-1.5 mb-2">
+    <span class="text-[10px] font-bold ${processComplete(o)?'text-emerald-600':'text-slate-400'}">Process ${done}/5${processComplete(o)?' ✓ complete':''}</span>
+    ${st.map(s=>`<span class="text-[10px] font-semibold rounded px-1.5 py-0.5 ${s[1]?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-400'}">${s[1]?'✓':'○'} ${s[0]}</span>`).join('')}
+  </div>`;
+}
 function catBadge(c){ return ''; }   // category removed from the system
 function barColor(pct,delayed){ if(delayed&&pct<100) return '#f43f5e'; if(pct>=100) return '#10b981'; if(pct>0) return '#f59e0b'; return '#cbd5e1'; }
 function bar(label,pct,delayed){
@@ -340,7 +365,9 @@ function renderDash(){
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-bold text-slate-900">${o.customer}</span>
           <span class="text-xs text-slate-400">#${o.order_no}</span>
-          ${prioBadge(o.priority)} <span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-indigo-100 text-indigo-700" title="Category ${o.category} → auto-allotted">🏷️ ${o.allottedDept}</span> ${o.upperAllotted?'':'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">🧵 Upper: awaiting GM</span>'} ${o.fromSales?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-brand-100 text-brand-700">📥 From Sales'+(o.salesPerson?' · '+o.salesPerson:'')+'</span>':''}
+          ${prioBadge(o.priority)} ${o.allottedRole
+            ? `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-indigo-100 text-indigo-700" title="Moulding allotted by GM">🏷️ ${o.allottedDept}</span>`
+            : `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-rose-100 text-rose-700">⚠ Awaiting GM allotment</span>`} ${o.upperAllotted?'':'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">🧵 Upper: awaiting GM</span>'} ${o.fromSales?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-brand-100 text-brand-700">📥 From Sales'+(o.salesPerson?' · '+o.salesPerson:'')+'</span>':''}
           ${dl?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-rose-600 text-white">DELAYED</span>':''}
         </div>
         <span class="text-xs font-semibold ${o.closed?'text-emerald-600':o.gm.requested&&!o.gm.approved?'text-amber-600':'text-slate-500'}">${stageName(o)}</span>
@@ -359,15 +386,18 @@ function renderDash(){
   // recompute live alerts
   scanAlerts();
   $('#alertsBox').innerHTML = NOTIFS.length? NOTIFS.slice(0,12).map(n=>{
-    const tone={delay:'bg-rose-50 ring-rose-200 text-rose-700',shortage:'bg-amber-50 ring-amber-200 text-amber-700',approval:'bg-violet-50 ring-violet-200 text-violet-700',done:'bg-emerald-50 ring-emerald-200 text-emerald-700'}[n.type]||'bg-slate-50 ring-slate-200 text-slate-600';
-    const ic={delay:'⏰',shortage:'⚠️',approval:'🛎️',done:'✅'}[n.type]||'🔔';
+    const tone={delay:'bg-rose-50 ring-rose-200 text-rose-700',shortage:'bg-amber-50 ring-amber-200 text-amber-700',approval:'bg-violet-50 ring-violet-200 text-violet-700',done:'bg-emerald-50 ring-emerald-200 text-emerald-700',delivery:'bg-sky-50 ring-sky-200 text-sky-700'}[n.type]||'bg-slate-50 ring-slate-200 text-slate-600';
+    const ic={delay:'⏰',shortage:'⚠️',approval:'🛎️',done:'✅',delivery:'🗓️'}[n.type]||'🔔';
     return `<div class="rounded-xl ring-1 ${tone} p-3 text-xs"><div class="flex gap-2"><span>${ic}</span><div><p class="font-semibold">${n.msg}</p><p class="opacity-70 mt-0.5">→ ${n.to} · ${n.ts}</p></div></div></div>`;
   }).join('') : `<p class="text-sm text-slate-400">No active alerts.</p>`;
 }
 function scanAlerts(){
   NOTIFS = [];
   ORDERS.forEach(o=>{
+    if(o.deliveryHistory && o.deliveryHistory.length){ const h=o.deliveryHistory[o.deliveryHistory.length-1];
+      notify('delivery',`🗓️ Delivery date changed — ${o.order_no} (${o.customer}): ${fmt(h.from)} → ${fmt(h.to)} by ${h.by} · ${h.at}`); }
     if(isDelayed(o)) notify('delay',`Delay in production/dispatch — ${o.order_no} (${o.customer}) past delivery ${fmt(o.delivery_date)}`);
+    if(o.delayNarration) notify('delay',`📝 Delay note — ${o.order_no} (${o.customer}): ${o.delayNarration} (by ${o.delayNarrationBy})`);
     if(o.raw.pending>0) notify('shortage',`Raw material shortage — ${o.order_no}: ${o.raw.pending} prs pending (ETA ${fmt(o.raw.eta)})`);
     if(o.gm.requested && !o.gm.approved) notify('approval',`GM approval pending — ${o.order_no} (${o.customer}) packing 100%`);
     if(!o.upperAllotted && !o.closed) notify('approval',`Upper allotment pending — ${o.order_no} (${o.customer}) awaiting GM → Upper Dept`);
@@ -418,9 +448,29 @@ function stageEditor(o, stage, title, qtyField){
         <label class="text-[10px] text-slate-500">ETA <input id="raw-eta-${o.order_no}" type="date" class="miniinp" style="width:8.5rem"></label>
         <button class="savebtn" onclick="saveRaw('${o.order_no}')">Save</button></div>`;
     } else {
-      inputs=`<div class="flex items-center gap-2 mt-2">
-        <label class="text-[10px] text-slate-500">${qtyField} <input id="${stage}-q-${o.order_no}" type="number" min="0" max="${s.required}" value="${cur}" class="miniinp"></label>
-        <button class="savebtn" onclick="saveStage('${o.order_no}','${stage}')">Save</button></div>`;
+      // Req#5: Upper dept records In-house / Out-house + vendor; Req#6: moulding dept records the last date of giving moulding
+      let extra='';
+      if(stage==='upper'){
+        const out = s.mode==='Out-house';
+        extra=`<div class="flex flex-wrap items-center gap-2 mt-1">
+          <label class="text-[10px] text-slate-500">Stitching
+            <select id="upper-mode-${o.order_no}" class="miniinp" style="width:auto">
+              <option ${!out?'selected':''}>In-house</option>
+              <option ${out?'selected':''}>Out-house</option>
+            </select></label>
+          <label class="text-[10px] text-slate-500">Vendor <input id="upper-vendor-${o.order_no}" value="${(s.vendor||'').replace(/"/g,'&quot;')}" placeholder="Out-house vendor" class="miniinp" style="width:9rem"></label>
+        </div>`;
+      } else if(stage==='moulding'){
+        extra=`<div class="flex flex-wrap items-center gap-2 mt-1">
+          <label class="text-[10px] text-slate-500">Last date of giving moulding
+            <input id="moulding-lgd-${o.order_no}" type="date" value="${s.lastGivenDate||''}" class="miniinp" style="width:9.5rem"></label>
+        </div>`;
+      }
+      inputs=`<div class="mt-2">
+        <div class="flex items-center gap-2">
+          <label class="text-[10px] text-slate-500">${qtyField} <input id="${stage}-q-${o.order_no}" type="number" min="0" max="${s.required}" value="${cur}" class="miniinp"></label>
+          <button class="savebtn" onclick="saveStage('${o.order_no}','${stage}')">Save</button>
+        </div>${extra}</div>`;
     }
   }
   return `<div class="rounded-xl ring-1 ring-slate-200 p-3 bg-slate-50/50">
@@ -428,6 +478,8 @@ function stageEditor(o, stage, title, qtyField){
     <div class="bar mt-1.5"><span style="width:${Math.min(100,pct)}%;background:${barColor(pct,isDelayed(o))}"></span></div>
     <div class="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
       Req <b>${s.required}</b> · ${stage==='raw'?'Avail':'Done'} <b>${cur}</b> · Bal <b>${stage==='raw'?s.pending:s.balance}</b>${stage==='raw'&&s.eta&&s.eta!=='—'?` · ETA ${fmt(s.eta)}`:''}<br>
+      ${stage==='upper'?`<span class="font-semibold ${s.mode==='Out-house'?'text-indigo-600':'text-slate-500'}">${s.mode==='Out-house'?'🏭 Out-house'+(s.vendor?' · '+s.vendor:''):'🏠 In-house'}</span><br>`:''}
+      ${stage==='moulding'&&s.lastGivenDate?`<span class="text-slate-500">📅 Moulding given: ${fmt(s.lastGivenDate)}</span><br>`:''}
       <span class="text-slate-400">By ${s.by} · ${s.date}</span>
     </div>
     ${upperNote}
@@ -459,13 +511,34 @@ function renderOrders(){
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-bold text-slate-900">${o.customer}</span><span class="text-xs text-slate-400">#${o.order_no}</span>
-          ${prioBadge(o.priority)} <span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-indigo-100 text-indigo-700" title="Category ${o.category} → auto-allotted">🏷️ ${o.allottedDept}</span> ${o.upperAllotted?'':'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">🧵 Upper: awaiting GM</span>'} ${o.fromSales?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-brand-100 text-brand-700">📥 From Sales'+(o.salesPerson?' · '+o.salesPerson:'')+'</span>':''}
+          ${prioBadge(o.priority)} ${o.allottedRole
+            ? `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-indigo-100 text-indigo-700" title="Moulding allotted by GM">🏷️ ${o.allottedDept}</span>`
+            : `<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-rose-100 text-rose-700">⚠ Awaiting GM allotment</span>`} ${o.upperAllotted?'':'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">🧵 Upper: awaiting GM</span>'} ${o.fromSales?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-brand-100 text-brand-700">📥 From Sales'+(o.salesPerson?' · '+o.salesPerson:'')+'</span>':''}
           ${dl?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-rose-600 text-white">DELAYED</span>':''}
           ${o.closed?'<span class="text-[10px] font-bold rounded-full px-2 py-0.5 bg-emerald-600 text-white">CLOSED</span>':''}
         </div>
         <span class="text-xs font-semibold text-slate-500">${stageName(o)}</span>
       </div>
-      <div class="text-xs text-slate-500 mt-1 mb-3">Art <b>${o.article_code}</b> · ${o.article_name} · Qty ${o.qty} prs · Ordered ${fmt(o.order_date)} · Delivery ${fmt(o.delivery_date)}</div>
+      <div class="text-xs text-slate-500 mt-1 mb-2">Art <b>${o.article_code}</b> · ${o.article_name} · Qty ${o.qty} prs · Ordered ${fmt(o.order_date)} · Delivery <b class="${dl?'text-rose-600':''}">${fmt(o.delivery_date)}</b>${o.deliveryHistory&&o.deliveryHistory.length?` <span class="text-[10px] font-bold text-amber-600" title="Revised ${o.deliveryHistory.length}×">✎ revised</span>`:''}</div>
+      ${processStrip(o)}
+      ${canEditDelivery() && !o.closed ? `
+      <div class="flex flex-wrap items-center gap-2 mb-3 text-xs bg-amber-50/60 ring-1 ring-amber-100 rounded-lg px-3 py-2">
+        <span class="font-semibold text-slate-600">🗓️ Change delivery date:</span>
+        <input id="deliv-${o.order_no}" type="date" value="${o.delivery_date}" class="miniinp" style="width:9.5rem">
+        <button class="savebtn" onclick="changeDeliveryDate('${o.order_no}')">Update</button>
+        ${o.deliveryHistory&&o.deliveryHistory.length?`<span class="text-amber-700">last: ${o.deliveryHistory[o.deliveryHistory.length-1].by} · ${o.deliveryHistory[o.deliveryHistory.length-1].at}</span>`:''}
+      </div>`:''}
+      ${currentUser.role==='GM' && !o.closed ? `
+      <div class="flex flex-wrap items-center gap-2 mb-3 text-xs bg-indigo-50/60 ring-1 ring-indigo-100 rounded-lg px-3 py-2">
+        <span class="font-semibold text-slate-600">🏭 Moulding allotment:</span>
+        <select id="allot-${o.order_no}" class="miniinp" style="width:auto">
+          ${['PU','PVC','STUCKON'].map(r=>`<option value="${r}" ${(o.allottedRole||catRoleOf(o.category))===r?'selected':''}>${r}</option>`).join('')}
+        </select>
+        <button class="savebtn" onclick="allotDept('${o.order_no}')">${o.allottedRole?'Re-allot':'Allot →'}</button>
+        ${o.allottedRole
+          ? `<span class="text-emerald-700 font-semibold">✓ ${o.allottedDept}</span>`
+          : `<span class="text-rose-600 font-semibold">⚠ not yet allotted — moulding dept is locked</span>`}
+      </div>` : ''}
       <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
         ${stageEditor(o,'raw','Raw Material','Available')}
         ${stageEditor(o,'upper','Upper','Produced')}
@@ -473,6 +546,21 @@ function renderOrders(){
         ${stageEditor(o,'packing','Packing','Packed')}
         ${dispatchEditor(o)}
       </div>
+      ${(o.bill_no||o.vehicle_no||o.salesDispatched)?`<div class="mt-3 text-[11px] font-semibold text-violet-800 bg-violet-50 ring-1 ring-violet-200 rounded-lg px-3 py-2 flex flex-wrap gap-x-4 gap-y-1">
+        <span>🧾 Bill: <b>${o.bill_no||'—'}</b></span>
+        <span>🚚 Vehicle: <b>${o.vehicle_no||'—'}</b></span>
+        ${o.transporter?`<span>🚛 ${o.transporter}${o.lr_no?' · LR '+o.lr_no:''}</span>`:''}
+        ${o.dispatched_at?`<span class="text-violet-500">${o.dispatched_at}</span>`:''}
+        <span class="text-violet-600">· from Billing (Sales)</span>
+      </div>`:''}
+      ${(dl || o.delayNarration) ? `<div class="mt-3 bg-rose-50 ring-1 ring-rose-200 rounded-lg px-3 py-2">
+        <div class="text-[11px] font-bold text-rose-700 mb-1">📝 Delayed-order narration ${dl?'<span class="font-semibold text-rose-500">(order is past delivery)</span>':''}</div>
+        <textarea id="delaynote-${o.order_no}" rows="2" class="w-full text-xs rounded-md border border-rose-200 px-2 py-1 focus:ring-2 focus:ring-rose-300 outline-none" placeholder="Reason for delay / action being taken…">${o.delayNarration||''}</textarea>
+        <div class="flex items-center justify-between mt-1">
+          <span class="text-[10px] text-slate-400">${o.delayNarrationBy?'by '+o.delayNarrationBy+' · '+o.delayNarrationAt:''}</span>
+          <button class="savebtn" onclick="saveDelayNarration('${o.order_no}')">Save note</button>
+        </div>
+      </div>`:''}
       ${o.gm.requested&&!o.gm.approved?`<div class="mt-3 text-xs font-semibold text-amber-700 bg-amber-50 ring-1 ring-amber-200 rounded-lg px-3 py-2">🛎️ Production Completion Request sent — awaiting GM approval.</div>`:''}
       ${o.gm.remarks?`<div class="mt-2 text-[11px] text-rose-600">GM remark: ${o.gm.remarks}</div>`:''}
     </div>`;
@@ -495,6 +583,13 @@ function saveStage(id,stage){
   const o=find(id); if(!canEdit(stage,o)) return;
   const q=Math.max(0,Math.min(o[stage].required, +$(`#${stage}-q-${id}`).value||0));
   const s=o[stage]; s.produced=q; s.balance=s.required-q; s.pct=pctOf(q,s.required); s.by=currentUser.name; s.date=nowStr();
+  if(stage==='upper'){                                          // Req#5: capture stitching source + vendor
+    const m=$('#upper-mode-'+id); if(m) s.mode=m.value;
+    const v=$('#upper-vendor-'+id); if(v) s.vendor=(s.mode==='Out-house')?v.value.trim():'';
+  }
+  if(stage==='moulding'){                                       // Req#6: capture last date of giving moulding
+    const d=$('#moulding-lgd-'+id); if(d && d.value) s.lastGivenDate=d.value;
+  }
   logUpdate(o,stage[0].toUpperCase()+stage.slice(1),`${q}/${s.required} (${s.pct}%)`);
   toast(stage+' updated','🔧',`${id}: ${s.pct}% complete`);
   if(stage==='packing' && s.pct>=100 && !o.gm.requested){
@@ -525,6 +620,45 @@ function allotUpper(id){
   notify('approval',`Upper program allotted — ${o.order_no} (${o.customer}) → Upper Department · ${nowFull()}`);
   toast('Upper Allotted','🧵',`${id} upper program released to Upper Dept`);
   refresh();
+}
+
+// ---------- GM allots the moulding program to a category department (PU / PVC / Stuckon) ----------
+function allotDept(id){
+  const o=find(id); if(currentUser.role!=='GM') return;
+  const role = ($('#allot-'+id)||{}).value;
+  if(!['PU','PVC','STUCKON'].includes(role)) return;
+  o.allottedRole = role;
+  const dept = USERS.find(u=>u.role===role);
+  o.allottedDept = dept ? dept.title : 'Unassigned';
+  logUpdate(o,'Allotment',`Moulding allotted to ${o.allottedDept} by GM`);
+  notify('approval',`Order allotted — ${o.order_no} (${o.customer}) → 🏷️ ${o.allottedDept} · ${nowFull()}`);
+  toast('Department Allotted','🏷️',`${id} → ${o.allottedDept}`);
+  refresh();   // pushProductionStatus() carries the new allotment to the salesperson
+}
+
+// ---------- Req#1 + Req#3: GM / Master changes the delivery date (notifies the Master screen) ----------
+function changeDeliveryDate(id){
+  const o=find(id); if(!o || !canEditDelivery()) return;   // Req#3: only Komal Jain (GM) or Master
+  const nd = ($('#deliv-'+id)||{}).value;
+  if(!nd || nd===o.delivery_date) return;
+  const from = o.delivery_date;
+  o.delivery_date = nd;
+  o.deliveryHistory.push({ from, to:nd, by:currentUser.name, at:nowFull() });   // Req#1: track the change
+  logUpdate(o,'Delivery Date',`Changed ${fmt(from)} → ${fmt(nd)} by ${currentUser.name}`);
+  notify('delivery',`🗓️ Delivery date changed — ${o.order_no} (${o.customer}): ${fmt(from)} → ${fmt(nd)} by ${currentUser.name} · ${nowFull()}`);
+  toast('Delivery Date Changed','🗓️',`${id}: ${fmt(from)} → ${fmt(nd)}`);
+  refresh();   // pushProductionStatus() instantly carries the change to the Master / Sales screen
+}
+
+// ---------- Req#4: production person records why an order is delayed ----------
+function saveDelayNarration(id){
+  const o=find(id); if(!o) return;
+  if(!(canEdit('moulding',o) || canEdit('packing',o) || currentUser.role==='RMDISP' || currentUser.role==='UPPER' || currentUser.role==='GM' || IS_MASTER)) return;
+  const txt = ($('#delaynote-'+id)||{}).value.trim();
+  o.delayNarration = txt; o.delayNarrationBy = currentUser.name; o.delayNarrationAt = nowFull();
+  logUpdate(o,'Delay Note', txt || '(cleared)');
+  toast('Delay note saved','📝',`${id}: delay reason recorded`);
+  refresh();   // carried to Master / Sales via pushProductionStatus
 }
 
 // ---------- GM APPROVAL ----------
@@ -639,6 +773,12 @@ function pushProductionStatus(){
         closed: o.closed,
         doneAt: o.gm.completionStamp || (o.closed ? nowFull() : ''),   // Req#5: when the order was finished
         allottedDept: o.allottedDept,                                   // Req#2
+        category: ({PU:'PU',PVC:'PVC',STUCKON:'Stuckon'})[o.allottedRole] || '',   // INTERLINK: article's moulding category, as allotted by Komal
+        deliveryDate: o.delivery_date,                                  // Req#1: current delivery date
+        deliveryChange: (o.deliveryHistory&&o.deliveryHistory.length) ? o.deliveryHistory[o.deliveryHistory.length-1] : null,   // Req#1: latest change → Master notification
+        delayNarration: o.delayNarration || '',                         // Req#4: delay reason visible to Master/Sales
+        upperMode: o.upper.mode || 'In-house', upperVendor: o.upper.vendor || '',   // Req#5
+        mouldingLastDate: o.moulding.lastGivenDate || '',               // Req#6
         updatedBy: o.packing.by || o.moulding.by || o.upper.by || '—'
       };
     });
@@ -654,14 +794,32 @@ function updateClock(){
 
 // ===== APP LINK: pull pending orders created by Sales (Dispatch Tracker) =====
 const SHARED_KEY = 'STARKIDZ_SALES_ORDERS';
-function importSharedOrders(){
+// Copy billing + dispatch details entered by the Billing person (Sales app) onto a production order.
+// Returns true if anything actually changed (so the caller can re-render / re-toast).
+function mergeBilling(o, s){
   let changed = false;
+  ['bill_no','vehicle_no','transporter','lr_no','dispatched_at'].forEach(k=>{
+    if(s[k] && o[k] !== s[k]){ o[k] = s[k]; changed = true; }
+  });
+  if(s.dispatch_status === 'Dispatched' && !o.salesDispatched){
+    o.salesDispatched = true; changed = true;
+    notify('done', `🚚 Billed & dispatched — ${o.order_no} (${o.customer}) · Bill ${o.bill_no||'—'} · 🚚 ${o.vehicle_no||'—'} · ${o.dispatched_at||nowFull()}`);
+  }
+  return changed;
+}
+let importSawNewOrder = false;   // distinguishes a brand-new order from a billing-only update (for the toast)
+function importSharedOrders(){
+  let changed = false; importSawNewOrder = false;
   try {
     const raw = Store.getItem(SHARED_KEY); if(!raw) return false;
     const data = JSON.parse(raw); const list = (data && data.orders) || [];
     list.forEach(s=>{
+      const existing = ORDERS.find(o=>o.order_no===s.order_id);
+      if(existing){                                            // already imported → merge billing/dispatch back from Sales
+        if(mergeBilling(existing, s)) changed = true;
+        return;
+      }
       if(s.production_status!=='Pending') return;             // only NEW pending orders flow to production
-      if(ORDERS.some(o=>o.order_no===s.order_id)) return;     // already imported
       const qty = +s.quantity || 0;
       const del = new Date(s.order_date || todayISO()); del.setDate(del.getDate()+15);
       const o = mkOrder(
@@ -671,9 +829,11 @@ function importSharedOrders(){
         del.toISOString().slice(0,10), 'Medium'
       );
       o.fromSales = true; o.salesPerson = s.salesperson || 'Sales'; o.enteredBy = s.created_by || s.salesperson || 'Sales';
-      ORDERS.unshift(o);   // mkOrder already auto-allotted it to its category dept (Req#2)
-      notify('approval', `New pending order from Sales — ${o.order_no} (${o.customer}) · ${o.qty} prs → 🏷️ ${o.allottedDept} · Upper awaiting GM allotment`);
-      changed = true;
+      o.allottedRole = null; o.allottedDept = 'Unassigned';    // fully manual: KOMAL must allot the moulding dept
+      mergeBilling(o, s);
+      ORDERS.unshift(o);
+      notify('approval', `New pending order from Sales — ${o.order_no} (${o.customer}) · ${o.qty} prs → ⚠ awaiting Komal's department allotment`);
+      changed = true; importSawNewOrder = true;
     });
   } catch(e){ /* localStorage blocked */ }
   return changed;
@@ -693,6 +853,7 @@ function resolveAuth(){
 (function init(){
   const auth = resolveAuth(); if(!auth) return;
   if(auth.master){
+    IS_MASTER = true;                                    // Req#2: full master access in the Production window
     $('#userSelect').innerHTML = USERS.map(u=>`<option value="${u.id}">${u.empId} · ${u.name} — ${u.title}</option>`).join('');
     currentUser = USERS[0];
   } else {
@@ -707,7 +868,7 @@ function resolveAuth(){
   updateClock(); setInterval(updateClock,1000);
   importSharedOrders();                                   // initial pull from Sales
   // live update when Sales adds an order in another tab
-  Store.onChange(SHARED_KEY, ()=>{ if(importSharedOrders()){ refresh(); toast('New order from Sales','📥','A pending order arrived for production.'); } });   // real-time: Sales added an order
+  Store.onChange(SHARED_KEY, ()=>{ if(importSharedOrders()){ refresh(); importSawNewOrder ? toast('New order from Sales','📥','A pending order arrived — allot its moulding dept.') : toast('Billing update from Sales','🧾','Bill / vehicle / dispatch details received.'); } });   // real-time: Sales added an order or billed one
   // fallback poll (same-tab / browsers without storage events on file://)
   setInterval(()=>{ if(importSharedOrders()) refresh(); }, 4000);
   setInterval(pushProductionStatus, 5000);    // heartbeat so Sales sees us as live
