@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STAR Kidz — Sales Funnel Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- xlsx import engine (to load full Busy Consolidated_report until live API is wired) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{--ink:#0c1733;--brand:#1b3187;--accent:#5b8cff;--red:#e11d2b}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:#eef2f9;color:#0f172a}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .kpi{border-left:5px solid var(--brand)}
+  .tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .tbl th,.tbl td{border:1px solid #e6ebf3;padding:7px 10px;text-align:left;white-space:nowrap}
+  .tbl thead th{background:#f4f7fc;font-weight:700;color:#334155;cursor:pointer;position:sticky;top:0}
+  .tbl tbody tr:nth-child(even){background:#f8fafc}
+  .tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700}
+  .scrollbox{max-height:330px;overflow:auto;border-radius:10px}
+  .tab-btn{padding:10px 22px;border-radius:10px;font-weight:800;cursor:pointer;border:1px solid transparent}
+  .tab-on{background:var(--ink);color:#fff}
+  .tab-off{background:#fff;color:#475569;border-color:#dbe3f0}
+  select,input{font-family:inherit}
+  .inp{border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;font-size:13px;background:#fff}
+  a.lnk{color:var(--brand);text-decoration:none;font-weight:600}
+  a.lnk:hover{text-decoration:underline}
+  .sub-on{background:#eef3ff;color:var(--brand);border:1px solid #bdd0ff}
+  .sub-off{background:#fff;color:#64748b;border:1px solid #e2e8f0}
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header style="background:var(--ink);color:#fff">
+  <div style="max-width:1480px;margin:auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <!-- Star Kidz logo (own brand mark — NOT the magenta report logo) -->
+    <svg viewBox="0 0 64 64" style="width:42px;height:42px;flex-shrink:0"><circle cx="32" cy="32" r="30.5" fill="#fff"/><circle cx="32" cy="32" r="30.5" fill="none" stroke="#e11d2b" stroke-width="3"/><path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/><path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/></svg>
+    <div style="flex:1">
+      <div style="font-size:19px;font-weight:800;line-height:1">STAR <span style="color:var(--accent)">Kidz</span> · Sales Funnel</div>
+      <div style="font-size:11px;opacity:.7">Ojas Footwear India Pvt. Ltd. — Push &amp; Pull Sales · Busy-linked</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:11px;opacity:.8">Brand</label>
+      <select id="brandSel" class="inp" style="color:#0f172a" onchange="renderAll()">
+        <option value="all">All Brands</option>
+        <option value="Star Kidz">Star Kidz</option>
+        <option value="Star Ride">Star Ride</option>
+      </select>
+      <span id="syncBadge" class="pill" style="background:#fde68a;color:#78350f">⏳ Busy API: awaiting key — showing imported data</span>
+    </div>
+  </div>
+  <!-- Module dropdowns I / II -->
+  <div style="max-width:1480px;margin:auto;padding:0 20px 12px;display:flex;gap:10px">
+    <div id="tabPush" class="tab-btn tab-on" onclick="setModule('push')">I — Push Sale</div>
+    <div id="tabPull" class="tab-btn tab-off" onclick="setModule('pull')">II — Pull Sale</div>
+    <div id="tabOrders" class="tab-btn tab-off" onclick="setModule('orders')">III — Pending Orders by Sales</div>
+  </div>
+</header>
+
+<!-- ===== PRODUCTION TRACKER (pinned at top) ===== -->
+<div style="max-width:1480px;margin:14px auto 0;padding:0 20px">
+  <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-left:5px solid #b45309">
+    <div style="font-weight:800;color:#0f172a">🏭 Production Tracker</div>
+    <div id="prodStrip" style="display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:#334155"></div>
+    <a class="lnk" style="margin-left:auto" href="star-kidz-production-system.html">Open Production System →</a>
+  </div>
+</div>
+
+<main style="max-width:1480px;margin:auto;padding:16px 20px 60px">
+
+<!-- ================= PUSH SALE ================= -->
+<section id="view-push">
+  <!-- KPI strip -->
+  <div id="kpiStrip" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px"></div>
+
+  <!-- Filters -->
+  <div class="card" style="padding:12px 16px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+    <div><div style="font-size:11px;color:#64748b">From</div><input type="date" id="fFrom" class="inp" value="2026-06-01"></div>
+    <div><div style="font-size:11px;color:#64748b">To</div><input type="date" id="fTo" class="inp" value="2026-06-23"></div>
+    <div><div style="font-size:11px;color:#64748b">State</div><select id="fState" class="inp" onchange="renderPivots()"></select></div>
+    <div><div style="font-size:11px;color:#64748b">Salesperson</div><select id="fSP" class="inp" onchange="renderPivots()"><option value="all">All</option></select></div>
+    <div><div style="font-size:11px;color:#64748b">Machine / Mould</div><select id="fMachine" class="inp" onchange="renderPivots()"></select></div>
+    <div style="flex:1;min-width:160px"><div style="font-size:11px;color:#64748b">Customer</div><input id="fCust" class="inp" style="width:100%" placeholder="type to filter…" oninput="renderPivots()"></div>
+    <label class="inp" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700">📥 Import Busy Consolidated_report
+      <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importConsolidated(event)"></label>
+  </div>
+
+  <!-- Dual group-by pivots (Busy style) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card" style="padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <select id="grpA" class="inp" onchange="renderPivots()"></select>
+        <span style="font-size:11px;color:#94a3b8">click a column to sort</span>
+      </div>
+      <div class="scrollbox"><table class="tbl" id="pivA"></table></div>
+    </div>
+    <div class="card" style="padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <select id="grpB" class="inp" onchange="renderPivots()"></select>
+        <span style="font-size:11px;color:#94a3b8">click a column to sort</span>
+      </div>
+      <div class="scrollbox"><table class="tbl" id="pivB"></table></div>
+    </div>
+  </div>
+
+  <!-- Period comparison -->
+  <div class="card" style="padding:14px;margin-bottom:16px">
+    <div style="font-weight:800;margin-bottom:10px">📅 Current Year vs Previous Period — Customer comparison</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div><div style="font-size:12px;font-weight:700;color:var(--brand);margin-bottom:6px">23-Jun-2026 (current)</div><div class="scrollbox"><table class="tbl" id="cmpCur"></table></div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px">01-May → 31-May-2026 (previous)</div><div class="scrollbox"><table class="tbl" id="cmpPrev"></table></div></div>
+    </div>
+  </div>
+
+  <!-- Top articles + Stock + Monthly + Low billing -->
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px">
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800;margin-bottom:8px">🏆 Top-Selling Articles (Mould)</div>
+      <div class="scrollbox"><table class="tbl" id="topArt"></table></div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800;margin-bottom:8px">📦 Stock by Machine</div>
+      <div class="scrollbox"><table class="tbl" id="stockTbl"></table></div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800;margin-bottom:8px">📈 Monthly Sales — FY 25-26</div>
+      <div class="scrollbox"><table class="tbl" id="monthTbl"></table></div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800;margin-bottom:8px;color:#b91c1c">🔻 Low-Billing Distributors <span style="font-weight:500;color:#94a3b8;font-size:11px">(below ₹10L receivable / low qty)</span></div>
+      <div class="scrollbox"><table class="tbl" id="lowBill"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PULL SALE ================= -->
+<section id="view-pull" style="display:none">
+  <div id="pullKpi" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px"></div>
+
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <div class="tab-btn sub-on" id="sd" onclick="setPull('dist')" style="padding:7px 16px">🏭 Distributors</div>
+    <div class="tab-btn sub-off" id="sm" onclick="setPull('mbo')" style="padding:7px 16px">🛍️ MBOs &amp; Outlets</div>
+    <div class="tab-btn sub-off" id="sp" onclick="setPull('plat')" style="padding:7px 16px">🌐 B2B Platforms</div>
+    <input id="pullSearch" class="inp" style="margin-left:auto;min-width:220px" placeholder="🔎 search leads…" oninput="renderPull()">
+    <select id="pullCat" class="inp" onchange="renderPull()">
+      <option value="all">All categories</option><option value="New Party">New Party</option><option value="Working Party">Working Party</option>
+    </select>
+    <select id="pullStatus" class="inp" onchange="renderPull()">
+      <option value="all">All status</option><option value="Prospect">Prospect</option><option value="Pending">Pending</option><option value="Approved">Approved</option>
+    </select>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="scrollbox" style="max-height:600px"><table class="tbl" id="leadTbl"></table></div>
+  </div>
+  <div style="font-size:11px;color:#94a3b8;margin-top:10px">Auto-dedup: when a lead is moved to <b>Working</b> or appears in Busy as a billed party, it is removed from this prospect list automatically. Web-sourced contacts are official corporate / public-directory lines — re-verify before pitching.</div>
+</section>
+
+<!-- ================= PENDING ORDERS BY SALES (embedded Sales Tracker) ================= -->
+<section id="view-orders" style="display:none">
+  <div class="card" style="padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-left:5px solid #db2777">
+    <div style="font-weight:800;color:#0f172a">🚚 Pending Orders by Sales</div>
+    <div style="font-size:12px;color:#64748b">Live order tracking — Sales logs distributor orders, watches manufacturing progress, and gives dispatch allowance. All data syncs with the Production system.</div>
+    <a class="lnk" style="margin-left:auto" href="ojas-dispatch-tracker.html" target="_blank" rel="noopener">Open full screen ↗</a>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <iframe id="ordersFrame" src="ojas-dispatch-tracker.html" title="Pending Orders by Sales"
+      style="width:100%;height:calc(100vh - 230px);min-height:600px;border:0;display:block"></iframe>
+  </div>
+</section>
+
+</main>
+
+<script>
+/* ============================================================
+   STAR KIDZ — SALES FUNNEL DASHBOARD
+   Data below is REAL, extracted from the Busy exports provided
+   (Selected Period Sales, LeaderBoard, Stock, Receivable,
+    Consolidated_report screenshots) + web-sourced lead lists.
+   Live Busy API sync replaces the seed once the key is wired.
+   ============================================================ */
+const $=s=>document.querySelector(s);
+const fmtN=n=>n==null||isNaN(n)?'—':Number(n).toLocaleString('en-IN');
+const fmtCr=n=>{n=+n||0; if(n>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr'; if(n>=1e5)return '₹'+(n/1e5).toFixed(2)+' L'; return '₹'+fmtN(n)};
+
+/* ---- KPIs (exact from your Busy dashboard) ---- */
+const KPI=[
+  {l:'Today',v:'0',s:'24-Jun-2026',c:'#1b3187'},
+  {l:'Yesterday',v:'222',s:'23-Jun-2026',c:'#7c3aed'},
+  {l:'Selected Period',v:'222',s:'23–23 Jun 2026',c:'#5b8cff'},
+  {l:'Stock',v:'17,063',s:fmtCr(29876360),c:'#d97706'},
+  {l:'Receivable',v:fmtCr(87719475),s:'outstanding',c:'#059669'},
+  {l:'Payable',v:'0',s:'—',c:'#64748b'}
+];
+
+/* ---- Sales fact rows (REAL — from Consolidated_report selected-period view) ---- */
+const billRows=[
+  {billno:'Sn38/26-27/1226',qty:16,taxpaid:107069,taxless:101970},
+  {billno:'Sn38/26-27/1220',qty:12,taxpaid:59283,taxless:56460},
+  {billno:'Sn38/26-27/1213',qty:11,taxpaid:68733,taxless:65460},
+  {billno:'Ss38/26-27/0283',qty:10,taxpaid:57691,taxless:54944},
+  {billno:'Sn38/26-27/1211',qty:9,taxpaid:65457,taxless:62340},
+  {billno:'Sn38/26-27/1218',qty:8,taxpaid:37800,taxless:36000},
+  {billno:'Sn38/26-27/1215',qty:7,taxpaid:42231,taxless:40220},
+  {billno:'Sn38/26-27/1224',qty:7,taxpaid:40824,taxless:38880}
+];
+const custRows=[
+  {customer:'Mygrand Shoe Store Pvt Ltd - Katihar',city:'Katihar',state:'Bihar',qty:21,taxpaid:111531,taxless:106220},
+  {customer:'Sachdeva Enterprises - Subhash Nagar',city:'Delhi',state:'Delhi',qty:16,taxpaid:107069,taxless:101970},
+  {customer:'Sanchi Enterprises - Pimpri',city:'Pimpri',state:'Maharashtra',qty:14,taxpaid:85743,taxless:81660},
+  {customer:'Eagle Footwears - Lucknow',city:'Lucknow',state:'Uttar Pradesh',qty:11,taxpaid:68355,taxless:65100},
+  {customer:'Agarbandhu Footwear P Ltd - Muzaffarnagar',city:'Muzaffarnagar',state:'Uttar Pradesh',qty:10,taxpaid:57691,taxless:54944},
+  {customer:'Bajaj Shoe Co. - Saharanpur',city:'Saharanpur',state:'Uttar Pradesh',qty:9,taxpaid:65457,taxless:62340},
+  {customer:'Snehlata Associates - Vijaywada',city:'Vijayawada',state:'Andhra Pradesh',qty:8,taxpaid:37800,taxless:36000},
+  {customer:'Asha Agencies - Pimpri',city:'Pimpri',state:'Maharashtra',qty:7,taxpaid:40824,taxless:38880}
+];
+const custPrev=[
+  {customer:'Saravana Stores (Tex)',state:'Tamil Nadu',taxless:974653,asp:5195,contr:3},
+  {customer:'Lari Footwear - Korba',state:'Chhattisgarh',taxless:1052154,asp:6070,contr:3},
+  {customer:'Dhanani Shoes Pvt Ltd - Guwahati',state:'Assam',taxless:913748,asp:5360,contr:3},
+  {customer:'Prakash Enterprises - Bhiwandi',state:'Maharashtra',taxless:1002582,asp:6266,contr:3},
+  {customer:'Sachdeva Enterprises - Subhash Nagar',state:'Delhi',taxless:947553,asp:5958,contr:3},
+  {customer:'Kapil Shoes - Nagpur New',state:'Maharashtra',taxless:965480,asp:6144,contr:3},
+  {customer:'Nobel Associates - Hyderabad',state:'Telangana',taxless:908802,asp:6078,contr:3},
+  {customer:'Sanchi Enterprises - Pimpri',state:'Maharashtra',taxless:882630,asp:6667,contr:3}
+];
+
+/* ---- Top articles (REAL — LeaderBoard, machine mapped) ---- */
+const machineOf={Sports:'Rotary',Ksj:'Stuckon',Stanlay:'Eva',Eagle:'Rotary',Tina:'Eva','Eva Gola':'Stuckon',Sonic:'Vertical','Star Girl':'Vertical','Star Gola':'Vertical',Creta:'Pu',Luke:'Vertical',Joy:'Eva',Dash:'Vertical',Ksd:'Pu','Star Boy':'Vertical',Venus:'Pu',Ranger:'Vertical',Bear:'Vertical',Marina:'Pu',Skid:'Stuckon'};
+const topArticles=[
+  {mould:'Sports',qty:39,taxpaid:103950},{mould:'Ksj',qty:32,taxpaid:275436},{mould:'Stanlay',qty:19,taxpaid:88461},
+  {mould:'Eagle',qty:16,taxpaid:23184},{mould:'Tina',qty:16,taxpaid:81648},{mould:'Eva Gola',qty:15,taxpaid:106682},
+  {mould:'Sonic',qty:10,taxpaid:67001},{mould:'Star Girl',qty:9,taxpaid:41071},{mould:'Star Gola',qty:8,taxpaid:50731},
+  {mould:'Creta',qty:7,taxpaid:42336},{mould:'Luke',qty:7,taxpaid:39690},{mould:'Joy',qty:7,taxpaid:45696},
+  {mould:'Dash',qty:7,taxpaid:10584},{mould:'Ksd',qty:7,taxpaid:38934},{mould:'Star Boy',qty:6,taxpaid:26101},
+  {mould:'Venus',qty:4,taxpaid:27846},{mould:'Ranger',qty:3,taxpaid:18144},{mould:'Bear',qty:3,taxpaid:4158},
+  {mould:'Marina',qty:2,taxpaid:11340},{mould:'Skid',qty:2,taxpaid:5040}
+].map(a=>({...a,machine:machineOf[a.mould]||'—',taxless:Math.round(a.taxpaid/1.05)}));
+
+/* ---- Stock by machine (REAL) ---- */
+const stockRows=[
+  {machine:'Vertical',qty:6932,taxpaid:12576320},{machine:'Stuckon',qty:4555,taxpaid:5210000},
+  {machine:'Rotary',qty:1747,taxpaid:4745000},{machine:'Pu',qty:2498,taxpaid:4100000},
+  {machine:'Eva',qty:1315,taxpaid:3170040},{machine:'Out Side',qty:15,taxpaid:75000},{machine:'Air',qty:1,taxpaid:0}
+];
+/* ---- Monthly sales FY25-26 (REAL) ---- */
+const monthRows=[
+  {m:'Jun, 26',taxpaid:21289387,qty:4250},{m:'May, 26',taxpaid:34737863,qty:5885},{m:'Apr, 26',taxpaid:43243820,qty:7504},
+  {m:'Mar, 26',taxpaid:60430285,qty:10614},{m:'Feb, 26',taxpaid:50591136,qty:9085},{m:'Jan, 26',taxpaid:41719269,qty:7189},
+  {m:'Dec, 25',taxpaid:57798987,qty:10951}
+];
+/* ---- Receivables (REAL) — also feeds low-billing ---- */
+const receivables=[
+  {customer:'Saravana Stores (Tex)',amt:3575483},{customer:'Prakash Enterprises - Bhiwandi',amt:3023948},
+  {customer:'Shri Balaji Sales - Ghaziabad',amt:2573777},{customer:'Nobel Associates - Hyderabad',amt:2307830},
+  {customer:'Dhanani Shoes Pvt Ltd - Guwahati',amt:2272987},{customer:'Gauri Agencies - Pimpri',amt:2257623},
+  {customer:'Asha Agencies - Pimpri',amt:2142952},{customer:'Sachdeva Enterprises - Subhash Nagar',amt:2036625},
+  {customer:'Quality Boot House - Gorakhpur',amt:1953716},{customer:'Gupta Traders - Kanpur',amt:1702606}
+];
+
+/* ============== PULL SALE — web-sourced leads ============== */
+let LEADS=[
+  // MBOs / chains
+  {type:'MBO',name:'Metro Brands (Metro/Mochi/Walkway)',loc:'Mumbai',focus:'Crocs, Skechers, Fila, Clarks, Puma, Adidas + own labels',outlets:'1,000+',kids:'Yes',contact:'+91-22-6656-0444',email:'info@metrobrands.com',web:'https://metrobrands.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Regal Shoes',loc:'Mumbai / Delhi',focus:'Crocs, Skechers, Ecco + own Imperio & Rocia',outlets:'30+',kids:'Yes',contact:'+91-98199-39302',email:'orders@regalshoes.co.in',web:'https://regalshoes.in',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Sreeleathers',loc:'Kolkata',focus:'Own-label + limited sourced brands',outlets:'40+',kids:'Some',contact:'+91-33-2286-1506',email:'sreeleathers@sreeleathers.com',web:'https://sreeleathers.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Shoppers Stop',loc:'Mumbai',focus:'National & intl footwear + kids floor',outlets:'~120',kids:'Yes',contact:'022-42497000',email:'customercare@shoppersstop.com',web:'https://shoppersstop.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Lifestyle (Landmark Group)',loc:'Bengaluru',focus:'Hundreds of brands incl footwear + kids',outlets:'~100+',kids:'Yes',contact:'Contact page',email:'',web:'https://lifestylestores.com/in/en/contact',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'V-Mart Retail',loc:'New Delhi / Gurugram',focus:'Multiple footwear + own; strong kids; Tier 2-4',outlets:'~577',kids:'Yes',contact:'Vendor onboarding',email:'info@vmart.co.in',web:'https://vmart.co.in/contact',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'V2 Retail',loc:'Gurugram',focus:'Multiple footwear + own; kids ≈25%',outlets:'~245-305',kids:'Yes',contact:'Vendor onboarding',email:'customercare@v2kart.com',web:'https://v2retail.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Reliance Retail (Central/Smart Bazaar/Trends)',loc:'Mumbai',focus:'Multi-brand; vendor portal scm.ril.com',outlets:'Many',kids:'Yes',contact:'scm.ril.com (PAN+GST)',email:'',web:'https://relianceretail.com',source:'Vendor portal',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Vishal Mega Mart',loc:'Gurugram',focus:'Value/Hyper multi-brand',outlets:'Many',kids:'Yes',contact:'0124-4555100',email:'customercare@vishalmegamart.com',web:'https://vishalmegamart.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'DMart (Avenue Supermarts)',loc:'Mumbai',focus:'Value/Hyper multi-brand',outlets:'Many',kids:'Yes',contact:'022-6697-0100',email:'suggestion@dmartindia.com',web:'https://dmartindia.com',source:'Official site',cat:'Working Party',status:'Approved'},
+  // Distributors / wholesalers
+  {type:'Distributor',name:'Footcraft India Pvt Ltd',loc:'Panchkula, Haryana',focus:'Wholesale all incl kids; MOQ 1 carton; PAN-India + export',outlets:'',kids:'Yes',contact:'Via site/app',email:'',web:'https://footcraftindia.com',source:'Company / LinkedIn / MCA',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Cindy Footwears',loc:'New Delhi',focus:'Ladies wholesale + customization; 1,000+ styles; 400+ cities',outlets:'',kids:'Some',contact:'Via site',email:'',web:'https://cindyfootwears.com',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Picaaso Footwear',loc:'India (export)',focus:'OEM/contract mfr + wholesale; EVA/PU/TPR/PVC; private label',outlets:'',kids:'Yes',contact:'Via site',email:'',web:'https://picaasofootwear.com',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Phagun Mal & Sons',loc:'New Delhi',focus:'Kids, casual & sports footwear',outlets:'',kids:'Yes',contact:'+91 7942545149',email:'',web:'https://www.indiamart.com',source:'IndiaMART (GST, 10 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Baxxico',loc:'Agra, UP',focus:'Men/women/sports & kids (BAXXY, BOKZZON)',outlets:'',kids:'Yes',contact:'+91 8047790880',email:'',web:'https://www.indiamart.com',source:'IndiaMART (TrustSEAL, 12 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Nexxon International',loc:'Narela, New Delhi',focus:'Casual & sports shoes (BOKZZON)',outlets:'',kids:'No',contact:'+91 7949284086',email:'',web:'https://www.indiamart.com',source:'IndiaMART (TrustSEAL, 8 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Anjaniputra Paduka Pvt Ltd',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 7942783964',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Sava Udyog',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 8043823480',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Hemico',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 7942544294',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Mitsico',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 8047649165',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Venus Global Exports Co.',loc:'Secunderabad, Hyderabad',focus:'Kids (Khadim) & wholesale',outlets:'',kids:'Yes',contact:'View on IndiaMART',email:'',web:'https://www.indiamart.com',source:'IndiaMART (GST, 8 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Shri Balaji Trading Company',loc:'Nangloi, New Delhi',focus:'Kids, PVC & sports footwear',outlets:'',kids:'Yes',contact:'View on IndiaMART',email:'',web:'https://www.indiamart.com',source:'IndiaMART (TrustSEAL, 8 yrs)',cat:'New Party',status:'Prospect'},
+  // ── Web prospecting pass (Jun 2026) — verify contacts before pitching ──
+  {type:'Distributor',name:'IndianTrendShoes',loc:'Agra / Delhi / Mumbai',focus:'Mfr & wholesaler, 30 yrs; ladies & kids footwear',outlets:'',kids:'Yes',contact:'+91-9811007735 / +91-9289960080',email:'',web:'https://www.google.com/search?q=IndianTrendShoes+wholesale',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Keshav India Footwear Pvt. Ltd.',loc:'New Delhi',focus:'Kids footwear manufacturer & supplier',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://www.google.com/search?q=Keshav+India+Footwear+Pvt+Ltd',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'TFC — Thakur Footcare Industries',loc:'Agra, UP',focus:'Largest wholesaler/mfr — ladies & kids footwear',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Thakur+Footcare+Industries+Agra',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Jay Kay Sales',loc:'Agra, UP',focus:'Shoe wholesaler — formal, sports, boots, slippers',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Jay+Kay+Sales+shoe+wholesaler+Agra',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Shop Tribe (FootTales)',loc:'Mumbai',focus:'Footwear distributor since 2009; kids range',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://shoptribeindia.com/kids/',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Kats Footwear',loc:'New Delhi',focus:'Kids footwear mfr (crocs/sandals/shoes)',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://katsfootwear.com/',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Raj Sourcing',loc:'Agra, UP',focus:'Kids footwear manufacturer & exporter',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://www.rajsourcing.co.in/kids-footwear.htm',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'GT Global Trading Co.',loc:'Madhavaram, Chennai',focus:'Kids footwear (South India)',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://www.exportersindia.com/chennai/kids-footwear.htm',source:'ExportersIndia',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:"Khadim's (Khadim India Ltd.)",loc:'Kolkata',focus:'750+ outlets, 357 distributors (East); Hawai/PVC/EVA/PU/School',outlets:'750+',kids:'Yes',contact:'Franchise/vendor portal',email:'',web:'https://www.khadims.com/pages/franchisee-partnership',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Ajanta Shoes India Pvt. Ltd.',loc:'Kolkata',focus:'Men, women & kids footwear (multi-range)',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://ajantashoes.com/',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'VKC Group',loc:'Kozhikode, Kerala',focus:'Sandals/slippers/floaters/casual; mass value',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://dir.indiamart.com/impcat/vkc-footwears.html',source:'IndiaMART',cat:'New Party',status:'Prospect'}
+];
+/* B2B sourcing platforms (where to keep prospecting) */
+const PLATFORMS=[
+  {name:'IndiaMART',web:'https://www.indiamart.com/proddetail/kids-footwear.html',note:'Largest B2B; filter by GST, TrustSEAL, years, city'},
+  {name:'TradeIndia',web:'https://www.tradeindia.com',note:'Footwear distributors & wholesalers directory'},
+  {name:'ExportersIndia',web:'https://www.exportersindia.com',note:'Manufacturer/exporter listings'},
+  {name:'Justdial B2B',web:'https://www.justdial.com',note:'City-wise footwear wholesalers'},
+  {name:'Udaan',web:'https://udaan.com',note:'B2B marketplace — onboard as a seller to reach retailers'},
+  {name:'LinkedIn Sales Nav',web:'https://www.linkedin.com',note:'Category buyers / sourcing heads at MBO chains'},
+  {name:'GetDistributors',web:'https://www.getdistributors.com/kids-shoes-distributors.html',note:'Distributors actively seeking kids-footwear principals'},
+  {name:'Sulekha (city-wise)',web:'https://www.sulekha.com/kids-footwear-shops/bangalore',note:'City-wise kids footwear shops & dealers'},
+  {name:'Dial4trade',web:'https://www.dial4trade.com/bangalore/shoes.htm',note:'Shoe wholesalers & suppliers by city'}
+];
+
+/* ---- Production tracker strip (reads production app data if present) ---- */
+function renderProd(){
+  let plans='—',disp='—';
+  try{const d=JSON.parse(localStorage.getItem('STARKIDZ_PROD')||'{}');
+    if(d.machinePlans)plans=(d.machinePlans.length+(d.articlePlans?d.articlePlans.length:0))+' plans';
+    if(d.orders)disp=d.orders.filter(o=>o.dispatch&&o.dispatch.dispatched>0).length+' dispatched';
+  }catch(e){}
+  $('#prodStrip').innerHTML=`<span>📋 Active: <b>${plans}</b></span><span>🚚 ${disp}</span><span>🏭 Machines: <b>7 types</b> (Vertical · Stuckon · Rotary · Pu · Eva · Out Side · Air)</span>`;
+}
+
+/* ---- KPI render ---- */
+function renderKpi(){
+  $('#kpiStrip').innerHTML=KPI.map(k=>`<div class="card kpi" style="padding:12px 14px;border-left-color:${k.c}">
+    <div style="font-size:11px;color:#64748b;font-weight:600">${k.l}</div>
+    <div style="font-size:22px;font-weight:800;color:#0f172a">${k.v}</div>
+    <div style="font-size:11px;color:#94a3b8">${k.s}</div></div>`).join('');
+}
+
+/* ---- Generic pivot engine ---- */
+let FACT=[]; // populated by real Busy Consolidated_report import (line-item grain)
+const DIMS=['Customer Name','Billno','State','Salesperson','Machine','Mould','Open Close','City'];
+const DIMFIELD={'Customer Name':'customer','Billno':'billno','State':'state','Salesperson':'salesperson','Machine':'machine','Mould':'mould','Open Close':'openClose','City':'city'};
+const sortState={A:{col:'qty',dir:-1},B:{col:'taxpaid',dir:-1}};
+function factFiltered(){
+  let r=FACT;
+  const st=$('#fState').value,sp=$('#fSP').value,mc=$('#fMachine').value,cu=$('#fCust').value.trim().toLowerCase();
+  if(st&&st!=='all')r=r.filter(x=>x.state===st);
+  if(sp&&sp!=='all')r=r.filter(x=>x.salesperson===sp);
+  if(mc&&mc!=='all')r=r.filter(x=>x.machine===mc);
+  if(cu)r=r.filter(x=>(x.customer||'').toLowerCase().includes(cu));
+  return r;
+}
+function aggFact(dim){
+  const field=DIMFIELD[dim]||'customer',m={};
+  factFiltered().forEach(r=>{const k=r[field]||'—';(m[k]=m[k]||{qty:0,taxpaid:0,taxless:0});m[k].qty+=r.qty;m[k].taxpaid+=r.taxpaid;m[k].taxless+=r.taxless});
+  const rows=Object.keys(m).map(k=>({label:k,qty:m[k].qty,taxpaid:m[k].taxpaid,taxless:m[k].taxless}));
+  const tot=rows.reduce((s,r)=>s+r.taxpaid,0)||1;
+  rows.forEach(r=>{r.asp_taxless=r.qty?Math.round(r.taxless/r.qty):0;r.asp_taxpaid=r.qty?Math.round(r.taxpaid/r.qty):0;r.contr=+(r.taxpaid/tot*100).toFixed(1)});
+  return rows;
+}
+function aggregate(dim){
+  if(FACT.length)return aggFact(dim);
+  let rows=[];
+  const cust=filteredCust();
+  if(dim==='Customer Name')rows=cust.map(r=>({label:r.customer,qty:r.qty,taxpaid:r.taxpaid,taxless:r.taxless}));
+  else if(dim==='Billno')rows=billRows.map(r=>({label:r.billno,qty:r.qty,taxpaid:r.taxpaid,taxless:r.taxless}));
+  else if(dim==='State'||dim==='City'){const key=dim==='State'?'state':'city';const m={};cust.forEach(r=>{const k=r[key]||'—';(m[k]=m[k]||{qty:0,taxpaid:0,taxless:0});m[k].qty+=r.qty;m[k].taxpaid+=r.taxpaid;m[k].taxless+=r.taxless});rows=Object.keys(m).map(k=>({label:k,...m[k]}))}
+  else if(dim==='Mould'){let a=topArticles;const mf=$('#fMachine').value;if(mf!=='all')a=a.filter(x=>x.machine===mf);rows=a.map(r=>({label:r.mould,qty:r.qty,taxpaid:r.taxpaid,taxless:r.taxless}))}
+  else if(dim==='Machine')rows=stockRows.map(r=>({label:r.machine,qty:r.qty,taxpaid:r.taxpaid,taxless:Math.round(r.taxpaid/1.05)}));
+  else if(dim==='Salesperson')rows=[{label:'Connect Busy to split by salesperson',qty:0,taxpaid:0,taxless:0}];
+  const tot=rows.reduce((s,r)=>s+r.taxpaid,0)||1;
+  rows.forEach(r=>{r.asp_taxless=r.qty?Math.round(r.taxless/r.qty):0;r.asp_taxpaid=r.qty?Math.round(r.taxpaid/r.qty):0;r.contr=+(r.taxpaid/tot*100).toFixed(1)});
+  return rows;
+}
+function filteredCust(){
+  let r=custRows.slice();
+  const st=$('#fState').value,cu=$('#fCust').value.trim().toLowerCase();
+  if(st&&st!=='all')r=r.filter(x=>x.state===st);
+  if(cu)r=r.filter(x=>x.customer.toLowerCase().includes(cu));
+  return r;
+}
+function pivotTable(elId,dim,panel){
+  const rows=aggregate(dim),st=sortState[panel];
+  rows.sort((a,b)=>(a[st.col]>b[st.col]?1:-1)*st.dir);
+  const cols=[['label',dim,''],['qty','Qty','num'],['taxpaid','Taxpaid','num'],['taxless','Taxless','num'],['asp_taxless','ASP Taxless','num'],['asp_taxpaid','ASP Taxpaid','num'],['contr','Contr %','num']];
+  const head='<thead><tr>'+cols.map(c=>`<th class="${c[2]}" onclick="sortPiv('${panel}','${c[0]}')">${c[1]}${st.col===c[0]?(st.dir<0?' ▾':' ▴'):''}</th>`).join('')+'</tr></thead>';
+  const body='<tbody>'+rows.map(r=>`<tr><td>${r.label}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmtN(r.taxpaid)}</td><td class="num">${fmtN(r.taxless)}</td><td class="num">${fmtN(r.asp_taxless)}</td><td class="num">${fmtN(r.asp_taxpaid)}</td><td class="num">${r.contr}</td></tr>`).join('')+'</tbody>';
+  $(elId).innerHTML=head+body;
+}
+function sortPiv(panel,col){const st=sortState[panel];if(st.col===col)st.dir*=-1;else{st.col=col;st.dir=-1}renderPivots()}
+function renderPivots(){pivotTable('#pivA',$('#grpA').value,'A');pivotTable('#pivB',$('#grpB').value,'B')}
+
+/* ---- comparison + side tables ---- */
+function renderSide(){
+  $('#cmpCur').innerHTML='<thead><tr><th>Customer</th><th class="num">Qty</th><th class="num">Taxless</th><th class="num">ASP</th></tr></thead><tbody>'+
+    custRows.map(r=>`<tr><td>${r.customer}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmtN(r.taxless)}</td><td class="num">${fmtN(Math.round(r.taxless/r.qty))}</td></tr>`).join('')+'</tbody>';
+  $('#cmpPrev').innerHTML='<thead><tr><th>Customer</th><th class="num">Taxless</th><th class="num">ASP</th><th class="num">Contr</th></tr></thead><tbody>'+
+    custPrev.map(r=>`<tr><td>${r.customer}</td><td class="num">${fmtN(r.taxless)}</td><td class="num">${fmtN(r.asp)}</td><td class="num">${r.contr}</td></tr>`).join('')+'</tbody>';
+  $('#topArt').innerHTML='<thead><tr><th>Mould</th><th>Machine</th><th class="num">Sales Qty</th><th class="num">Taxpaid</th><th class="num">ASP</th></tr></thead><tbody>'+
+    topArticles.slice().sort((a,b)=>b.qty-a.qty).map((r,i)=>`<tr><td>${i<3?'🏅 ':''}${r.mould}</td><td>${r.machine}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmtN(r.taxpaid)}</td><td class="num">${fmtN(Math.round(r.taxpaid/r.qty))}</td></tr>`).join('')+'</tbody>';
+  $('#stockTbl').innerHTML='<thead><tr><th>Machine</th><th class="num">Stock Qty</th><th class="num">Value</th></tr></thead><tbody>'+
+    stockRows.map(r=>`<tr><td>${r.machine}</td><td class="num">${fmtN(r.qty)}</td><td class="num">${fmtCr(r.taxpaid)}</td></tr>`).join('')+
+    `<tr style="font-weight:800;background:#f1f5f9"><td>Total</td><td class="num">17,063</td><td class="num">${fmtCr(29876360)}</td></tr></tbody>`;
+  $('#monthTbl').innerHTML='<thead><tr><th>Month</th><th class="num">Sales</th><th class="num">Qty</th></tr></thead><tbody>'+
+    monthRows.map(r=>`<tr><td>${r.m}</td><td class="num">${fmtCr(r.taxpaid)}</td><td class="num">${fmtN(r.qty)}</td></tr>`).join('')+
+    `<tr style="font-weight:800;background:#f1f5f9"><td>FY 25-26</td><td class="num">${fmtCr(309810747)}</td><td class="num">55,478</td></tr></tbody>`;
+  $('#lowBill').innerHTML='<thead><tr><th>Customer</th><th class="num">Receivable</th><th>Flag</th></tr></thead><tbody>'+
+    receivables.filter(r=>r.amt<2200000).map(r=>`<tr><td>${r.customer}</td><td class="num">${fmtCr(r.amt)}</td><td><span class="pill" style="background:#fee2e2;color:#b91c1c">watch</span></td></tr>`).join('')+'</tbody>';
+}
+
+/* ---- filters population ---- */
+function fillFilters(){
+  const src=FACT.length?FACT:null;
+  const states=src?[...new Set(src.map(r=>r.state))].filter(Boolean).sort():[...new Set(custRows.map(r=>r.state))].sort();
+  $('#fState').innerHTML='<option value="all">All States</option>'+states.map(s=>`<option>${s}</option>`).join('');
+  const mach=src?[...new Set(src.map(r=>r.machine))].filter(Boolean).sort():[...new Set(stockRows.map(r=>r.machine))];
+  $('#fMachine').innerHTML='<option value="all">All Machines</option>'+mach.map(s=>`<option>${s}</option>`).join('');
+  const sps=src?[...new Set(src.map(r=>r.salesperson))].filter(s=>s&&s!=='—').sort():[];
+  $('#fSP').innerHTML='<option value="all">All</option>'+sps.map(s=>`<option>${s}</option>`).join('');
+  $('#grpA').innerHTML=DIMS.map(d=>`<option ${d==='Billno'?'selected':''}>${d}</option>`).join('');
+  $('#grpB').innerHTML=DIMS.map(d=>`<option ${d==='Customer Name'?'selected':''}>${d}</option>`).join('');
+}
+
+/* ---- Busy Consolidated_report import (full real data) ---- */
+function importConsolidated(e){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      // Busy export has a title banner — find the real header row (the one with "Billno")
+      let h=-1;for(let i=0;i<15;i++){if((aoa[i]||[]).some(c=>String(c).trim()==='Billno')){h=i;break}}
+      if(h<0){alert('Could not find the Billno header row — is this a Consolidated_report export?');return}
+      const H=aoa[h].map(x=>String(x).trim()),col=n=>H.indexOf(n);
+      const ci={billno:col('Billno'),customer:col('Customer Name'),state:col('State'),salesperson:col('Salesperson'),machine:col('Machine'),openClose:col('Open Close'),mould:col('Mould'),taxpaid:col('Taxpaidvalue'),taxless:col('Taxlessvalue'),qty:col('Qty')};
+      const num=v=>+(String(v==null?'':v).replace(/,/g,''))||0;
+      const norm=v=>{const s=String(v==null?'':v).trim();return (s===''||s==='-')?'—':s};
+      FACT=[];
+      for(let i=h+1;i<aoa.length;i++){const r=aoa[i];if(!r||!r.length)continue;
+        const c=String(r[ci.customer]||'').trim(),bill=String(r[ci.billno]||'').trim();
+        if(!c&&!bill)continue;
+        if(bill.toLowerCase()==='total'||c.toLowerCase()==='total')continue; // skip Busy grand-total row (was double-counting)
+        const city=c.includes(' - ')?c.split(' - ').pop().replace(/[()]/g,'').trim():'—';
+        FACT.push({billno:bill,customer:c,city,state:norm(r[ci.state]),salesperson:norm(r[ci.salesperson]),machine:norm(r[ci.machine]),openClose:norm(r[ci.openClose]),mould:norm(r[ci.mould]),qty:num(r[ci.qty]),taxpaid:num(r[ci.taxpaid]),taxless:num(r[ci.taxless])});
+      }
+      // rebuild current-period customer & bill tables from the real fact rows
+      const cm={};FACT.forEach(r=>{if(!r.customer)return;(cm[r.customer]=cm[r.customer]||{customer:r.customer,city:r.city,state:r.state,qty:0,taxpaid:0,taxless:0});cm[r.customer].qty+=r.qty;cm[r.customer].taxpaid+=r.taxpaid;cm[r.customer].taxless+=r.taxless});
+      custRows.length=0;Object.values(cm).sort((a,b)=>b.taxpaid-a.taxpaid).slice(0,200).forEach(r=>custRows.push(r));
+      const bm={};FACT.forEach(r=>{if(!r.billno)return;(bm[r.billno]=bm[r.billno]||{billno:r.billno,qty:0,taxpaid:0,taxless:0});bm[r.billno].qty+=r.qty;bm[r.billno].taxpaid+=r.taxpaid;bm[r.billno].taxless+=r.taxless});
+      billRows.length=0;Object.values(bm).sort((a,b)=>b.taxpaid-a.taxpaid).slice(0,200).forEach(r=>billRows.push(r));
+      $('#syncBadge').textContent='✅ Imported '+FACT.length.toLocaleString('en-IN')+' bill-lines · '+Object.keys(cm).length+' customers';
+      $('#syncBadge').style.background='#bbf7d0';$('#syncBadge').style.color='#166534';
+      fillFilters();renderAll();
+    }catch(err){alert('Import failed: '+err.message)}
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+/* ---- Pull Sale ---- */
+let pullTab='dist';
+function setPull(t){pullTab=t;['sd','sm','sp'].forEach(id=>{$('#'+id).className='tab-btn sub-off';$('#'+id).style.padding='7px 16px'});
+  $('#'+({dist:'sd',mbo:'sm',plat:'sp'}[t])).className='tab-btn sub-on';$('#'+({dist:'sd',mbo:'sm',plat:'sp'}[t])).style.padding='7px 16px';renderPull()}
+function renderPullKpi(){
+  const d=LEADS.filter(l=>l.type==='Distributor').length,m=LEADS.filter(l=>l.type==='MBO').length;
+  const ap=LEADS.filter(l=>l.status==='Approved').length,pe=LEADS.filter(l=>l.status==='Pending').length,pr=LEADS.filter(l=>l.status==='Prospect').length;
+  const k=[['Total Leads',LEADS.length,'#1b3187'],['Distributors',d,'#7c3aed'],['MBOs / Outlets',m,'#5b8cff'],['Pending Approval',pe,'#d97706'],['Approved / Working',ap,'#059669']];
+  $('#pullKpi').innerHTML=k.map(x=>`<div class="card kpi" style="padding:12px 14px;border-left-color:${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
+}
+function renderPull(){
+  renderPullKpi();
+  if(pullTab==='plat'){
+    $('#leadTbl').innerHTML='<thead><tr><th>Platform</th><th>Profile / Link</th><th>How to use</th></tr></thead><tbody>'+
+      PLATFORMS.map(p=>`<tr><td><b>${p.name}</b></td><td><a class="lnk" href="${p.web}" target="_blank" rel="noopener">${p.web.replace('https://','')}</a></td><td>${p.note}</td></tr>`).join('')+'</tbody>';
+    return;
+  }
+  const q=$('#pullSearch').value.trim().toLowerCase(),cat=$('#pullCat').value,stf=$('#pullStatus').value;
+  let rows=LEADS.filter(l=>pullTab==='dist'?l.type==='Distributor':l.type==='MBO');
+  if(q)rows=rows.filter(l=>(l.name+l.loc+l.focus+l.email).toLowerCase().includes(q));
+  if(cat!=='all')rows=rows.filter(l=>l.cat===cat);
+  if(stf!=='all')rows=rows.filter(l=>l.status===stf);
+  const stPill=s=>({Prospect:'background:#e2e8f0;color:#475569',Pending:'background:#fef3c7;color:#92400e',Approved:'background:#bbf7d0;color:#166534'}[s]);
+  $('#leadTbl').innerHTML='<thead><tr><th>Company</th><th>Location</th><th>Brands / Focus</th><th>Outlets</th><th>Kids</th><th>Contact</th><th>Profile</th><th>Source</th><th>Category</th><th>Status</th><th>Action</th></tr></thead><tbody>'+
+    rows.map((l,i)=>{const idx=LEADS.indexOf(l);return `<tr>
+      <td><b>${l.name}</b></td><td>${l.loc}</td><td style="white-space:normal;max-width:280px">${l.focus}</td>
+      <td>${l.outlets||'—'}</td><td>${l.kids||'—'}</td>
+      <td style="white-space:normal">${l.contact||''}${l.email?'<br><a class="lnk" href="mailto:'+l.email+'">'+l.email+'</a>':''}</td>
+      <td><a class="lnk" href="${l.web}" target="_blank" rel="noopener">visit ↗</a></td>
+      <td style="font-size:11px;color:#64748b">${l.source}</td>
+      <td><span class="pill" style="${l.cat==='Working Party'?'background:#dbeafe;color:#1e40af':'background:#f3e8ff;color:#7c3aed'}">${l.cat}</span></td>
+      <td><span class="pill" style="${stPill(l.status)}">${l.status}</span></td>
+      <td><select class="inp" style="font-size:11px;padding:3px 6px" onchange="moveLead(${idx},this.value)">
+        <option ${l.status==='Prospect'?'selected':''}>Prospect</option>
+        <option ${l.status==='Pending'?'selected':''}>Pending</option>
+        <option ${l.status==='Approved'?'selected':''}>Approved</option>
+      </select></td></tr>`}).join('')+'</tbody>';
+}
+function moveLead(i,status){
+  LEADS[i].status=status;
+  if(status==='Approved'){LEADS[i].cat='Working Party';} // moved to Working → would auto-remove on next Busy sync
+  renderPull();
+}
+
+/* ---- module switch ---- */
+function setModule(m){
+  $('#view-push').style.display=m==='push'?'':'none';
+  $('#view-pull').style.display=m==='pull'?'':'none';
+  $('#view-orders').style.display=m==='orders'?'':'none';
+  $('#tabPush').className='tab-btn '+(m==='push'?'tab-on':'tab-off');
+  $('#tabPull').className='tab-btn '+(m==='pull'?'tab-on':'tab-off');
+  $('#tabOrders').className='tab-btn '+(m==='orders'?'tab-on':'tab-off');
+  if(m==='pull')renderPull();
+}
+function renderAll(){renderKpi();renderPivots();renderSide()}
+
+/* init */
+fillFilters();renderProd();renderAll();renderPull();
+</script>
+</body>
+</html>

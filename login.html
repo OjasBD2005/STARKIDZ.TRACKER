@@ -4,115 +4,279 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>STAR Kidz · Secure Login — Ojas Footwear</title>
-<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Apply saved theme BEFORE first paint (no flash) -->
 <script>
-tailwind.config = { theme:{ extend:{
-  colors:{ brand:{400:'#f472b6',500:'#ec4899',600:'#db2777',700:'#be185d'}, ink:'#0a1430' },
-  fontFamily:{ sans:['Manrope','system-ui','sans-serif'] }
-}}}
+(function(){try{var t=localStorage.getItem('STARKIDZ_THEME')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
+
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
-body{font-family:'Manrope',system-ui,sans-serif}
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
-/* ---- Professional background: shoe photo + dark overlay (gradient fallback if image missing) ---- */
-.bg-stage{
-  position:fixed; inset:0;
-  background:
-    linear-gradient(120deg, rgba(10,20,48,.86), rgba(10,20,48,.72) 45%, rgba(190,24,93,.45)),
-    #0a1430 url('shoes-bg.jpg') center/cover no-repeat;
+/* ============ THEME TOKENS ============ */
+:root{
+  --brand-red:#e11d2b; --brand-red-dk:#b01421;
+  --brand-pink:#ec4899; --brand-pink-dk:#db2777;
 }
-.bg-stage::after{ /* soft vignette + brand glow */
-  content:""; position:absolute; inset:0;
-  background:radial-gradient(circle at 75% 30%, rgba(236,72,153,.22), transparent 55%);
+html[data-theme="dark"]{
+  --bg-a:#070d1f; --bg-b:#0a1430; --bg-c:#141e3f;
+  --card-bg:rgba(15,21,38,.66); --card-ring:rgba(255,255,255,.14);
+  --text:#ffffff; --muted:rgba(255,255,255,.55); --muted2:rgba(255,255,255,.38);
+  --inp-bg:rgba(255,255,255,.06); --inp-border:rgba(255,255,255,.14); --inp-focus-bg:rgba(255,255,255,.10);
+  --orb1:rgba(236,72,153,.30); --orb2:rgba(51,88,224,.32); --orb3:rgba(225,29,43,.20);
+  --grid:rgba(236,72,153,.13);
+  --chip-bg:rgba(255,255,255,.07); --chip-border:rgba(255,255,255,.12);
+  --shadow:0 30px 70px -20px rgba(0,0,0,.65);
+  --float-opacity:.85;
 }
-.glass{ background:rgba(15,21,35,.62); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
-.inp{ width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
-  color:#fff; border-radius:.85rem; padding:.8rem 1rem .8rem 2.6rem; font-size:.92rem; outline:none; transition:.15s; }
-.inp::placeholder{ color:rgba(255,255,255,.45) }
-.inp:focus{ border-color:#ec4899; box-shadow:0 0 0 3px rgba(236,72,153,.25); background:rgba(255,255,255,.09) }
-.field{ position:relative }
-.field .ic{ position:absolute; left:.9rem; top:50%; transform:translateY(-50%); opacity:.6 }
-.signin{ background:linear-gradient(90deg,#ec4899,#db2777); transition:transform .15s, box-shadow .2s, filter .2s; }
-.signin:hover{ transform:translateY(-2px); box-shadow:0 14px 30px -10px rgba(219,39,119,.6) }
-.signin:active{ transform:scale(.98) }
-.card-in{ animation:cin .6s cubic-bezier(.2,.8,.2,1) both }
-@keyframes cin{ from{opacity:0; transform:translateY(20px) scale(.98)} to{opacity:1; transform:none} }
-.shake{ animation:shk .4s }
-@keyframes shk{ 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-7px)} 40%,80%{transform:translateX(7px)} }
+html[data-theme="light"]{
+  --bg-a:#fff7f2; --bg-b:#fdf2f6; --bg-c:#eef3ff;
+  --card-bg:rgba(255,255,255,.78); --card-ring:rgba(225,29,43,.14);
+  --text:#1a2340; --muted:rgba(26,35,64,.60); --muted2:rgba(26,35,64,.40);
+  --inp-bg:rgba(255,255,255,.85); --inp-border:rgba(26,35,64,.16); --inp-focus-bg:#ffffff;
+  --orb1:rgba(236,72,153,.18); --orb2:rgba(51,88,224,.16); --orb3:rgba(255,170,60,.22);
+  --grid:rgba(225,29,43,.09);
+  --chip-bg:rgba(255,255,255,.7); --chip-border:rgba(26,35,64,.10);
+  --shadow:0 30px 60px -22px rgba(26,35,64,.30);
+  --float-opacity:.9;
+}
 
-/* ---- Star loading animation ---- */
-#loader{ position:fixed; inset:0; z-index:60; display:none; place-items:center;
-  background:rgba(8,12,22,.86); backdrop-filter:blur(6px); }
-#loader.show{ display:grid; animation:fade .3s ease }
-@keyframes fade{ from{opacity:0} to{opacity:1} }
-.loader-wrap{ text-align:center }
-.star-orbit{ width:120px; height:120px; margin:0 auto; position:relative }
-.star-orbit .ring{ position:absolute; inset:0; border-radius:50%;
-  border:4px solid transparent; border-top-color:#ec4899; border-right-color:#db2777;
-  animation:spin 1s linear infinite; filter:drop-shadow(0 0 8px rgba(236,72,153,.5)) }
-.star-orbit .ring2{ inset:14px; border-top-color:#ffffff55; border-right-color:transparent; border-left-color:#db277755;
-  animation:spin 1.6s linear infinite reverse }
-.star-orbit .core{ position:absolute; inset:0; display:grid; place-items:center; animation:pulse 1.1s ease-in-out infinite }
-.spark{ position:absolute; width:7px; height:7px; border-radius:50%; background:#f472b6; box-shadow:0 0 10px #ec4899;
-  top:50%; left:50%; margin:-3.5px; animation:orbit 1.4s linear infinite }
-.spark.s2{ animation-delay:.7s; background:#fff }
-@keyframes spin{ to{ transform:rotate(360deg) } }
-@keyframes pulse{ 0%,100%{ transform:scale(.82) } 50%{ transform:scale(1.08) } }
-@keyframes orbit{ from{ transform:rotate(0) translateX(60px) } to{ transform:rotate(360deg) translateX(60px) } }
-.dots::after{ content:""; animation:dots 1.4s steps(4,end) infinite }
-@keyframes dots{ 0%{content:""} 25%{content:"."} 50%{content:".."} 75%{content:"..."} 100%{content:""} }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Manrope',system-ui,sans-serif; color:var(--text); overflow:hidden;
+  background:linear-gradient(135deg,var(--bg-a),var(--bg-b) 55%,var(--bg-c));
+  transition:background .5s ease,color .3s ease;
+}
+
+/* ============ 3D BACKGROUND SCENE ============ */
+.scene{position:fixed;inset:0;perspective:900px;overflow:hidden;pointer-events:none}
+
+/* glowing depth orbs */
+.orb{position:absolute;border-radius:50%;filter:blur(70px);animation:orbDrift 16s ease-in-out infinite alternate}
+.orb.o1{width:480px;height:480px;background:var(--orb1);top:-12%;left:-8%}
+.orb.o2{width:420px;height:420px;background:var(--orb2);bottom:-15%;right:-6%;animation-delay:-6s}
+.orb.o3{width:300px;height:300px;background:var(--orb3);top:55%;left:12%;animation-delay:-11s}
+@keyframes orbDrift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(60px,-40px,0) scale(1.15)}}
+
+/* moving 3D perspective floor */
+.floor{
+  position:absolute;left:-60%;right:-60%;bottom:-12%;height:62%;
+  background-image:linear-gradient(var(--grid) 1.5px,transparent 1.5px),linear-gradient(90deg,var(--grid) 1.5px,transparent 1.5px);
+  background-size:46px 46px;
+  transform:perspective(620px) rotateX(63deg);transform-origin:top center;
+  animation:floorMove 14s linear infinite;
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 28%,#000 78%,transparent);
+          mask-image:linear-gradient(to bottom,transparent,#000 28%,#000 78%,transparent);
+}
+@keyframes floorMove{to{background-position:0 46px,0 0}}
+
+/* 3D spinning brand stars (coin-flip effect) */
+.star3d{position:absolute;transform-style:preserve-3d;animation:starSpin 7s linear infinite;opacity:var(--float-opacity);filter:drop-shadow(0 14px 22px rgba(225,29,43,.35))}
+.star3d svg{display:block}
+.star3d.s1{top:13%;left:9%;width:74px;animation-duration:8s}
+.star3d.s2{top:64%;right:8%;width:56px;animation-duration:6.4s;animation-delay:-2s}
+.star3d.s3{top:9%;right:20%;width:40px;animation-duration:9.5s;animation-delay:-4s}
+@keyframes starSpin{from{transform:rotateY(0) rotateZ(-8deg)}to{transform:rotateY(360deg) rotateZ(-8deg)}}
+
+/* floating footwear / sparkles at varied 3D depths */
+.float-el{position:absolute;opacity:var(--float-opacity);animation:floatY 6s ease-in-out infinite alternate;text-shadow:0 18px 30px rgba(0,0,0,.25);user-select:none}
+.float-el.f1{font-size:64px;top:22%;right:11%;animation-duration:5.4s;transform:translateZ(80px)}
+.float-el.f2{font-size:44px;bottom:24%;left:7%;animation-duration:6.8s;animation-delay:-2s}
+.float-el.f3{font-size:34px;top:42%;left:16%;animation-duration:7.5s;animation-delay:-1s;filter:blur(1.2px)}
+.float-el.f4{font-size:50px;bottom:14%;right:24%;animation-duration:5.9s;animation-delay:-3s}
+.float-el.f5{font-size:26px;top:30%;left:42%;animation-duration:8s;animation-delay:-4s;filter:blur(1.6px)}
+.float-el.f6{font-size:30px;top:74%;left:38%;animation-duration:6.2s;animation-delay:-2.6s;filter:blur(.8px)}
+@keyframes floatY{from{transform:translateY(-14px) rotate(-7deg)}to{transform:translateY(16px) rotate(8deg)}}
+
+@media (prefers-reduced-motion:reduce){
+  .star3d,.float-el,.orb,.floor{animation:none!important}
+}
+
+/* ============ THEME TOGGLE ============ */
+.theme-toggle{
+  position:fixed;top:18px;right:18px;z-index:45;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  background:var(--chip-bg);border:1px solid var(--chip-border);color:var(--text);
+  border-radius:9999px;padding:8px 14px;font-family:'Manrope',sans-serif;font-weight:700;font-size:13px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transition:transform .15s ease,background .3s;
+}
+.theme-toggle:hover{transform:translateY(-2px)}
+.theme-toggle .ico{font-size:16px;line-height:1}
+
+/* ============ LOGIN CARD (3D tilt) ============ */
+.stage{position:relative;z-index:10;min-height:100vh;display:grid;place-items:center;padding:24px;perspective:1100px}
+.tilt{transform-style:preserve-3d;transition:transform .18s ease-out;will-change:transform}
+.card{
+  width:100%;max-width:400px;border-radius:28px;padding:38px 34px 30px;
+  background:var(--card-bg);border:1px solid var(--card-ring);
+  backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);
+  box-shadow:var(--shadow);
+  animation:cardIn .7s cubic-bezier(.2,.8,.2,1) both;
+  position:relative;overflow:hidden;
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+/* shine sweep */
+.card::before{
+  content:"";position:absolute;top:-60%;left:-80%;width:55%;height:220%;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.16),transparent);
+  transform:rotate(8deg);animation:shine 6s ease-in-out infinite;
+}
+@keyframes shine{0%,72%{left:-80%}88%{left:140%}100%{left:140%}}
+
+/* card content sits above shine */
+.card>*{position:relative}
+
+.logo-wrap{display:flex;flex-direction:column;align-items:center;transform:translateZ(40px)}
+.logo-wrap img{height:64px;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(225,29,43,.3))}
+.brand-name{font-family:'Fredoka',sans-serif;font-weight:700;font-size:30px;letter-spacing:.5px;margin-top:10px}
+.brand-name b{color:var(--brand-red)}
+.tagline{font-size:12px;color:var(--muted);margin-top:4px;text-align:center}
+
+.chips{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.chip{font-size:10.5px;font-weight:700;padding:4px 11px;border-radius:9999px;background:var(--chip-bg);border:1px solid var(--chip-border);color:var(--muted)}
+
+h1.welcome{font-family:'Fredoka',sans-serif;font-weight:600;font-size:19px;text-align:center;margin-top:22px;transform:translateZ(30px)}
+p.sub{text-align:center;font-size:12px;color:var(--muted);margin-top:3px}
+
+form{margin-top:22px;display:flex;flex-direction:column;gap:14px;transform:translateZ(25px)}
+.field{position:relative}
+.field .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.6;font-size:15px}
+.inp{
+  width:100%;background:var(--inp-bg);border:1px solid var(--inp-border);color:var(--text);
+  border-radius:14px;padding:13px 44px 13px 42px;font-size:14px;font-family:'Manrope',sans-serif;font-weight:600;
+  outline:none;transition:border-color .15s,box-shadow .15s,background .15s;
+}
+.inp::placeholder{color:var(--muted2);font-weight:500}
+.inp:focus{border-color:var(--brand-pink);box-shadow:0 0 0 3px rgba(236,72,153,.22);background:var(--inp-focus-bg)}
+.eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;opacity:.55;padding:4px}
+.eye:hover{opacity:1}
+
+.err{display:none;color:#f43f5e;font-size:12px;font-weight:700}
+
+.signin{
+  border:none;cursor:pointer;border-radius:14px;padding:14px;margin-top:2px;
+  font-family:'Fredoka',sans-serif;font-weight:600;font-size:16px;letter-spacing:.4px;color:#fff;
+  background:linear-gradient(92deg,var(--brand-red),var(--brand-pink) 60%,var(--brand-pink-dk));
+  background-size:160% 100%;
+  box-shadow:0 12px 28px -8px rgba(225,29,43,.5);
+  transition:transform .15s,box-shadow .2s,background-position .3s;
+}
+.signin:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(236,72,153,.6);background-position:90% 0}
+.signin:active{transform:scale(.97)}
+
+.foot{margin-top:24px;text-align:center;font-size:11px;color:var(--muted2)}
+.foot a{color:var(--brand-pink);text-decoration:none;font-weight:700}
+.foot a:hover{text-decoration:underline}
+
+.shake{animation:shk .4s}
+@keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
+/* ============ STAR LOADER ============ */
+#loader{position:fixed;inset:0;z-index:60;display:none;place-items:center;background:rgba(8,12,22,.88);backdrop-filter:blur(8px)}
+html[data-theme="light"] #loader{background:rgba(255,247,242,.92)}
+#loader.show{display:grid;animation:fade .3s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.loader-wrap{text-align:center}
+.star-orbit{width:130px;height:130px;margin:0 auto;position:relative;transform-style:preserve-3d}
+.star-orbit .ring{position:absolute;inset:0;border-radius:50%;border:4px solid transparent;border-top-color:var(--brand-pink);border-right-color:var(--brand-red);animation:spin 1s linear infinite;filter:drop-shadow(0 0 10px rgba(236,72,153,.5))}
+.star-orbit .ring2{inset:16px;border-top-color:rgba(255,255,255,.35);border-right-color:transparent;border-left-color:rgba(225,29,43,.35);animation:spin 1.6s linear infinite reverse}
+html[data-theme="light"] .star-orbit .ring2{border-top-color:rgba(26,35,64,.25)}
+.star-orbit .core{position:absolute;inset:0;display:grid;place-items:center;animation:coreSpin 2.2s linear infinite}
+@keyframes coreSpin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+.spark{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--brand-pink);box-shadow:0 0 12px var(--brand-pink);top:50%;left:50%;margin:-4px;animation:orbit 1.4s linear infinite}
+.spark.s2{animation-delay:.7s;background:var(--brand-red);box-shadow:0 0 12px var(--brand-red)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes orbit{from{transform:rotate(0) translateX(65px)}to{transform:rotate(360deg) translateX(65px)}}
+.load-brand{font-family:'Fredoka',sans-serif;font-weight:700;font-size:24px;margin-top:24px;color:var(--text)}
+.load-brand b{color:var(--brand-red)}
+.load-msg{margin-top:6px;font-size:13px;color:var(--muted)}
+.dots::after{content:"";animation:dots 1.4s steps(4,end) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}100%{content:""}}
+
+@media(max-width:480px){
+  .card{padding:30px 24px 24px;border-radius:22px}
+  .float-el.f3,.float-el.f5{display:none}
+}
 </style>
+
 <!-- PWA: installable app (website + Microsoft Store) -->
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#1b3187" />
 <link rel="icon" type="image/svg+xml" href="icon.svg" />
 <link rel="apple-touch-icon" href="icon.svg" />
 <script src="pwa.js" defer></script>
+<script src="croc-loader.js"></script>
 </head>
-<body class="text-white">
+<body>
 
-<div class="bg-stage"></div>
+<!-- ============ 3D BACKGROUND ============ -->
+<div class="scene" aria-hidden="true">
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  <div class="floor"></div>
+
+  <!-- spinning brand stars -->
+  <div class="star3d s1"><svg viewBox="0 0 64 64"><path d="M32 6 L38.6 24.4 L58.2 25 L42.7 37 L48.2 55.8 L32 44.8 L15.8 55.8 L21.3 37 L5.8 25 L25.4 24.4 Z" fill="#e11d2b"/><path d="M32 6 L32 44.8 L15.8 55.8 L21.3 37 L5.8 25 L25.4 24.4 Z" fill="#b01421"/></svg></div>
+  <div class="star3d s2"><svg viewBox="0 0 64 64"><path d="M32 6 L38.6 24.4 L58.2 25 L42.7 37 L48.2 55.8 L32 44.8 L15.8 55.8 L21.3 37 L5.8 25 L25.4 24.4 Z" fill="#ec4899"/><path d="M32 6 L32 44.8 L15.8 55.8 L21.3 37 L5.8 25 L25.4 24.4 Z" fill="#db2777"/></svg></div>
+  <div class="star3d s3"><svg viewBox="0 0 64 64"><path d="M32 6 L38.6 24.4 L58.2 25 L42.7 37 L48.2 55.8 L32 44.8 L15.8 55.8 L21.3 37 L5.8 25 L25.4 24.4 Z" fill="#f59e0b"/><path d="M32 6 L32 44.8 L15.8 55.8 L21.3 37 L5.8 25 L25.4 24.4 Z" fill="#d97706"/></svg></div>
+
+  <!-- floating footwear (our products!) -->
+  <div class="float-el f1">👟</div>
+  <div class="float-el f2">👡</div>
+  <div class="float-el f3">🩴</div>
+  <div class="float-el f4">✨</div>
+  <div class="float-el f5">⭐</div>
+  <div class="float-el f6">💫</div>
+</div>
+
+<!-- ============ THEME TOGGLE ============ -->
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark / light mode">
+  <span class="ico" id="themeIco">🌙</span><span id="themeLbl">Dark</span>
+</button>
 
 <!-- ============ LOGIN CARD ============ -->
-<main class="relative min-h-screen grid place-items-center px-5 py-10">
-  <div class="card-in glass w-full max-w-sm rounded-3xl ring-1 ring-white/15 shadow-2xl p-8">
+<main class="stage">
+  <div class="tilt" id="tilt">
+    <div class="card" id="card">
 
-    <!-- Brand logo (real PNG with SVG fallback) -->
-    <div class="flex flex-col items-center">
-      <img id="logoImg" src="star-kidz-logo-full.svg" alt="STAR Kidz"
-           class="h-16 object-contain drop-shadow-lg" onerror="logoFallback()" />
-      <div id="logoSvg" class="hidden flex-col items-center">
-        <div class="h-16 w-16 grid place-items-center">
-          <svg viewBox="0 0 64 64" class="h-16 w-16">
+      <div class="logo-wrap">
+        <img id="logoImg" src="star-kidz-logo-full.svg" alt="STAR Kidz" onerror="logoFallback()" />
+        <div id="logoSvg" style="display:none;flex-direction:column;align-items:center">
+          <svg viewBox="0 0 64 64" style="height:60px;width:60px">
             <circle cx="32" cy="32" r="30.5" fill="#ffffff"/>
             <circle cx="32" cy="32" r="30.5" fill="none" stroke="#d4172a" stroke-width="3"/>
             <path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/>
             <path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/>
           </svg>
         </div>
-        <p class="mt-1 text-2xl font-extrabold tracking-tight">STAR <span class="text-brand-500">Kidz</span></p>
+        <p class="brand-name">STAR <b>Kidz</b></p>
+        <p class="tagline">Every step filled with joy, comfort &amp; style</p>
+        <div class="chips">
+          <span class="chip">⭐ Mom Verified</span>
+          <span class="chip">👣 Happy Feet Guaranteed</span>
+        </div>
       </div>
+
+      <h1 class="welcome">Welcome back!</h1>
+      <p class="sub">Sign in to the Ojas Footwear portal</p>
+
+      <form id="loginForm" onsubmit="doLogin(event)">
+        <div class="field">
+          <span class="ic">👤</span>
+          <input id="username" class="inp" placeholder="Username" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <span class="ic">🔒</span>
+          <input id="password" type="password" class="inp" placeholder="Password" autocomplete="current-password" required />
+          <button type="button" class="eye" onclick="togglePw()" id="eyeBtn" aria-label="Show password">👁️</button>
+        </div>
+        <p id="err" class="err"></p>
+        <button type="submit" class="signin">Sign In →</button>
+      </form>
+
+      <p class="foot">© 2026 Ojas Footwear Pvt. Ltd. · <a href="https://www.starkidz.co.in" target="_blank" rel="noopener">starkidz.co.in</a></p>
     </div>
-
-    <h1 class="mt-6 text-center text-lg font-extrabold">Welcome back</h1>
-    <p class="text-center text-xs text-white/55 mt-1">Sign in to the Ojas Footwear portal</p>
-
-    <form id="loginForm" class="mt-7 space-y-3.5" onsubmit="doLogin(event)">
-      <div class="field">
-        <span class="ic">👤</span>
-        <input id="username" class="inp" placeholder="Username" autocomplete="username" required />
-      </div>
-      <div class="field">
-        <span class="ic">🔒</span>
-        <input id="password" type="password" class="inp" placeholder="Password" autocomplete="current-password" required />
-        <button type="button" onclick="togglePw()" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 text-xs font-semibold">SHOW</button>
-      </div>
-      <p id="err" class="hidden text-rose-300 text-xs font-semibold"></p>
-      <button type="submit" class="signin w-full font-bold rounded-xl py-3 mt-1 shadow-lg">Sign In →</button>
-    </form>
-
-    <p class="mt-6 text-center text-[11px] text-white/40">© 2026 Ojas Footwear Pvt. Ltd. · STAR Kidz</p>
   </div>
 </main>
 
@@ -124,56 +288,101 @@ body{font-family:'Manrope',system-ui,sans-serif}
       <div class="ring ring2"></div>
       <span class="spark"></span><span class="spark s2"></span>
       <div class="core">
-        <svg viewBox="0 0 64 64" class="h-12 w-12">
-          <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#db2777"/></linearGradient></defs>
+        <svg viewBox="0 0 64 64" style="height:52px;width:52px">
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#e11d2b"/></linearGradient></defs>
           <path d="M32 8 l6.5 13.2 14.5 2.1 -10.5 10.2 2.5 14.5 -13-6.8 -13 6.8 2.5-14.5 -10.5-10.2 14.5-2.1 z" fill="url(#lg)"/>
         </svg>
       </div>
     </div>
-    <p class="mt-6 text-lg font-extrabold">STAR <span class="text-brand-500">Kidz</span></p>
-    <p id="loadMsg" class="mt-1 text-sm text-white/60 dots">Securing your session</p>
+    <p class="load-brand">STAR <b>Kidz</b></p>
+    <p id="loadMsg" class="load-msg dots">Securing your session</p>
   </div>
 </div>
 
 <script>
-// identity registry (client-side demo gate — real auth runs on the Python backend)
+// ============ THEME (dark / light) ============
+function applyThemeUI(){
+  const t=document.documentElement.getAttribute('data-theme');
+  document.getElementById('themeIco').textContent = t==='dark' ? '🌙' : '☀️';
+  document.getElementById('themeLbl').textContent = t==='dark' ? 'Dark' : 'Light';
+}
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme');
+  const next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('STARKIDZ_THEME',next);}catch(_){}
+  applyThemeUI();
+}
+applyThemeUI();
+
+// ============ 3D CARD TILT (mouse parallax) ============
+(function(){
+  const tilt=document.getElementById('tilt');
+  const fine=window.matchMedia('(pointer:fine)').matches;
+  const noMotion=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if(!fine||noMotion)return;
+  const MAX=7; // degrees
+  window.addEventListener('mousemove',e=>{
+    const cx=window.innerWidth/2, cy=window.innerHeight/2;
+    const rx=((e.clientY-cy)/cy)*-MAX, ry=((e.clientX-cx)/cx)*MAX;
+    tilt.style.transform=`rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+  });
+  window.addEventListener('mouseleave',()=>{tilt.style.transform='rotateX(0) rotateY(0)'});
+})();
+
+// ============ IDENTITY REGISTRY (client-side demo gate) ============
 const USERS = {
   'RENU':'9254174722','SANJEEV':'9999534491','DHEERAJ':'9015087041','SHAMSHAD':'9254174708','SHUBHAMI':'9254174722',
   'KOMAL JAIN':'9215060303','SUPERVISOR 1':'24-25','SUPERVISOR 2':'64-65','SUPERVISOR:3':'24-65',
-  'SUPERVISOR-4':'65-25','SUPERVISOR :5':'64-25','MASTER':'8920250291',
-  'DISPATCH 1':'OJAS64','DISPATCH2':'OJAS65'        // SUSHIL, SANDEEP (Billing / Dispatch)
+  'SUPERVISOR-4':'65-25','SUPERVISOR :5':'64-25',
+  'SUPERVISOR 6':'OJAS@64',                          // Cutting Incharge
+  'SUPERVISOR 7':'OJAS@64-64',                       // Raw Material Store Person
+  'MASTER':'8920250291',
+  'SUSHIL':'OJAS64','DISPATCH 1':'OJAS64',          // SUSHIL = DISPATCH 1 (same person, same password)
+  'DISPATCH2':'OJAS65'                               // SANDEEP (Billing / Dispatch)
 };
 
 // route each person to the dashboard they own
 function destFor(u){
-  const sales=['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI','DISPATCH 1','DISPATCH2'];  // Sales + Billing/Dispatch
-  const prod =['KOMAL JAIN','SUPERVISOR 1','SUPERVISOR 2','SUPERVISOR:3','SUPERVISOR-4','SUPERVISOR :5'];
+  const sales=['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI','DISPATCH2'];  // Sales + Billing/Dispatch
+  const prod =['KOMAL JAIN','SUPERVISOR 1','SUPERVISOR 2','SUPERVISOR:3','SUPERVISOR-4','SUPERVISOR :5','SUPERVISOR 6','SUPERVISOR 7','SUSHIL','DISPATCH 1'];
   if(u==='MASTER') return 'index.html';                 // master = global control
   if(sales.includes(u)) return 'ojas-dispatch-tracker.html';
   if(prod.includes(u))  return 'star-kidz-production-system.html';
   return 'index.html';
 }
-function logoFallback(){ document.getElementById('logoImg').style.display='none';
-  document.getElementById('logoSvg').classList.remove('hidden'); document.getElementById('logoSvg').classList.add('flex'); }
-function togglePw(){ const p=document.getElementById('password'); p.type = p.type==='password'?'text':'password'; }
+function logoFallback(){
+  document.getElementById('logoImg').style.display='none';
+  document.getElementById('logoSvg').style.display='flex';
+}
+function togglePw(){
+  const p=document.getElementById('password');
+  const showing=p.type==='text';
+  p.type=showing?'password':'text';
+  document.getElementById('eyeBtn').textContent=showing?'👁️':'🙈';
+}
 
 function doLogin(e){
   e.preventDefault();
   const u=document.getElementById('username').value.trim();
   const p=document.getElementById('password').value.trim();
-  const err=document.getElementById('err'), card=document.querySelector('.card-in');
+  const err=document.getElementById('err'), card=document.getElementById('card');
   const ok = USERS[u] !== undefined && USERS[u]===p;
   if(!ok){
     err.textContent='Invalid username or password. Please try again.';
-    err.classList.remove('hidden'); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    err.style.display='block'; card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
     return;
   }
-  err.classList.add('hidden');
-  // show the star loading design
-  document.getElementById('loader').classList.add('show');
+  err.style.display='none';
+  // show the crocs loading design
+  if(window.CrocLoader){ CrocLoader.show('Securing your session'); }
+  else { document.getElementById('loader').classList.add('show'); }
   try{ localStorage.setItem('STARKIDZ_USER', u); }catch(_){}
   // brief premium transition, then enter THIS PERSON'S OWN dashboard
-  setTimeout(()=>{ document.getElementById('loadMsg').textContent='Loading your dashboard'; }, 1400);
+  setTimeout(()=>{
+    if(window.CrocLoader){ CrocLoader.show('Loading your dashboard'); }
+    else { document.getElementById('loadMsg').textContent='Loading your dashboard'; }
+  }, 1400);
   setTimeout(()=>{ window.location.href = destFor(u); }, 2600);
 }
 </script>

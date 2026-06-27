@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>STAR Kidz — Production System User Manual</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',Arial,sans-serif;color:#1e293b;background:#fff;font-size:13px;line-height:1.6}
+
+/* ── PRINT SETUP ── */
+@page{size:A4;margin:18mm 15mm 18mm 15mm}
+@media print{
+  .no-print{display:none!important}
+  .page-break{page-break-after:always}
+  .avoid-break{page-break-inside:avoid}
+  body{font-size:11.5px}
+  .cover{page-break-after:always}
+}
+
+/* ── PRINT BUTTON ── */
+.print-bar{background:#1b3187;color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:99}
+.print-bar h1{font-size:14px;font-weight:700}
+.print-btn{background:#fff;color:#1b3187;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer}
+.print-btn:hover{background:#eef3ff}
+
+/* ── COVER PAGE ── */
+.cover{background:linear-gradient(135deg,#0c1733 0%,#1b3187 60%,#2442b8 100%);color:#fff;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px}
+.cover-logo{width:72px;height:72px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:24px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.cover h1{font-size:34px;font-weight:800;letter-spacing:-0.5px;margin-bottom:8px}
+.cover h1 span{color:#60a5fa}
+.cover .subtitle{font-size:15px;color:rgba(255,255,255,.75);margin-bottom:32px;font-weight:500}
+.cover .divider{width:60px;height:3px;background:#60a5fa;border-radius:2px;margin:0 auto 32px}
+.cover .doc-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.cover .doc-sub{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:40px}
+.cover-meta{display:flex;gap:32px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+.cover-meta-item{text-align:center}
+.cover-meta-item .label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
+.cover-meta-item .value{font-size:14px;font-weight:700}
+
+/* ── SECTION HEADERS ── */
+.section-header{background:#0c1733;color:#fff;padding:10px 16px;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:8px 8px 0 0;margin-top:24px}
+.section-header.blue{background:#1d4ed8}
+.section-header.green{background:#15803d}
+.section-header.amber{background:#92400e}
+.section-header.violet{background:#6d28d9}
+.section-header.rose{background:#9f1239}
+.section-header.teal{background:#0f766e}
+.section-header.slate{background:#334155}
+
+/* ── CARDS / BOXES ── */
+.card{border:1px solid #e2e8f0;border-radius:0 0 8px 8px;padding:16px 18px;margin-bottom:20px;background:#fff}
+.card.top-radius{border-radius:8px;margin-top:8px}
+.info-box{background:#eff6ff;border-left:4px solid #3b82f6;padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0;font-size:12px}
+.warn-box{background:#fffbeb;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0;font-size:12px}
+.tip-box{background:#f0fdf4;border-left:4px solid #22c55e;padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0;font-size:12px}
+
+/* ── PAGE TITLES ── */
+.page-title{font-size:20px;font-weight:800;color:#0f172a;margin:28px 0 4px;border-bottom:3px solid #1b3187;padding-bottom:8px}
+.page-sub{color:#64748b;font-size:12px;margin-bottom:20px}
+
+/* ── ROLE GRID ── */
+.role-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:12px 0}
+.role-card{border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;background:#f8fafc}
+.role-card .role-title{font-weight:700;font-size:12px;color:#0f172a;margin-bottom:2px}
+.role-card .role-name{font-size:13px;font-weight:800;color:#1b3187}
+.role-card .role-access{font-size:11px;color:#64748b;margin-top:4px;line-height:1.4}
+.role-badge{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:2px 8px;letter-spacing:.04em}
+.rb-gm{background:#fce7f3;color:#9d174d}
+.rb-plan{background:#ede9fe;color:#6d28d9}
+.rb-sup{background:#dbeafe;color:#1d4ed8}
+.rb-rm{background:#d1fae5;color:#065f46}
+.rb-disp{background:#fef3c7;color:#92400e}
+
+/* ── STEPS ── */
+.steps{list-style:none;padding:0;margin:10px 0}
+.steps li{display:flex;gap:12px;margin-bottom:10px;align-items:flex-start}
+.step-num{min-width:24px;height:24px;border-radius:50%;background:#1b3187;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-text{flex:1;font-size:12.5px}
+.step-text b{color:#1b3187}
+
+/* ── TABLE ── */
+table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+th{background:#f1f5f9;text-align:left;padding:7px 10px;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0}
+td{padding:6px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+tr:hover td{background:#fafafa}
+.badge{display:inline-block;font-size:10px;font-weight:700;border-radius:9999px;padding:2px 9px}
+.bg-green{background:#dcfce7;color:#15803d}
+.bg-blue{background:#dbeafe;color:#1d4ed8}
+.bg-amber{background:#fef3c7;color:#92400e}
+.bg-violet{background:#ede9fe;color:#6d28d9}
+.bg-rose{background:#ffe4e6;color:#9f1239}
+.bg-slate{background:#f1f5f9;color:#475569}
+
+/* ── WORKFLOW DIAGRAM ── */
+.flow{display:flex;flex-wrap:wrap;gap:0;align-items:center;margin:14px 0}
+.flow-step{background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;padding:8px 12px;font-size:11.5px;font-weight:700;color:#1e40af;text-align:center;min-width:90px}
+.flow-arrow{color:#94a3b8;font-size:16px;margin:0 4px;font-weight:700}
+
+/* ── TOC ── */
+.toc-section{margin:8px 0}
+.toc-section h3{font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.toc-item{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dotted #e2e8f0;font-size:12px}
+.toc-item:last-child{border-bottom:none}
+.toc-num{color:#64748b;font-size:11px}
+
+/* ── SCREEN MOCKUP ── */
+.screen-mock{background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:12px 0}
+.screen-mock .mock-header{background:#0c1733;color:#fff;padding:8px 14px;font-size:11px;font-weight:700;display:flex;gap:10px;align-items:center}
+.screen-mock .mock-body{padding:12px 14px;font-size:11.5px}
+.mock-sidebar{display:inline-block;background:#111827;color:#d1d5db;border-radius:6px;padding:6px 10px;font-size:10px;margin-right:6px;vertical-align:middle}
+.mock-btn{display:inline-block;background:#2442b8;color:#fff;border-radius:5px;padding:3px 10px;font-size:10px;font-weight:700;margin:2px}
+.mock-btn.green{background:#15803d}
+.mock-btn.red{background:#dc2626}
+.mock-btn.amber{background:#d97706}
+.mock-btn.outline{background:#fff;color:#334155;border:1px solid #cbd5e1}
+
+/* ── DEPT BADGE ── */
+.dept{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;margin:2px}
+.dept.pvc{background:#fce7f3;color:#9d174d}
+.dept.pu{background:#dbeafe;color:#1e40af}
+.dept.eva{background:#d1fae5;color:#065f46}
+.dept.stuck{background:#fef3c7;color:#92400e}
+
+/* ── HIGHLIGHT ── */
+.hl{background:#fef9c3;padding:1px 4px;border-radius:3px;font-weight:600}
+.key{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:1px 7px;font-size:11px;font-family:monospace;font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- PRINT BAR -->
+<div class="print-bar no-print">
+  <h1>⭐ STAR Kidz — Production System Tutorial</h1>
+  <button class="print-btn" onclick="window.print()">🖨️ Save as PDF (Ctrl+P)</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     COVER PAGE
+══════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">⭐</div>
+  <h1>STAR <span>Kidz</span></h1>
+  <p class="subtitle">Ojas Footwear India Private Limited · Jaipur</p>
+  <div class="divider"></div>
+  <p class="doc-title">Production Planning &amp; Tracking System</p>
+  <p class="doc-sub">Complete User Manual &amp; Role Guide</p>
+  <div style="background:rgba(255,255,255,.1);border-radius:12px;padding:16px 28px;display:inline-block;margin-top:10px">
+    <p style="font-size:11px;color:rgba(255,255,255,.6);text-align:center;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Departments Covered</p>
+    <p style="font-size:13px;font-weight:600;text-align:center">Upper · PU · PVC · Stuckon · Eva Crocs · Cutting · Raw Material · Dispatch</p>
+  </div>
+  <div class="cover-meta">
+    <div class="cover-meta-item"><div class="label">Document</div><div class="value">User Manual v1.0</div></div>
+    <div class="cover-meta-item"><div class="label">System</div><div class="value">Production Portal</div></div>
+    <div class="cover-meta-item"><div class="label">Prepared By</div><div class="value">STAR Kidz BD Team</div></div>
+    <div class="cover-meta-item"><div class="label">Confidential</div><div class="value">Internal Use Only</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TABLE OF CONTENTS
+══════════════════════════════════════════ -->
+<div style="padding:0 4px" class="page-break">
+  <p class="page-title">Table of Contents</p>
+  <p class="page-sub">STAR Kidz Production System — Complete User Manual</p>
+
+  <div class="toc-section">
+    <h3>Getting Started</h3>
+    <div class="toc-item"><span>1. System Overview</span><span class="toc-num">Page 3</span></div>
+    <div class="toc-item"><span>2. How to Login</span><span class="toc-num">Page 3</span></div>
+    <div class="toc-item"><span>3. User Roles &amp; Access</span><span class="toc-num">Page 4</span></div>
+    <div class="toc-item"><span>4. Navigation — Sidebar Guide</span><span class="toc-num">Page 4</span></div>
+  </div>
+
+  <div class="toc-section" style="margin-top:14px">
+    <h3>For Komal Jain — General Manager</h3>
+    <div class="toc-item"><span>5. Dashboard Overview</span><span class="toc-num">Page 5</span></div>
+    <div class="toc-item"><span>6. Pending Orders — Allotting New Sales Orders</span><span class="toc-num">Page 5</span></div>
+    <div class="toc-item"><span>7. GM Approval Workflow</span><span class="toc-num">Page 6</span></div>
+    <div class="toc-item"><span>8. Production Orders View</span><span class="toc-num">Page 6</span></div>
+    <div class="toc-item"><span>9. Reports</span><span class="toc-num">Page 7</span></div>
+  </div>
+
+  <div class="toc-section" style="margin-top:14px">
+    <h3>For Sushil — Planning &amp; Billing</h3>
+    <div class="toc-item"><span>10. Machine Running Plan</span><span class="toc-num">Page 7</span></div>
+    <div class="toc-item"><span>11. Upper Planning</span><span class="toc-num">Page 8</span></div>
+    <div class="toc-item"><span>12. Article Planning</span><span class="toc-num">Page 8</span></div>
+    <div class="toc-item"><span>13. Packing Planning</span><span class="toc-num">Page 9</span></div>
+  </div>
+
+  <div class="toc-section" style="margin-top:14px">
+    <h3>For Department Supervisors</h3>
+    <div class="toc-item"><span>14. Supervisor 1 — Upper Department</span><span class="toc-num">Page 9</span></div>
+    <div class="toc-item"><span>15. Supervisor 2 — PU Department</span><span class="toc-num">Page 10</span></div>
+    <div class="toc-item"><span>16. Supervisor 3 — PVC Department</span><span class="toc-num">Page 10</span></div>
+    <div class="toc-item"><span>17. Supervisor 4 — Stuckon Department</span><span class="toc-num">Page 11</span></div>
+    <div class="toc-item"><span>18. Supervisor 5 — Eva Crocs Injection</span><span class="toc-num">Page 11</span></div>
+    <div class="toc-item"><span>19. Supervisor 6 — Cutting Incharge</span><span class="toc-num">Page 12</span></div>
+    <div class="toc-item"><span>20. Supervisor 7 — Raw Material Store</span><span class="toc-num">Page 12</span></div>
+    <div class="toc-item"><span>21. Supervisor 8 — Dispatch</span><span class="toc-num">Page 13</span></div>
+  </div>
+
+  <div class="toc-section" style="margin-top:14px">
+    <h3>System Reference</h3>
+    <div class="toc-item"><span>22. Machines &amp; Moulds Master</span><span class="toc-num">Page 13</span></div>
+    <div class="toc-item"><span>23. Inventory Management</span><span class="toc-num">Page 14</span></div>
+    <div class="toc-item"><span>24. Full Production Workflow — End to End</span><span class="toc-num">Page 14</span></div>
+    <div class="toc-item"><span>25. Quick Reference Card (All Roles)</span><span class="toc-num">Page 15</span></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 1 — OVERVIEW & LOGIN
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">1 &amp; 2 — System Overview &amp; Login</p>
+<p class="page-sub">What this system does and how to access it</p>
+
+<div class="section-header">What is the STAR Kidz Production System?</div>
+<div class="card">
+  <p>The <b>STAR Kidz Production Planning &amp; Tracking System</b> is the internal portal used to manage the complete manufacturing lifecycle — from the moment a Sales Order arrives from the Sales team, through all production stages, to final dispatch.</p>
+  <div class="info-box" style="margin-top:10px">
+    <b>Two apps work together:</b><br>
+    &bull; <b>Sales App (ojas-dispatch-tracker)</b> — Sales team enters orders, tracks status, allows dispatch.<br>
+    &bull; <b>Production App (this system)</b> — Production team receives orders, plans, executes, and reports completion back to Sales in real time.
+  </div>
+  <p style="margin-top:10px">Both apps automatically <b>sync every 4–5 seconds</b> via a shared link (Firebase/localStorage). No manual export or WhatsApp needed.</p>
+</div>
+
+<div class="section-header blue">How to Login</div>
+<div class="card">
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Open <b>login.html</b> in your browser (or the shared link/PWA icon on your phone).</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Select your <b>name</b> from the dropdown list.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Enter your <b>password</b>. Each role has a unique password (see table below).</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Click <b>Login</b>. You will be redirected to the Production System automatically.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">The system loads your <b>role-specific view</b> — you only see what is relevant to your job.</span></li>
+  </ol>
+
+  <table style="margin-top:12px">
+    <tr><th>Name / Role</th><th>Login Username</th><th>Password</th><th>Lands On</th></tr>
+    <tr><td><b>KOMAL JAIN</b> — GM</td><td>KOMAL JAIN</td><td>OJAS@GM</td><td>Production System</td></tr>
+    <tr><td><b>SUSHIL</b> — Planning</td><td>SUSHIL</td><td>OJAS@PL</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 1</b> — Upper</td><td>SUPERVISOR 1</td><td>OJAS@64</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 2</b> — PU</td><td>SUPERVISOR 2</td><td>OJAS@64</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 3</b> — PVC</td><td>SUPERVISOR:3</td><td>OJAS@64</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 4</b> — Stuckon</td><td>SUPERVISOR-4</td><td>OJAS@64</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 5</b> — Eva Crocs</td><td>SUPERVISOR :5</td><td>OJAS@64</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 6</b> — Cutting</td><td>SUPERVISOR 6</td><td>OJAS@64</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 7</b> — RM Store</td><td>SUPERVISOR 7</td><td>OJAS@64-64</td><td>Production System</td></tr>
+    <tr><td><b>Supervisor 8</b> — Dispatch</td><td>DISPATCH 1</td><td>OJAS@64</td><td>Production System</td></tr>
+  </table>
+
+  <div class="warn-box" style="margin-top:10px">
+    <b>Important:</b> Never share your password. Each login is role-restricted — you only see data for your department. If you log in as the wrong user, click <b>Logout</b> from the header.
+  </div>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 3 — ROLES
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">3 — User Roles &amp; Access Rights</p>
+<p class="page-sub">Who can see what in the production system</p>
+
+<div class="section-header">Role Summary</div>
+<div class="card">
+  <div class="role-grid">
+    <div class="role-card">
+      <div class="role-name">KOMAL JAIN <span class="role-badge rb-gm">GM</span></div>
+      <div class="role-title">General Manager</div>
+      <div class="role-access">Full access to all orders, all departments. Allots new orders to departments. Approves completed orders for dispatch. Can see all planning, reports, and inventory.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">SUSHIL <span class="role-badge rb-plan">PLANNING</span></div>
+      <div class="role-title">Planning &amp; Billing</div>
+      <div class="role-access">Creates Machine Plans, Upper Plans, Article Plans, Packing Plans. Full access to all orders and inventory. Manages costing master and product BOM.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 1 <span class="role-badge rb-sup">UPPER</span></div>
+      <div class="role-title">Upper Department</div>
+      <div class="role-access">Sees all orders. Updates Upper production stage progress. Manages Upper Issuance — assigns upper-making to contractors or in-house. Tracks pending receipt queue.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 2 <span class="role-badge rb-sup">PU</span></div>
+      <div class="role-title">PU Department</div>
+      <div class="role-access">Sees only orders allotted to PU. Updates Moulding and Packing stage progress for PU orders. Logs variance/shortfall with reason.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 3 <span class="role-badge rb-sup">PVC</span></div>
+      <div class="role-title">PVC Department</div>
+      <div class="role-access">Sees only PVC orders. Updates Moulding and Packing progress. PVC machines include both ROTARY (chappals) and VERTICLE (shoes).</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 4 <span class="role-badge rb-sup">STUCKON</span></div>
+      <div class="role-title">Stuckon Department</div>
+      <div class="role-access">Sees only Stuckon orders. Updates Moulding and Packing stage progress.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 5 <span class="role-badge rb-sup">EVA</span></div>
+      <div class="role-title">Eva Crocs Injection</div>
+      <div class="role-access">Sees only Eva Crocs orders. Operates STANLEY machines (STANLEY-1, 2, 201, 601). Updates Moulding and Packing stage. Sizes: 20–36 in sets A/B/C.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 6 <span class="role-badge rb-sup">CUTTING</span></div>
+      <div class="role-title">Cutting Incharge</div>
+      <div class="role-access">First stage in the pipeline. Sets Cutting mode (In-house / Contractor), contractor name, fabricator type, and last delivery date to Upper dept.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 7 <span class="role-badge rb-rm">RMSTORE</span></div>
+      <div class="role-title">Raw Material Store</div>
+      <div class="role-access">Manages inventory. Checks BOM vs stock for each active order. Allots raw material to departments. Manages allotment queue.</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Supervisor 8 <span class="role-badge rb-disp">DISPATCH</span></div>
+      <div class="role-title">Dispatch</div>
+      <div class="role-access">Sees all orders that are GM-approved and Sales-allowed for dispatch. Records dispatch details: vehicle, qty, date.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-header green">Section 4 — Navigation: Sidebar Guide</div>
+<div class="card">
+  <p style="margin-bottom:10px">The <b>left sidebar</b> is your main menu. Click any item to open that view. Some sections are collapsible — click the section header to expand/collapse.</p>
+  <table>
+    <tr><th>Sidebar Item</th><th>What It Does</th><th>Who Sees It</th></tr>
+    <tr><td>📊 Dashboard</td><td>Live KPI cards: active orders, machines running today, low stock alerts</td><td>Everyone</td></tr>
+    <tr><td>🏭 Production Planning</td><td>Sub-menu: Machine Plan, Upper Plan, Article Plan, Packing Plan</td><td>GM, Planning</td></tr>
+    <tr><td>📜 Production Orders</td><td>All active orders with stage-by-stage progress bars</td><td>GM, Planning, Upper, Dispatch</td></tr>
+    <tr><td>📥 My Pending Queue</td><td>Material allotments waiting for your acknowledgement</td><td>Supervisors (dept-wise)</td></tr>
+    <tr><td>⚠️ Pendency Log</td><td>Orders with raw material shortfalls, with narration log</td><td>GM, Planning, RM Store</td></tr>
+    <tr><td>🧵 Upper Issuance</td><td>Assign upper-making work: in-house or contractor</td><td>Supervisor 1 (Upper)</td></tr>
+    <tr><td>👥 People &amp; Contractors</td><td>Contractor directory used in Cutting and Upper stages</td><td>GM, Planning, Cutting</td></tr>
+    <tr><td>🏪 Raw Material Store</td><td>BOM Stock Check + Allotment Queue + Inventory</td><td>Supervisor 7 (RM Store)</td></tr>
+    <tr><td>📥 Pending Orders</td><td>New orders from Sales waiting for Komal to allot a department</td><td>GM, Planning</td></tr>
+    <tr><td>📦 Inventory</td><td>Stock List, Movement Log, Product BOM, Costing Master</td><td>GM, Planning, RM Store</td></tr>
+    <tr><td>🔧 Machines &amp; Moulds</td><td>Machine master with capacity; Article-Mould mapping</td><td>GM, Planning</td></tr>
+    <tr><td>✅ GM Approval</td><td>Orders requesting completion — Komal reviews and approves</td><td>GM, Planning</td></tr>
+    <tr><td>📑 Reports</td><td>Dept-wise production, dispatch, pending order summary</td><td>GM, Planning</td></tr>
+    <tr><td>⚙️ Settings</td><td>System settings, user management</td><td>GM, Planning</td></tr>
+  </table>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 5-9 — KOMAL JAIN (GM)
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">5–9 — For Komal Jain (General Manager)</p>
+<p class="page-sub">Complete guide for all GM functions</p>
+
+<div class="section-header rose">Section 5 — Dashboard Overview</div>
+<div class="card">
+  <p>When you log in as <b>KOMAL JAIN</b>, the Dashboard shows your <b>live factory status</b>:</p>
+  <div class="role-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
+    <div class="role-card" style="text-align:center"><div style="font-size:20px">📋</div><div class="role-title" style="font-weight:700">Total Orders</div><div class="role-access">All active production orders currently in the system</div></div>
+    <div class="role-card" style="text-align:center"><div style="font-size:20px">🏭</div><div class="role-title" style="font-weight:700">Machine Plans Today</div><div class="role-access">Number of machine run plans issued for today's shift</div></div>
+    <div class="role-card" style="text-align:center"><div style="font-size:20px">⚠️</div><div class="role-title" style="font-weight:700">Low Stock Items</div><div class="role-access">Raw materials at or below minimum level</div></div>
+    <div class="role-card" style="text-align:center"><div style="font-size:20px">🚫</div><div class="role-title" style="font-weight:700">Out of Stock</div><div class="role-access">Materials with zero stock — needs urgent action</div></div>
+    <div class="role-card" style="text-align:center"><div style="font-size:20px">📊</div><div class="role-title" style="font-weight:700">Total Units in Stock</div><div class="role-access">Sum of all inventory units across all SKUs</div></div>
+    <div class="role-card" style="text-align:center"><div style="font-size:20px">✅</div><div class="role-title" style="font-weight:700">GM Approval Pending</div><div class="role-access">Completed orders waiting for your approval to dispatch</div></div>
+  </div>
+  <div class="tip-box">Below the KPI cards you will also see a <b>list of recent orders</b> and quick links to jump directly to orders needing your attention.</div>
+</div>
+
+<div class="section-header rose">Section 6 — Pending Orders: Allotting a New Sales Order</div>
+<div class="card">
+  <p>When the Sales team places a new order, it appears in <span class="hl">📥 Pending Orders</span> waiting for you to review and allot it to a production department.</p>
+
+  <ol class="steps" style="margin-top:12px">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>📥 Pending Orders</b> in the sidebar. A red badge shows how many orders need attention.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Review each order card: <b>Order No, Customer, Article, Size Range, Qty, Delivery Date, Priority.</b></span></li>
+    <li><span class="step-num">3</span><span class="step-text">Click <b>Allot Department</b>. A form appears — select the <b>Moulding Category</b>:<br>
+      <span class="dept pu">PU</span> <span class="dept pvc">PVC</span> <span class="dept stuck">Stuckon</span> <span class="dept eva">Eva Crocs Injection</span></span></li>
+    <li><span class="step-num">4</span><span class="step-text">Enter the <b>Committed Completion Date</b> — the date you promise to complete this order by.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">Optionally tick <b>"Mark as Planned"</b> if you have already planned the machine/shift for this order.</span></li>
+    <li><span class="step-num">6</span><span class="step-text">Click <b>Save Allotment</b>. The order moves to <b>Production Orders</b> and the Sales team immediately sees <span class="badge bg-blue">🎯 Komal committed [date]</span> on their side.</span></li>
+    <li><span class="step-num">7</span><span class="step-text">The correct department supervisor is automatically assigned (e.g., PVC → Supervisor 3) and the order appears in their queue.</span></li>
+  </ol>
+  <div class="warn-box">If a new order arrives but the article is not yet in the system, contact Sushil (Planning) to add the article and BOM first.</div>
+</div>
+</div>
+
+<div class="page-break">
+<div class="section-header rose">Section 7 — GM Approval Workflow</div>
+<div class="card">
+  <p>When a supervisor completes packing on an order and requests GM sign-off, a notification appears on your screen. The order will also show a blue badge on <span class="hl">✅ GM Approval</span> in the sidebar.</p>
+
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>✅ GM Approval</b> in the sidebar. You will see all orders that have requested completion.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Each order shows: <b>Order details, department, quantity made, packing %, completion date.</b></span></li>
+    <li><span class="step-num">3</span><span class="step-text">Review the order. If satisfied, click <b>✅ Approve &amp; Send to Dispatch</b>.<br>
+    If there is a problem, click <b>Send Back</b> with a remark explaining what needs to be fixed.</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Once approved, the Sales team sees the order status change to <span class="badge bg-green">In Stock — Awaiting Dispatch Allowance</span>.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">The Sales person then clicks <b>Allow Dispatch</b> and the order moves to Supervisor 8 (Dispatch).</span></li>
+  </ol>
+
+  <div class="info-box"><b>Key Rule:</b> An order CANNOT be dispatched unless:<br>
+  (1) Production marked it 100% packed &rarr; (2) Komal approves &rarr; (3) Sales allows dispatch &rarr; (4) Supervisor 8 dispatches.</div>
+</div>
+
+<div class="section-header rose">Section 8 — Production Orders View</div>
+<div class="card">
+  <p>Click <b>📜 Production Orders</b> to see <b>all active orders</b> in the factory with their current stage.</p>
+
+  <table>
+    <tr><th>Stage</th><th>What It Means</th><th>Who Updates It</th></tr>
+    <tr><td><span class="badge bg-slate">New Order</span></td><td>Order received from Sales, not yet allotted</td><td>Auto (Sales sync)</td></tr>
+    <tr><td><span class="badge bg-amber">Raw Material</span></td><td>Raw material being arranged by RM Store</td><td>Supervisor 7</td></tr>
+    <tr><td><span class="badge bg-violet">Cutting</span></td><td>Upper fabric / material being cut</td><td>Supervisor 6</td></tr>
+    <tr><td><span class="badge bg-blue">Upper Production</span></td><td>Upper-making in progress (in-house or contractor)</td><td>Supervisor 1</td></tr>
+    <tr><td><span class="badge bg-amber">Moulding</span></td><td>Injection/moulding on the machine</td><td>PU/PVC/Stuckon/EVA Supervisor</td></tr>
+    <tr><td><span class="badge bg-blue">Packing</span></td><td>Packing pairs into cartons</td><td>Same dept supervisor</td></tr>
+    <tr><td><span class="badge bg-violet">Completion Requested</span></td><td>Supervisor requested GM sign-off</td><td>Auto</td></tr>
+    <tr><td><span class="badge bg-green">Sent to Dispatch</span></td><td>GM approved, order with Dispatch</td><td>Auto after GM approval</td></tr>
+  </table>
+
+  <p style="margin-top:10px">Each order has a <b>5-bar progress strip</b> showing % completion at each stage:</p>
+  <div class="flow">
+    <div class="flow-step">Raw<br>Material</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Upper<br>Production</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Moulding</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Packing</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Dispatch</div>
+  </div>
+</div>
+
+<div class="section-header rose">Section 9 — Reports</div>
+<div class="card">
+  <p>Click <b>📑 Reports</b> to generate summary reports. Available report types:</p>
+  <table>
+    <tr><th>Report Type</th><th>What It Shows</th></tr>
+    <tr><td>Pending Orders Summary</td><td>All orders with current stage, packing %, delivery date, balance pairs</td></tr>
+    <tr><td>Department-wise Report</td><td>Orders per dept (PU / PVC / Stuckon / Eva), total qty, avg packing %</td></tr>
+    <tr><td>Supervisor Performance</td><td>Number of production updates logged per supervisor</td></tr>
+    <tr><td>Dispatch Report</td><td>Orders dispatched: vehicle, qty sent, qty pending, date</td></tr>
+  </table>
+  <div class="tip-box">Use <b>Export CSV</b> button on any plan page to download data to Excel.</div>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 10-13 — SUSHIL (PLANNING)
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">10–13 — For Sushil (Planning &amp; Billing)</p>
+<p class="page-sub">Machine Plans, Upper Plans, Article Plans, Packing Plans</p>
+
+<div class="section-header violet">Section 10 — Machine Running Plan</div>
+<div class="card">
+  <p>The <b>Machine Running Plan</b> is the daily production schedule for each machine. Click <span class="hl">⚙️ Machine Running Plan</span> under Production Planning.</p>
+
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>➕ New Plan</b> to create a machine run plan.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Select the <b>Date</b> (defaults to today).</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Select the <b>Machine</b>. The system auto-fills the Category based on the machine's department.<br>
+      <span class="badge bg-rose" style="background:#fce7f3;color:#9d174d">PVC — ROTARY machines: COSMO, SPORTS, EAGLE, MAX</span><br>
+      <span class="badge bg-rose" style="background:#fce7f3;color:#9d174d;margin-top:3px">PVC — VERTICLE machines: ASH, TOHHLER, COCO … VICTORIA + STAR series</span><br>
+      <span class="badge bg-green" style="margin-top:3px">EVA — STANLEY: STANLEY-1, STANLEY-2, STANLEY-201, STANLEY-601</span></span></li>
+    <li><span class="step-num">4</span><span class="step-text">Select the <b>Article</b> (auto-populated from the mould map for that machine).</span></li>
+    <li><span class="step-num">5</span><span class="step-text">Enter <b>Target Qty (pairs)</b> for this run.</span></li>
+    <li><span class="step-num">6</span><span class="step-text">Select <b>Shift</b> (Day / Night).</span></li>
+    <li><span class="step-num">7</span><span class="step-text">Click <b>Add Plan</b>. A <b>Job Card</b> is generated — print it and give it to the relevant supervisor.</span></li>
+  </ol>
+
+  <div class="info-box">
+    <b>Filter options:</b> Use the dropdowns at the top to filter plans by <b>Period</b> (Daily / Weekly / Monthly), <b>Category</b> (PU / PVC / Stuckon / Eva Crocs Injection), and <b>Date</b>. Each supervisor only sees their own department's plans.
+  </div>
+
+  <table style="margin-top:10px">
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><span class="badge bg-blue">Planned</span></td><td>Plan issued, not yet started</td></tr>
+    <tr><td><span class="badge bg-green">Running</span></td><td>Machine is currently running this article</td></tr>
+    <tr><td><span class="badge bg-amber">Paused</span></td><td>Temporarily stopped (breakdown / material issue)</td></tr>
+    <tr><td><span class="badge" style="background:#dcfce7;color:#15803d">Completed</span></td><td>Run finished</td></tr>
+  </table>
+</div>
+
+<div class="section-header violet">Section 11 — Upper Planning</div>
+<div class="card">
+  <p>Click <span class="hl">🧵 Upper Planning</span> to plan and track upper-making (cutting upper fabric and stitching).</p>
+
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>➕ New Upper Plan</b>.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Select <b>Date, Category, Article</b>.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Select <b>Upper Mode</b>: <span class="hl">In-house</span> (our workers) or <span class="hl">Out-house</span> (contractor).<br>If Out-house, also enter the <b>Vendor / Contractor name</b>.</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Enter <b>Qty planned</b> and <b>Target date</b>.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">Save. This plan appears in Supervisor 1's view for execution.</span></li>
+  </ol>
+</div>
+
+<div class="section-header violet">Section 12 — Article Planning</div>
+<div class="card">
+  <p>Click <span class="hl">📋 Article Planning</span> to plan production targets article-by-article for a given period.</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Filter by <b>Date, Category, Article</b> as needed.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Click <b>➕ New Article Plan</b>: select date, category, article, planned qty.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">The plan table shows article name, planned qty, actual produced, variance, and status.</span></li>
+    <li><span class="step-num">4</span><span class="step-text">If actual production is less than planned, a <b>Variance</b> is flagged — the supervisor must log a reason.</span></li>
+  </ol>
+</div>
+
+<div class="section-header violet">Section 13 — Packing Planning</div>
+<div class="card">
+  <p>Click <span class="hl">📦 Packing Planning</span> to plan and record packing targets.</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>➕ Add Packing Plan</b>: enter date, category, article, ready qty (pairs).</span></li>
+    <li><span class="step-num">2</span><span class="step-text">The plan links to the corresponding order and updates the packing % on the Production Orders view.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">When packing reaches <b>100%</b>, the supervisor can request GM Approval from the order card.</span></li>
+  </ol>
+  <div class="tip-box">Packing progress directly drives the Sales team's view — they can watch it go from 0% → 100% in real time.</div>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 14-21 — SUPERVISORS
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">14–18 — Department Supervisors: Upper, PU, PVC, Stuckon, Eva</p>
+<p class="page-sub">Step-by-step guide for production supervisors</p>
+
+<div class="section-header blue">Section 14 — Supervisor 1: Upper Department</div>
+<div class="card">
+  <p><b>Role:</b> Managing upper-making (fabric cutting + stitching) and issuing uppers to the moulding department.</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Login as <b>SUPERVISOR 1</b>. You can see <b>all orders</b> (not just one dept).</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Go to <b>📜 Production Orders</b>. Find orders where <b>Cutting is done</b> (cutting stage shows ✅).</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Click <b>Update Upper</b> on an order. Enter <b>pairs completed</b> in the Upper stage and save.</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Go to <b>🧵 Upper Issuance</b>. Assign the upper-making job:<br>
+      &bull; <span class="hl">In-House</span> — your own workers<br>
+      &bull; <span class="hl">Out-House</span> — give to a contractor (enter contractor name, qty, target date)</span></li>
+    <li><span class="step-num">5</span><span class="step-text">Once upper-making is complete, mark the Upper stage as <b>100%</b>. The order moves to Moulding stage.</span></li>
+    <li><span class="step-num">6</span><span class="step-text">Check <b>📥 My Pending Queue</b> for material allotments from RM Store — click <b>Acknowledge</b> when you receive the material.</span></li>
+  </ol>
+</div>
+
+<div class="section-header blue">Section 15 — Supervisor 2: PU Department</div>
+<div class="card">
+  <p><b>Role:</b> Moulding and packing of PU (Polyurethane) shoe orders on PU injection machines.</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Login as <b>SUPERVISOR 2</b>. Only <b>PU orders</b> are visible.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Open <b>Production Orders</b>. Find your orders (shows only PU allotted orders).</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Click <b>Update Moulding</b>: enter <b>pairs produced</b> today. The % updates automatically.</span></li>
+    <li><span class="step-num">4</span><span class="step-text">If production is less than planned, a <b>Variance form</b> appears — enter the reason (machine breakdown, material issue, mould defect, etc.).</span></li>
+    <li><span class="step-num">5</span><span class="step-text">Once moulding is done, click <b>Update Packing</b> and enter pairs packed into cartons.</span></li>
+    <li><span class="step-num">6</span><span class="step-text">When <b>packing = 100%</b>, click <b>Request GM Approval</b>. Komal will receive the notification.</span></li>
+    <li><span class="step-num">7</span><span class="step-text">Check <b>📥 My Pending Queue</b> and acknowledge RM Store allotments for your orders.</span></li>
+  </ol>
+  <div class="info-box">PU machines: <b>CRETA, PUB</b></div>
+</div>
+
+<div class="section-header blue">Section 16 — Supervisor 3: PVC Department</div>
+<div class="card">
+  <p><b>Role:</b> Moulding and packing of PVC compound orders — both chappals (ROTARY) and shoes (VERTICLE).</p>
+
+  <div class="warn-box"><b>PVC uses TWO machine types — both are PVC compound:</b><br>
+  &bull; <b>ROTARY machines</b> (4 machines): COSMO, SPORTS, EAGLE, MAX — for chappals/slippers<br>
+  &bull; <b>VERTICLE machines</b> (23 machines): ASH, TOHHLER, COCO, FIRE BLOT, JSS, LUKE, SONIC, RAFALE, AVIATION, RANGER, JAZZY, GCS, BEAR, BEAST, DASH, ALLA, CANDY, CRYSTA, JESSICA, KAREENA, KIARA, KITTO, VICTORIA + STAR series — for shoes</div>
+
+  <ol class="steps" style="margin-top:10px">
+    <li><span class="step-num">1</span><span class="step-text">Login as <b>SUPERVISOR 3</b>. You see only PVC orders.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Check Machine Running Plan for your shift: <span class="hl">⚙️ Machine Running Plan</span> → filter by <b>PVC</b>.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Update <b>Moulding progress</b> on each active order (enter pairs produced per machine run).</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Enter <b>Moulding last given date</b> — the date you last handed off to packing.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">Update <b>Packing progress</b>. When 100% packed, request GM Approval.</span></li>
+  </ol>
+</div>
+</div>
+
+<div class="page-break">
+<div class="section-header blue">Section 17 — Supervisor 4: Stuckon Department</div>
+<div class="card">
+  <p><b>Role:</b> Moulding and packing of Stuckon orders (glued/bonded sole construction).</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Login as <b>SUPERVISOR 4</b>. You see only Stuckon orders.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Stuckon machines: ITALY, NEO, ROME, MARS, SIGMA, SPEED, TYSON, KSJ, DIYA, GSJ, OJASVI, SKID, EVA-GOLA.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Update <b>Moulding</b> and <b>Packing</b> progress the same way as PU/PVC supervisors (steps above).</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Acknowledge material from RM Store via <b>📥 My Pending Queue</b>.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">When 100% packed, click <b>Request GM Approval</b>.</span></li>
+  </ol>
+</div>
+
+<div class="section-header green">Section 18 — Supervisor 5: Eva Crocs Injection (EVA)</div>
+<div class="card">
+  <p><b>Role:</b> Operating STANLEY injection machines to produce EVA croc-style footwear.</p>
+
+  <div class="info-box">
+    <b>EVA Department — STANLEY Machines &amp; Size Reference:</b><br>
+    Machine STANLEY-1 → Article STANLEY-1<br>
+    Machine STANLEY-2 → Article STANLEY-2<br>
+    Machine STANLEY-201 → Article STANLEY-201<br>
+    Machine STANLEY-601 → Article STANLEY-601<br><br>
+    <b>Size Sets:</b> Set A: 20–25 &nbsp;|&nbsp; Set B: 26–31 &nbsp;|&nbsp; Set C: 32–35<br>
+    Individual sizes: 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36
+  </div>
+
+  <ol class="steps" style="margin-top:12px">
+    <li><span class="step-num">1</span><span class="step-text">Login as <b>SUPERVISOR 5</b>. You see only Eva Crocs Injection orders.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Check Machine Running Plan → filter by <b>Eva Crocs Injection</b> to see today's STANLEY machine schedule.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">For each order, update <b>Moulding progress</b>: enter pairs injected today per machine.</span></li>
+    <li><span class="step-num">4</span><span class="step-text">Update <b>Packing progress</b> as pairs are packed by size set.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">When 100% packed, click <b>Request GM Approval</b>.</span></li>
+    <li><span class="step-num">6</span><span class="step-text">If a batch has a defect or shortfall, enter the <b>Variance reason</b> in the reason box that appears.</span></li>
+  </ol>
+</div>
+
+<div class="section-header amber">Section 19 — Supervisor 6: Cutting Incharge</div>
+<div class="card">
+  <p><b>Role:</b> The <b>first stage</b> in the production pipeline. Cutting fabric/materials before upper-making begins.</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Login as <b>SUPERVISOR 6</b>. Go to <b>📜 Production Orders</b>.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">For each new order, click <b>Update Cutting</b>.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Set <b>Cutting Mode</b>: <span class="hl">In-house</span> (factory cutters) or <span class="hl">Contractor</span> (outsourced cutting).</span></li>
+    <li><span class="step-num">4</span><span class="step-text">If Contractor: enter <b>Contractor Name</b> and <b>Fabricator Type</b> (Job Worker / Complete Upper Maker).</span></li>
+    <li><span class="step-num">5</span><span class="step-text">Enter <b>Last Delivery Date to Upper</b> — the date you sent/will send cut material to Supervisor 1 (Upper).</span></li>
+    <li><span class="step-num">6</span><span class="step-text">Save. The order moves to <b>Upper Production</b> stage. Supervisor 1 is notified.</span></li>
+  </ol>
+  <div class="tip-box">You can also access <b>👥 People &amp; Contractors</b> to view and manage the contractor directory.</div>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 20-21 — RM STORE & DISPATCH
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">20–21 — Raw Material Store &amp; Dispatch</p>
+<p class="page-sub">Supervisor 7 and Supervisor 8 guide</p>
+
+<div class="section-header teal">Section 20 — Supervisor 7: Raw Material Store</div>
+<div class="card">
+  <p><b>Role:</b> Managing raw material inventory, checking BOM requirements, and allotting materials to departments.</p>
+
+  <p style="font-weight:700;margin:12px 0 6px">A. BOM Stock Check</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>📋 BOM Stock Check</b> under Raw Material Store in the sidebar.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">For each active order, the system shows: <b>Material required vs available stock vs shortfall</b>.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">If stock is sufficient: click <b>⚡ Quick Allot</b> to allot material to the relevant department.</span></li>
+    <li><span class="step-num">4</span><span class="step-text">If stock is insufficient: log a <b>Pendency</b> — enter how much is short, expected arrival date, and a narration explaining the delay.</span></li>
+  </ol>
+
+  <p style="font-weight:700;margin:12px 0 6px">B. Allotment Queue</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>📤 Allotment Queue</b> to see all material allotments you have issued.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Each entry shows: material name, qty allotted, destination department, and whether the supervisor has <b>Acknowledged</b> receipt.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Once a supervisor acknowledges receipt, the row turns green (Received).</span></li>
+  </ol>
+
+  <p style="font-weight:700;margin:12px 0 6px">C. Inventory Management</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>📊 Inventory</b> to see all stock items with current level, minimum level, and category.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Click <b>+ Add Stock</b> on any item to record new material received. This increases the stock count.</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Click <b>📝 Movement Log</b> to see a complete history of all stock additions and deductions with reasons.</span></li>
+  </ol>
+
+  <div class="warn-box">Items shown in <span style="color:#b91c1c;font-weight:700">red</span> are out of stock. Items in <span style="color:#d97706;font-weight:700">amber</span> are at or below minimum level. Alert Sushil (Planning) immediately for urgent reorder.</div>
+</div>
+
+<div class="section-header amber">Section 21 — Supervisor 8: Dispatch</div>
+<div class="card">
+  <p><b>Role:</b> Physically dispatching completed orders that have been approved by GM and allowed by Sales.</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Login as <b>DISPATCH 1</b>. Go to <b>📜 Production Orders</b>.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">You will only see orders with status <span class="badge bg-green">Sent to Dispatch</span> (GM approved + Sales allowed).</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Click <b>Dispatch</b> on an order. Fill in:<br>
+      &bull; <b>Vehicle No.</b> (truck/tempo number)<br>
+      &bull; <b>Pairs dispatched</b> (can be partial — multiple dispatch batches are supported)<br>
+      &bull; <b>Dispatch Date</b></span></li>
+    <li><span class="step-num">4</span><span class="step-text">Click <b>Confirm Dispatch</b>. The Sales team sees the order move to <span class="badge bg-green">Dispatched</span> status instantly.</span></li>
+    <li><span class="step-num">5</span><span class="step-text">If dispatching in multiple trips, the <b>Balance qty</b> reduces with each dispatch entry until it reaches 0.</span></li>
+  </ol>
+  <div class="info-box">You CANNOT dispatch an order unless it has been approved by Komal Jain AND the Sales person has clicked "Allow Dispatch" on their side. If the Dispatch button is not visible, check with Komal.</div>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 22-23 — MACHINES & INVENTORY
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">22–23 — Machines &amp; Moulds Master / Inventory</p>
+<p class="page-sub">Reference data for the factory</p>
+
+<div class="section-header slate">Section 22 — Machines &amp; Moulds Master</div>
+<div class="card">
+  <p>Click <b>🔧 Machines &amp; Moulds</b> to view the complete machine master. This is the factory's machine registry.</p>
+
+  <table>
+    <tr><th>Dept</th><th>Machine Type</th><th>Machine Names</th><th>Capacity/day</th></tr>
+    <tr>
+      <td><span class="dept pvc">PVC</span></td>
+      <td>ROTARY</td>
+      <td>COSMO, SPORTS, EAGLE, MAX</td>
+      <td>300 pairs</td>
+    </tr>
+    <tr>
+      <td><span class="dept pvc">PVC</span></td>
+      <td>VERTICLE</td>
+      <td>ASH, TOHHLER, COCO, FIRE BLOT, JSS, LUKE, SONIC, RAFALE, AVIATION, RANGER, JAZZY, GCS, BEAR, BEAST, DASH, ALLA, CANDY, CRYSTA, JESSICA, KAREENA, KIARA, KITTO, VICTORIA + STAR series (8 articles)</td>
+      <td>220 pairs</td>
+    </tr>
+    <tr>
+      <td><span class="dept pu">PU</span></td>
+      <td>PU Injection</td>
+      <td>CRETA, PUB</td>
+      <td>250 pairs</td>
+    </tr>
+    <tr>
+      <td><span class="dept stuck">Stuckon</span></td>
+      <td>Stuckon</td>
+      <td>ITALY, NEO, ROME, MARS, SIGMA, SPEED, TYSON, KSJ, DIYA, GSJ, OJASVI, SKID, EVA-GOLA</td>
+      <td>200 pairs</td>
+    </tr>
+    <tr>
+      <td><span class="dept eva">Eva Crocs</span></td>
+      <td>STANLEY Injection</td>
+      <td>STANLEY-1, STANLEY-2, STANLEY-201, STANLEY-601</td>
+      <td>200 pairs</td>
+    </tr>
+  </table>
+
+  <p style="margin-top:12px;font-weight:700">STANLEY — Size Reference for Eva Crocs:</p>
+  <table>
+    <tr><th>Set</th><th>Size Range</th><th>Individual Sizes</th></tr>
+    <tr><td><b>A</b></td><td>20 × 25</td><td>20, 21, 22, 23, 24, 25</td></tr>
+    <tr><td><b>B</b></td><td>26 × 31</td><td>26, 27, 28, 29, 30, 31</td></tr>
+    <tr><td><b>C</b></td><td>32 × 35</td><td>32, 33, 34, 35</td></tr>
+  </table>
+
+  <p style="margin-top:12px;font-weight:700;margin-bottom:6px">How to Add a New Machine:</p>
+  <ol class="steps">
+    <li><span class="step-num">1</span><span class="step-text">Click <b>➕ Add Machine</b> in the Machines &amp; Moulds view.</span></li>
+    <li><span class="step-num">2</span><span class="step-text">Enter Machine Name, Department (PU / PVC / Stuckon / Eva Crocs Injection), and daily Capacity (pairs).</span></li>
+    <li><span class="step-num">3</span><span class="step-text">Save. The machine is immediately available in the Machine Running Plan dropdown.</span></li>
+  </ol>
+</div>
+
+<div class="section-header slate">Section 23 — Inventory Management</div>
+<div class="card">
+  <p>Click <b>📊 Inventory → Stock List</b> to manage raw materials and finished goods.</p>
+  <table>
+    <tr><th>Action</th><th>Steps</th></tr>
+    <tr><td><b>View Stock</b></td><td>Go to Inventory → Stock List. See each SKU, current qty, min level, category (PU/PVC/EVA/Stuckon/General).</td></tr>
+    <tr><td><b>Add Stock</b></td><td>Click + Add Stock on the item row. Enter qty received and reason. Stock increases immediately.</td></tr>
+    <tr><td><b>Check Low Stock</b></td><td>Items with amber border = at minimum. Red border = out of stock. Dashboard KPI shows count.</td></tr>
+    <tr><td><b>Movement Log</b></td><td>Stock Log → every addition/deduction is recorded with date, qty, reason, and user.</td></tr>
+    <tr><td><b>Product BOM</b></td><td>Each product article has a Bill of Materials — the list of raw materials needed per pair.</td></tr>
+    <tr><td><b>Export Data</b></td><td>Use Export CSV button on any view to download to Excel for Busy/ERP sync.</td></tr>
+  </table>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 24 — FULL WORKFLOW
+══════════════════════════════════════════ -->
+<div class="page-break">
+<p class="page-title">24 — Complete End-to-End Production Workflow</p>
+<p class="page-sub">From Sales Order to Dispatch — every step, every role</p>
+
+<div class="section-header">Full Flow Diagram</div>
+<div class="card">
+  <div style="overflow-x:auto">
+  <table style="min-width:600px">
+    <tr><th style="width:40px">#</th><th>Who</th><th>Action</th><th>Result</th></tr>
+    <tr style="background:#eff6ff">
+      <td><b>1</b></td><td><b>Sales Team</b></td>
+      <td>Enter new order in Sales App: Customer, Article, Size, Qty, Delivery Date</td>
+      <td>Order appears in Production's <b>📥 Pending Orders</b></td>
+    </tr>
+    <tr>
+      <td><b>2</b></td><td><b>Komal (GM)</b></td>
+      <td>Open Pending Orders → Allot dept (PU/PVC/Stuckon/EVA) + committed date</td>
+      <td>Sales sees "Komal committed [date]" badge. Supervisor sees order.</td>
+    </tr>
+    <tr style="background:#f0fdf4">
+      <td><b>3</b></td><td><b>Sushil (Planning)</b></td>
+      <td>Create Machine Running Plan for the order's article on the correct machine</td>
+      <td>Supervisor sees today's machine plan with Job Card</td>
+    </tr>
+    <tr>
+      <td><b>4</b></td><td><b>Supervisor 7 (RM)</b></td>
+      <td>Run BOM Stock Check → allot raw materials to the dept</td>
+      <td>Allotment appears in dept supervisor's Pending Queue</td>
+    </tr>
+    <tr style="background:#eff6ff">
+      <td><b>5</b></td><td><b>Supervisor 6 (Cutting)</b></td>
+      <td>Start cutting: set mode (in-house/contractor), last given date</td>
+      <td>Order moves to <b>Upper Production</b> stage</td>
+    </tr>
+    <tr>
+      <td><b>6</b></td><td><b>Supervisor 1 (Upper)</b></td>
+      <td>Acknowledge material receipt → start upper-making → update progress %</td>
+      <td>Order moves to <b>Moulding</b> stage when upper = 100%</td>
+    </tr>
+    <tr style="background:#f0fdf4">
+      <td><b>7</b></td><td><b>Dept Supervisor (PU/PVC/EVA/Stuckon)</b></td>
+      <td>Run machine plan → update moulding % daily</td>
+      <td>Order moulding bar fills up. Sales watches in real time.</td>
+    </tr>
+    <tr>
+      <td><b>8</b></td><td><b>Dept Supervisor</b></td>
+      <td>Pack completed pairs into cartons → update packing %</td>
+      <td>When packing = 100%, <b>Request GM Approval</b> button appears</td>
+    </tr>
+    <tr style="background:#fef9c3">
+      <td><b>9</b></td><td><b>Komal (GM)</b></td>
+      <td>Review completion → click <b>Approve &amp; Send to Dispatch</b></td>
+      <td>Sales sees order as "In Stock — Awaiting Dispatch Allowance"</td>
+    </tr>
+    <tr>
+      <td><b>10</b></td><td><b>Sales Team</b></td>
+      <td>Click <b>Allow Dispatch</b> in Sales App</td>
+      <td>Supervisor 8 can now see and dispatch the order</td>
+    </tr>
+    <tr style="background:#f0fdf4">
+      <td><b>11</b></td><td><b>Supervisor 8 (Dispatch)</b></td>
+      <td>Enter Vehicle No, Qty dispatched, Date → Confirm Dispatch</td>
+      <td>Order marked <b>Dispatched</b>. Sales sees it instantly.</td>
+    </tr>
+  </table>
+  </div>
+</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SECTION 25 — QUICK REFERENCE CARD
+══════════════════════════════════════════ -->
+<div>
+<p class="page-title">25 — Quick Reference Card (All Roles)</p>
+<p class="page-sub">Cut and keep — one card per role</p>
+
+<div class="role-grid" style="grid-template-columns:repeat(2,1fr)">
+
+  <div class="card top-radius avoid-break" style="border:2px solid #9d174d">
+    <div style="font-size:12px;font-weight:800;color:#9d174d;margin-bottom:8px">⭐ KOMAL JAIN — GM</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>📥 Pending Orders → <b>Allot dept + date</b></li>
+      <li>✅ GM Approval → <b>Approve completed orders</b></li>
+      <li>📜 Production Orders → <b>Watch all stages</b></li>
+      <li>📑 Reports → <b>Generate summaries</b></li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #6d28d9">
+    <div style="font-size:12px;font-weight:800;color:#6d28d9;margin-bottom:8px">📋 SUSHIL — Planning</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>⚙️ Machine Plan → <b>Create daily run plans</b></li>
+      <li>🧵 Upper Plan → <b>Plan upper-making</b></li>
+      <li>📋 Article Plan → <b>Set article targets</b></li>
+      <li>📦 Packing Plan → <b>Record packing ready qty</b></li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #1d4ed8">
+    <div style="font-size:12px;font-weight:800;color:#1d4ed8;margin-bottom:8px">🧵 SUPERVISOR 1 — Upper</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>📜 Orders → <b>Update Upper stage %</b></li>
+      <li>🧵 Upper Issuance → <b>Assign job (in/out-house)</b></li>
+      <li>📥 My Queue → <b>Acknowledge RM material</b></li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #1d4ed8">
+    <div style="font-size:12px;font-weight:800;color:#1d4ed8;margin-bottom:8px">🔵 SUPERVISOR 2 — PU</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>See only PU orders</li>
+      <li>Update <b>Moulding %</b> daily (machines: CRETA, PUB)</li>
+      <li>Update <b>Packing %</b> → Request GM Approval</li>
+      <li>📥 My Queue → <b>Acknowledge RM material</b></li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #9d174d">
+    <div style="font-size:12px;font-weight:800;color:#9d174d;margin-bottom:8px">🔴 SUPERVISOR 3 — PVC</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>See only PVC orders</li>
+      <li><b>ROTARY</b> (chappals): COSMO, SPORTS, EAGLE, MAX</li>
+      <li><b>VERTICLE</b> (shoes): ASH…VICTORIA + STAR series</li>
+      <li>Update Moulding % → Packing % → Request GM</li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #92400e">
+    <div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:8px">🟡 SUPERVISOR 4 — Stuckon</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>See only Stuckon orders</li>
+      <li>Machines: ITALY, NEO, ROME, MARS, SIGMA, SPEED, TYSON, KSJ, DIYA, GSJ, OJASVI, SKID, EVA-GOLA</li>
+      <li>Update Moulding % → Packing % → Request GM</li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #065f46">
+    <div style="font-size:12px;font-weight:800;color:#065f46;margin-bottom:8px">🟢 SUPERVISOR 5 — Eva Crocs</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>See only Eva Crocs orders</li>
+      <li>Machines: <b>STANLEY-1, STANLEY-2, STANLEY-201, STANLEY-601</b></li>
+      <li>Sizes: Set A (20–25) · Set B (26–31) · Set C (32–35)</li>
+      <li>Update Moulding % → Packing % → Request GM</li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #334155">
+    <div style="font-size:12px;font-weight:800;color:#334155;margin-bottom:8px">✂️ SUPERVISOR 6 — Cutting</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>First stage in pipeline for every order</li>
+      <li>Set Mode: In-house / Contractor</li>
+      <li>Enter contractor name + last given date to Upper</li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #0f766e">
+    <div style="font-size:12px;font-weight:800;color:#0f766e;margin-bottom:8px">🏪 SUPERVISOR 7 — RM Store</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>📋 BOM Stock Check → allot material per order</li>
+      <li>📤 Allotment Queue → track receipt confirmations</li>
+      <li>📊 Inventory → add received stock</li>
+      <li>Log Pendency for shortfalls with narration</li>
+    </ul>
+  </div>
+
+  <div class="card top-radius avoid-break" style="border:2px solid #d97706">
+    <div style="font-size:12px;font-weight:800;color:#d97706;margin-bottom:8px">🚚 SUPERVISOR 8 — Dispatch</div>
+    <ul style="padding-left:16px;font-size:11.5px;line-height:1.8">
+      <li>See only GM-approved + Sales-allowed orders</li>
+      <li>Enter Vehicle No, Qty, Date → Confirm Dispatch</li>
+      <li>Multiple dispatch batches supported</li>
+      <li>Sales team sees dispatch status instantly</li>
+    </ul>
+  </div>
+
+</div>
+
+<div style="margin-top:28px;background:#0c1733;color:#fff;border-radius:10px;padding:16px 20px;text-align:center">
+  <p style="font-size:13px;font-weight:700;margin-bottom:4px">⭐ STAR Kidz Production System — Internal Use Only</p>
+  <p style="font-size:11px;color:rgba(255,255,255,.6)">Ojas Footwear India Private Limited · Jaipur &nbsp;|&nbsp; For support contact BD Executive: Bd.executive@starkidz.co.in</p>
+</div>
+
+</div>
+
+</body>
+</html>

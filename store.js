@@ -17,12 +17,15 @@
    (e.g. {updated, orders} / {updated, statuses}); Store just transports it.
 ============================================================ */
 (function (global) {
-  // The only two documents the two apps share with each other:
+  // The documents the apps share with each other. The first two are the
+  // Sales<->Production link; more (e.g. the CRM's keys) register at runtime
+  // via Store.register(key).
   var KEYS = ['STARKIDZ_SALES_ORDERS', 'STARKIDZ_PROD_STATUS'];
 
   var cache = {};      // key -> latest JSON string (kept fresh by Firestore listener)
   var listeners = {};  // key -> [callbacks]
   var lastCore = {};   // key -> payload-without-`updated` (to skip no-op writes)
+  var subscribed = {}; // key -> true once a Firestore listener is attached
   var useFirebase = false, db = null;
 
   function emit(key) { (listeners[key] || []).forEach(function (cb) { try { cb(); } catch (e) {} }); }
@@ -33,6 +36,23 @@
 
   // strip the ever-changing `updated` timestamp so we don't write identical data repeatedly
   function coreOf(v) { try { var o = JSON.parse(v); delete o.updated; return JSON.stringify(o); } catch (e) { return v; } }
+
+  // Warm the cache from localStorage so the first paint isn't empty.
+  function warm(k) { var v = lsGet(k); if (v && !(k in cache)) cache[k] = v; }
+
+  // Live listener per document — this is what makes every device update in real time.
+  function subscribe(k) {
+    if (!useFirebase || !db || subscribed[k]) return;
+    subscribed[k] = true;
+    db.collection('sync').doc(k).onSnapshot(function (snap) {
+      var d = snap.data();
+      if (d && typeof d.payload === 'string' && d.payload !== cache[k]) {
+        cache[k] = d.payload;
+        lastCore[k] = coreOf(d.payload);   // don't echo this back as a fresh write
+        emit(k);
+      }
+    }, function () { /* listener error -> stays on last cache */ });
+  }
 
   var Store = {
     getItem: function (k) {
@@ -57,6 +77,13 @@
         global.addEventListener('storage', function (e) { if (e.key === k) cb(); });
       }
     },
+    // Add another key to the shared set (e.g. the CRM's data keys). Safe to call
+    // in LOCAL mode (no-op beyond warming the cache) and idempotent.
+    register: function (k) {
+      if (KEYS.indexOf(k) < 0) KEYS.push(k);
+      warm(k);
+      subscribe(k);
+    },
     mode: function () { return useFirebase ? 'firebase' : 'local'; }
   };
 
@@ -73,19 +100,7 @@
       useFirebase = true;
       // Anonymous sign-in lets the device talk to Firestore. (Phase 2: real per-user logins.)
       if (firebase.auth) firebase.auth().signInAnonymously().catch(function () {});
-      // Warm the cache from localStorage so the first paint isn't empty.
-      KEYS.forEach(function (k) { var v = lsGet(k); if (v) cache[k] = v; });
-      // Live listener per shared document — this is what makes every device update in real time.
-      KEYS.forEach(function (k) {
-        db.collection('sync').doc(k).onSnapshot(function (snap) {
-          var d = snap.data();
-          if (d && typeof d.payload === 'string' && d.payload !== cache[k]) {
-            cache[k] = d.payload;
-            lastCore[k] = coreOf(d.payload);   // don't echo this back as a fresh write
-            emit(k);
-          }
-        }, function () { /* listener error -> stays on last cache */ });
-      });
+      KEYS.forEach(function (k) { warm(k); subscribe(k); });
     } catch (e) { useFirebase = false; db = null; }   // any failure -> safe LOCAL mode
   })();
 

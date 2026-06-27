@@ -3,11 +3,12 @@
 # share one real origin (localStorage + storage events work like production).
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot   # project root (parent of .claude)
-$prefix = 'http://localhost:8765/'
+$port = if ($env:PORT) { $env:PORT } else { '8765' }
+$prefix = "http://localhost:$port/"
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add($prefix)
 $listener.Start()
-Write-Host "Serving $root at $prefix"
+Write-Host "Serving $root at $prefix (PORT=$port)"
 
 $mime = @{
   '.html'='text/html; charset=utf-8'; '.js'='application/javascript; charset=utf-8';

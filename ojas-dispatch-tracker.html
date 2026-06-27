@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>STAR Kidz — Dispatch & Order Tracking</title>
+  <title>STAR Kidz — Sales Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -80,7 +80,7 @@
           <h1 class="font-extrabold tracking-tight text-base sm:text-lg leading-tight truncate">
             STAR <span class="text-brand-500">Kidz</span>
           </h1>
-          <p class="text-[11px] sm:text-xs text-white/70 -mt-0.5">Dispatch & Order Tracking · Ojas Footwear</p>
+          <p class="text-[11px] sm:text-xs text-white/70 -mt-0.5">Sales Tracker · Ojas Footwear</p>
         </div>
       </div>
       <!-- Live date / time / timezone -->
@@ -90,6 +90,8 @@
       <div id="linkBadge" class="order-3 sm:order-2 flex items-center gap-1.5 text-[11px] font-bold rounded-lg px-2.5 py-1.5 ring-1 bg-white/10 ring-white/20 text-white/60">🔗 <span id="linkText">…</span></div>
       <!-- Role switcher (simulates login) -->
       <div class="order-2 sm:order-3 flex items-center gap-2 shrink-0">
+        <a href="star-kidz-sales-crm.html" title="Open the Field Sales CRM (leads, meetings, follow-ups)"
+          class="hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 ring-1 ring-white/20 rounded-lg px-3 py-1.5 text-sm font-semibold transition">🎙️ <span class="hidden md:inline">Sales CRM</span></a>
         <span class="hidden sm:inline text-xs text-white/70">Logged in</span>
         <select id="userSelect" onchange="onUserChange()"
           class="bg-white/10 ring-1 ring-white/20 rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/40">
@@ -503,10 +505,12 @@ function renderSales(){
             ? `<span class="text-indigo-600">🏷️ Allotted: ${o.prodInfo.allottedDept}</span>`
             : `<span class="text-rose-500">⚠ Awaiting Komal's allotment</span>`}
           ${o.prodInfo.deliveryDate?`<span class="text-sky-700">🗓️ Delivery ${fmtDate(o.prodInfo.deliveryDate)}${o.prodInfo.deliveryChange?' <span class="text-amber-600">(revised)</span>':''}</span>`:''}
+          ${o.prodInfo.committedDate?`<span class="text-emerald-700">🎯 Komal committed ${fmtDate(o.prodInfo.committedDate)}${o.prodInfo.planned?' <span class="font-bold">· Planned ✓</span>':''}</span>`:''}
           ${o.prodInfo.upperMode?`<span class="text-slate-600">🧵 Upper: ${o.prodInfo.upperMode==='Out-house'?('Out-house'+(o.prodInfo.upperVendor?' · '+o.prodInfo.upperVendor:'')):'In-house'}</span>`:''}
           ${o.prodInfo.mouldingLastDate?`<span class="text-slate-600">📅 Moulding given ${fmtDate(o.prodInfo.mouldingLastDate)}</span>`:''}
           ${(o.prodInfo.dispatchPct>0)?`<span class="text-violet-600">🚚 Dispatch ${o.prodInfo.dispatchPct}%</span>`:''}
         </div>
+        ${etaStrip(o.prodInfo.etas)}
         ${o.prodInfo.delayNarration?`<div class="mt-1.5 text-[10px] text-rose-700 bg-rose-50 ring-1 ring-rose-100 rounded px-2 py-1">📝 Delay: ${o.prodInfo.delayNarration}</div>`:''}
       </div>`:''}
       ${(o.bill_no||o.vehicle_no||o.dispatch_status==='Dispatched')?`<div class="mt-2 bg-violet-50 rounded-lg p-2 ring-1 ring-violet-100 text-[10px] font-semibold text-violet-800 flex flex-wrap gap-x-3 gap-y-1">
@@ -895,6 +899,15 @@ function emptyState(msg){
   return `<div class="bg-white rounded-2xl ring-1 ring-dashed ring-slate-300 p-8 text-center text-slate-400 text-sm">${msg}</div>`;
 }
 function fmtDate(d){ return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}); }
+// ETA may be a date, a word like "Received", or "—"/empty. Format dates nicely; pass words through; skip blanks.
+function fmtEta(v){ if(!v||v==='—') return ''; const x=new Date(v); return isNaN(x)?v:x.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}); }
+function etaStrip(e){
+  if(!e) return '';
+  const parts=[['Raw',e.raw],['Upper',e.upper],['Moulding',e.moulding],['Packing',e.packing],['Dispatch',e.dispatch]]
+    .map(([n,v])=>{ const f=fmtEta(v); return f?`<span class="text-teal-700">${n}: <b>${f}</b></span>`:''; }).filter(Boolean);
+  if(!parts.length) return '';
+  return `<div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-[10px] font-semibold"><span class="text-slate-400">⏱️ ETA</span>${parts.join('')}</div>`;
+}
 // Req#5: today's date for <input type=date>, and a full "Day · Date · Time" stamp
 function todayISO(){ const d=new Date(), z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
 function nowFull(){ const n=new Date();
@@ -994,6 +1007,9 @@ function renderSalesNotifs(){
       // Req#1: delivery-date change pushed from Production (GM/Komal) — instant on the Master/Sales screen
       if(o.prodInfo.deliveryChange){ const dc=o.prodInfo.deliveryChange;
         items.push({tone:'sky',ic:'🗓️',text:`<b>Delivery date changed</b> — <b>${o.order_id}</b> (${o.party_name}): ${fmtDate(dc.from)} → <b>${fmtDate(dc.to)}</b> by ${dc.by} · ${dc.at}`}); }
+      // Group B: Komal planned this pending order — committed completion date back to the salesperson who entered it
+      if(o.prodInfo.planned && o.prodInfo.committedDate)
+        items.push({tone:'green',ic:'🎯',text:`✅ <b>Komal planned</b> <b>${o.order_id}</b> (${o.party_name}) — completion <b>${fmtDate(o.prodInfo.committedDate)}</b>${(o.prodInfo.allottedDept&&o.prodInfo.allottedDept!=='Unassigned')?' · '+o.prodInfo.allottedDept:''}${isCoord?' · '+spName:''}`});
       // Req#4: delay narration entered by the Production person
       if(o.prodInfo.delayNarration)
         items.push({tone:'amber',ic:'📝',text:`<b>${o.order_id}</b> (${o.party_name}) delay note: ${o.prodInfo.delayNarration}`});
@@ -1048,7 +1064,7 @@ function pullProductionStatus(){
     ORDERS.forEach(o=>{
       const p = st[o.order_id]; if(!p) return;
       const prev = o.prodInfo ? JSON.stringify(o.prodInfo) : '';
-      o.prodInfo = p;   // {stage, prodPct, packingPct, completed, category, deliveryDate, deliveryChange, delayNarration, upperMode, upperVendor, mouldingLastDate, ...}
+      o.prodInfo = p;   // {stage, prodPct, packingPct, completed, category, deliveryDate, deliveryChange, delayNarration, upperMode, upperVendor, mouldingLastDate, etas:{raw,upper,moulding,packing,dispatch}, ...}
       if(JSON.stringify(p)!==prev) changed=true;   // any progress change re-renders the live bar
       // INTERLINK: Komal allotted this article's moulding category → make it the article's category
       if(p.category && ARTICLE_CATEGORY[o.article_no]!==p.category){ ARTICLE_CATEGORY[o.article_no]=p.category; changed=true; }

@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STAR Kidz — Sales CRM · Field Force</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef3ff',100:'#dae4ff',500:'#3358e0',600:'#2442b8',700:'#1b3187',900:'#0c1733' },
+            star:  { red:'#e11d2b', pink:'#ec4899' }
+          },
+          fontFamily: { sans: ['Manrope','system-ui','sans-serif'], brand: ['Fredoka','system-ui','sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+    body { font-family:'Manrope',system-ui,sans-serif; }
+    .tab-active { background:#fff; color:#26398f; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .tab-btn{transition:background-color .15s ease,color .15s ease,transform .12s ease}
+    .tab-btn:hover{background:rgba(255,255,255,.12)}
+    button{transition:transform .12s ease,background-color .15s ease,box-shadow .15s ease,filter .15s ease}
+    button:not(:disabled):active{transform:scale(.96)}
+    .card-hover{transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,border-color .18s ease}
+    .card-hover:hover{transform:translateY(-3px);box-shadow:0 14px 30px -12px rgba(15,23,42,.28)}
+    .kpi-hover{transition:transform .15s ease,box-shadow .15s ease}
+    .kpi-hover:hover{transform:translateY(-3px);box-shadow:0 10px 22px -10px rgba(15,23,42,.25)}
+    .brand-logo{transition:transform .25s ease}
+    .brand-logo:hover{transform:rotate(-6deg) scale(1.06)}
+    .no-scrollbar::-webkit-scrollbar{display:none}
+    .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+    .inp{display:block;width:100%;margin-top:2px;border:1px solid #cbd5e1;border-radius:.6rem;padding:.5rem .7rem;font-size:.85rem;outline:none;background:#fff}
+    .inp:focus{box-shadow:0 0 0 2px rgba(51,88,224,.35);border-color:#3358e0}
+    .lbl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b}
+    /* Toast */
+    .toast{animation:slideIn .3s ease}
+    @keyframes slideIn{from{transform:translateY(-12px);opacity:0}to{transform:translateY(0);opacity:1}}
+    /* Pipeline drag */
+    .lead-card{cursor:grab}
+    .lead-card:active{cursor:grabbing}
+    .col-drop.dragover{outline:2px dashed #3358e0;outline-offset:-4px;background:#eef3ff}
+    /* Mic pulse */
+    .mic-live{animation:micPulse 1.1s ease-in-out infinite}
+    @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(225,29,43,.5)}50%{box-shadow:0 0 0 8px rgba(225,29,43,0)}}
+    .clock-chip{font-variant-numeric:tabular-nums}
+    /* Funnel bar */
+    .funnel-row{transition:width .5s cubic-bezier(.2,.8,.2,1)}
+    .bar-fill{transition:width .6s cubic-bezier(.2,.8,.2,1)}
+  </style>
+  <!-- PWA: installable app (website + Microsoft Store) -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1b3187" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <script src="pwa.js" defer></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+  <!-- ============ HEADER ============ -->
+  <header class="bg-brand-900 text-white sticky top-0 z-30 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="brand-logo h-11 w-11 rounded-2xl shrink-0 shadow-lg overflow-hidden" aria-label="STAR Kidz">
+          <svg viewBox="0 0 64 64" class="h-11 w-11">
+            <circle cx="32" cy="32" r="30.5" fill="#ffffff"/>
+            <circle cx="32" cy="32" r="30.5" fill="none" stroke="#e11d2b" stroke-width="3"/>
+            <path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/>
+            <path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-extrabold tracking-tight text-base sm:text-lg leading-tight truncate">
+            STAR <span class="text-brand-500">Kidz</span> <span class="text-white/50 font-semibold">Sales CRM</span>
+          </h1>
+          <p class="text-[11px] sm:text-xs text-white/70 -mt-0.5">Field Force &amp; Lead Tracker · Ojas Footwear</p>
+        </div>
+      </div>
+      <div id="clock" class="clock-chip order-3 sm:order-2 w-full sm:w-auto flex items-center gap-2 text-xs sm:text-[13px] bg-white/10 ring-1 ring-white/20 rounded-lg px-3 py-1.5">
+        <span>🕒</span><span id="clockText" class="font-semibold tracking-tight">—</span>
+      </div>
+      <div class="order-2 sm:order-3 flex items-center gap-2 shrink-0">
+        <a href="ojas-dispatch-tracker.html" title="Open the Sales / Dispatch Tracker"
+          class="hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 ring-1 ring-white/20 rounded-lg px-3 py-1.5 text-sm font-semibold transition">🚚 <span class="hidden md:inline">Order Tracker</span></a>
+        <div class="text-right hidden sm:block leading-tight">
+          <p class="text-[10px] text-white/60">Signed in</p>
+          <p id="whoName" class="text-sm font-bold">—</p>
+        </div>
+        <div id="whoAvatar" class="h-9 w-9 rounded-full bg-white/15 ring-1 ring-white/25 grid place-items-center font-bold text-sm">·</div>
+        <button onclick="logout()" title="Sign out"
+          class="bg-white/10 hover:bg-rose-600 ring-1 ring-white/20 rounded-lg px-3 py-1.5 text-sm font-semibold transition">⎋</button>
+      </div>
+    </div>
+
+    <!-- ============ NAV TABS ============ -->
+    <nav class="max-w-7xl mx-auto px-2 sm:px-6">
+      <div class="flex gap-1 bg-brand-700/40 rounded-t-xl p-1 overflow-x-auto no-scrollbar">
+        <button data-tab="dashboard" onclick="switchTab('dashboard')" class="tab-btn flex-1 min-w-[112px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 flex items-center justify-center gap-2"><span>📊</span> Dashboard</button>
+        <button data-tab="pipeline" onclick="switchTab('pipeline')" class="tab-btn flex-1 min-w-[112px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 flex items-center justify-center gap-2"><span>🔻</span> Pipeline</button>
+        <button data-tab="leads" onclick="switchTab('leads')" class="tab-btn flex-1 min-w-[112px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 flex items-center justify-center gap-2"><span>📇</span> Leads</button>
+        <button data-tab="meeting" onclick="switchTab('meeting')" class="tab-btn flex-1 min-w-[120px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 flex items-center justify-center gap-2"><span>🎙️</span> Log Meeting</button>
+        <button data-tab="tasks" onclick="switchTab('tasks')" class="tab-btn flex-1 min-w-[112px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 flex items-center justify-center gap-2"><span>✅</span> Tasks <span id="taskBadge" class="hidden ml-1 text-[10px] bg-star-red text-white rounded-full px-1.5 py-0.5"></span></button>
+        <button data-tab="reengage" onclick="switchTab('reengage')" class="tab-btn flex-1 min-w-[120px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 flex items-center justify-center gap-2"><span>🔁</span> Re-engage</button>
+        <button data-tab="reports" onclick="switchTab('reports')" class="tab-btn flex-1 min-w-[112px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 flex items-center justify-center gap-2"><span>📈</span> Reports</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 py-5 pb-24">
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="view-dashboard" class="tab-view">
+      <div id="kpiRow" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"></div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
+        <div class="lg:col-span-2 bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-900">🔻 Sales Funnel</h3>
+            <span class="text-xs text-slate-400">value &amp; count by stage</span>
+          </div>
+          <div id="dashFunnel" class="space-y-2"></div>
+        </div>
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-900">⚡ Today &amp; Overdue</h3>
+            <button onclick="switchTab('tasks')" class="text-xs font-semibold text-brand-600 hover:underline">All tasks →</button>
+          </div>
+          <div id="dashTasks" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar"></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <h3 class="font-bold text-slate-900 mb-3">🕘 Recent Field Activity</h3>
+          <div id="dashActivity" class="space-y-2.5 max-h-80 overflow-y-auto no-scrollbar"></div>
+        </div>
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-900">🔁 Push-Sale Opportunities</h3>
+            <button onclick="switchTab('reengage')" class="text-xs font-semibold text-brand-600 hover:underline">View all →</button>
+          </div>
+          <div id="dashReengage" class="space-y-2 max-h-80 overflow-y-auto no-scrollbar"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PIPELINE (Kanban funnel) ============ -->
+    <section id="view-pipeline" class="tab-view hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">Pipeline</h2>
+          <p class="text-xs text-slate-500">Awareness → Interest → Sample → Negotiation → Won. Drag a card, or use ◀ ▶ on mobile.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <select id="pipeFilterSP" onchange="renderPipeline()" class="inp w-auto mt-0 text-xs font-semibold"></select>
+          <button onclick="openLeadModal()" class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-3.5 py-2 text-sm font-bold shadow">+ New Lead</button>
+        </div>
+      </div>
+      <div id="pipeBoard" class="grid grid-flow-col auto-cols-[minmax(230px,1fr)] sm:auto-cols-[minmax(250px,1fr)] gap-3 overflow-x-auto pb-3 no-scrollbar"></div>
+    </section>
+
+    <!-- ============ LEADS ============ -->
+    <section id="view-leads" class="tab-view hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">Leads &amp; Distributors</h2>
+          <p class="text-xs text-slate-500"><span id="leadCount">0</span> records</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openImportModal()" class="bg-white hover:bg-slate-50 text-brand-700 ring-1 ring-brand-200 rounded-lg px-3.5 py-2 text-sm font-bold shadow-sm">⬆ Import CSV</button>
+          <button onclick="openLeadModal()" class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-3.5 py-2 text-sm font-bold shadow">+ New Lead</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-3 sm:p-4 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <input id="leadSearch" oninput="renderLeads()" placeholder="🔎 Search party / contact…" class="inp mt-0 col-span-2 sm:col-span-1" />
+        <select id="leadFilterStage" onchange="renderLeads()" class="inp mt-0 text-xs font-semibold"></select>
+        <select id="leadFilterRegion" onchange="renderLeads()" class="inp mt-0 text-xs font-semibold"></select>
+        <select id="leadFilterSP" onchange="renderLeads()" class="inp mt-0 text-xs font-semibold"></select>
+      </div>
+      <div class="bg-white rounded-2xl ring-1 ring-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wide">
+              <tr>
+                <th class="text-left font-bold px-4 py-3">Party</th>
+                <th class="text-left font-bold px-3 py-3 hidden sm:table-cell">Region</th>
+                <th class="text-left font-bold px-3 py-3">Stage</th>
+                <th class="text-right font-bold px-3 py-3 hidden md:table-cell">Est. Value</th>
+                <th class="text-left font-bold px-3 py-3 hidden lg:table-cell">Next Action</th>
+                <th class="text-left font-bold px-3 py-3 hidden md:table-cell">Owner</th>
+                <th class="px-3 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="leadRows" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LOG MEETING (field, mobile-first) ============ -->
+    <section id="view-meeting" class="tab-view hidden">
+      <div class="max-w-xl mx-auto">
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 sm:p-6 card-hover">
+          <h2 class="text-lg font-extrabold text-slate-900 flex items-center gap-2">🎙️ Log a Meeting / Visit</h2>
+          <p class="text-xs text-slate-500 mb-4">Capture it on the field — tap the mic to dictate feedback. The system will auto-create the right follow-up task.</p>
+
+          <label class="lbl">Party / Distributor</label>
+          <select id="mtgLead" class="inp" onchange="mtgLeadChanged()"></select>
+
+          <div id="mtgNewWrap" class="hidden mt-3 grid grid-cols-2 gap-2">
+            <div class="col-span-2"><label class="lbl">New party name</label><input id="mtgNewName" class="inp" placeholder="e.g. KUMAR FOOTWEAR - PATNA" /></div>
+            <div><label class="lbl">Region</label><select id="mtgNewRegion" class="inp text-xs"></select></div>
+            <div><label class="lbl">Est. value ₹</label><input id="mtgNewValue" type="number" class="inp" placeholder="50000" /></div>
+          </div>
+
+          <div class="mt-3">
+            <label class="lbl">Next action</label>
+            <select id="mtgAction" class="inp">
+              <option value="Follow up call">📞 Follow up call</option>
+              <option value="Sample sent">📦 Sample sent</option>
+              <option value="Price negotiation">💬 Price negotiation</option>
+              <option value="Schedule visit">📅 Schedule visit</option>
+              <option value="Order received">🛒 Order received</option>
+              <option value="Not interested">🚫 Not interested</option>
+            </select>
+          </div>
+
+          <div class="mt-3">
+            <div class="flex items-center justify-between">
+              <label class="lbl">Meeting feedback / notes</label>
+              <button type="button" id="micBtn" onclick="toggleVoice('mtgFeedback', this)"
+                class="flex items-center gap-1.5 text-xs font-bold text-star-red bg-rose-50 ring-1 ring-rose-200 rounded-full px-3 py-1.5">
+                <span id="micIco">🎤</span> <span id="micLbl">Dictate</span>
+              </button>
+            </div>
+            <textarea id="mtgFeedback" rows="4" class="inp" placeholder="Met the owner. Liked the new croc range, asked for a sample in size 24-29 and best rate…"></textarea>
+            <p id="micHint" class="text-[11px] text-slate-400 mt-1"></p>
+          </div>
+
+          <button onclick="submitMeeting()" class="w-full mt-4 bg-gradient-to-r from-star-red to-star-pink text-white rounded-xl px-4 py-3 font-bold shadow-lg shadow-rose-500/20">Save Meeting &amp; Auto-Task ✨</button>
+        </div>
+
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 mt-4">
+          <h3 class="font-bold text-slate-900 mb-2 text-sm">🤖 How auto-tasking works</h3>
+          <ul class="text-xs text-slate-500 space-y-1 list-disc pl-4">
+            <li><b>Sample sent</b> → "Check-in on sample feedback" in <b>7 days</b> + moves to Sample stage.</li>
+            <li><b>Follow up call</b> → task in <b>3 days</b>.</li>
+            <li><b>Price negotiation</b> → "Send revised quotation" in <b>2 days</b> → Negotiation.</li>
+            <li><b>Order received</b> → "Confirm &amp; enter in Sales Tracker" tomorrow → Won.</li>
+            <li>Keywords in your notes (sample, rate, order…) also trigger tasks.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TASKS ============ -->
+    <section id="view-tasks" class="tab-view hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">Tasks &amp; Follow-ups</h2>
+          <p class="text-xs text-slate-500">Auto-generated from meetings + manual. Overdue items are flagged red.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="notifBtn" onclick="enableNotifications()" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 ring-1 ring-slate-200 rounded-lg px-3 py-2">🔔 Enable reminders</button>
+          <button onclick="openTaskModal()" class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-3.5 py-2 text-sm font-bold shadow">+ Task</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-4" id="taskStat"></div>
+      <div id="taskList" class="space-y-2"></div>
+    </section>
+
+    <!-- ============ RE-ENGAGE (Push sales) ============ -->
+    <section id="view-reengage" class="tab-view hidden">
+      <div class="mb-4">
+        <h2 class="text-lg font-extrabold text-slate-900">🔁 Re-engagement &amp; Push Sales</h2>
+        <p class="text-xs text-slate-500">Parties that have gone quiet — biggest gaps first. One tap creates a push-sale follow-up.</p>
+      </div>
+      <div class="flex items-center gap-2 mb-3 text-xs">
+        <span class="font-semibold text-slate-600">Quiet for more than</span>
+        <select id="reGap" onchange="renderReengage()" class="inp w-auto mt-0 text-xs font-semibold">
+          <option value="30">30 days</option>
+          <option value="45" selected>45 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+        </select>
+      </div>
+      <div id="reengageList" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+    </section>
+
+    <!-- ============ REPORTS ============ -->
+    <section id="view-reports" class="tab-view hidden">
+      <h2 class="text-lg font-extrabold text-slate-900 mb-4">📈 Reports</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <h3 class="font-bold text-slate-900 mb-3">🎯 Target vs Actual <span class="text-xs font-normal text-slate-400">(won value, this month)</span></h3>
+          <div id="repTarget" class="space-y-3"></div>
+        </div>
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <h3 class="font-bold text-slate-900 mb-3">🏆 Top Parties by Order Frequency</h3>
+          <div id="repFreq" class="space-y-2"></div>
+        </div>
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <h3 class="font-bold text-slate-900 mb-3">💰 Payment Aging</h3>
+          <div id="repAging" class="space-y-2"></div>
+        </div>
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5 card-hover">
+          <h3 class="font-bold text-slate-900 mb-3">👥 Salesperson Scorecard</h3>
+          <div id="repScore" class="overflow-x-auto"></div>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-4">Data is stored on this device (localStorage). For real-time multi-device sync, the same Firebase layer used by the Production &amp; Sales trackers can be wired in — see README-DEPLOY.md.</p>
+    </section>
+
+  </main>
+
+  <!-- Floating mobile action -->
+  <button onclick="switchTab('meeting')" class="sm:hidden fixed bottom-5 right-5 z-30 h-14 w-14 rounded-full bg-gradient-to-br from-star-red to-star-pink text-white text-2xl shadow-xl shadow-rose-500/30 grid place-items-center">🎙️</button>
+
+  <!-- Toasts -->
+  <div id="toasts" class="fixed top-4 right-4 z-50 space-y-2 w-[min(92vw,340px)]"></div>
+
+  <!-- ============ LEAD MODAL ============ -->
+  <div id="leadModal" class="hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm grid place-items-center p-4" onclick="if(event.target===this)closeLeadModal()">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl">
+      <div class="sticky top-0 bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="leadModalTitle" class="font-extrabold text-slate-900">New Lead</h3>
+        <button onclick="closeLeadModal()" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+      </div>
+      <div class="p-5 grid grid-cols-2 gap-3">
+        <div class="col-span-2"><label class="lbl">Party / Distributor</label><input id="f_party" class="inp" placeholder="Party name" list="partyList" /></div>
+        <div><label class="lbl">Region</label><select id="f_region" class="inp text-xs"></select></div>
+        <div><label class="lbl">Stage</label><select id="f_stage" class="inp text-xs"></select></div>
+        <div><label class="lbl">Contact person</label><input id="f_contact" class="inp" placeholder="Owner / buyer" /></div>
+        <div><label class="lbl">Phone</label><input id="f_phone" class="inp" placeholder="+91…" /></div>
+        <div><label class="lbl">Est. order value ₹</label><input id="f_value" type="number" class="inp" placeholder="50000" /></div>
+        <div><label class="lbl">Owner (salesperson)</label><select id="f_sp" class="inp text-xs"></select></div>
+        <div><label class="lbl">Last order date</label><input id="f_lastorder" type="date" class="inp" /></div>
+        <div><label class="lbl">Outstanding ₹</label><input id="f_outstanding" type="number" class="inp" placeholder="0" /></div>
+        <div class="col-span-2"><label class="lbl">Notes / feedback</label><textarea id="f_notes" rows="2" class="inp" placeholder="Latest context…"></textarea></div>
+      </div>
+      <div class="sticky bottom-0 bg-white px-5 py-4 border-t border-slate-100 flex items-center justify-between gap-2">
+        <button id="leadDeleteBtn" onclick="deleteCurrentLead()" class="text-rose-600 text-sm font-semibold hover:underline hidden">Delete</button>
+        <div class="flex-1"></div>
+        <button onclick="closeLeadModal()" class="px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+        <button onclick="saveLead()" class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-5 py-2 text-sm font-bold shadow">Save</button>
+      </div>
+    </div>
+  </div>
+  <datalist id="partyList"></datalist>
+
+  <!-- ============ TASK MODAL ============ -->
+  <div id="taskModal" class="hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm grid place-items-center p-4" onclick="if(event.target===this)closeTaskModal()">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-extrabold text-slate-900">New Task</h3>
+        <button onclick="closeTaskModal()" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+      </div>
+      <div class="p-5 space-y-3">
+        <div><label class="lbl">Title</label><input id="t_title" class="inp" placeholder="e.g. Call back about pending order" /></div>
+        <div><label class="lbl">Related party</label><select id="t_lead" class="inp text-xs"></select></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="lbl">Due date</label><input id="t_due" type="date" class="inp" /></div>
+          <div><label class="lbl">Priority</label><select id="t_priority" class="inp text-xs"><option>Normal</option><option>High</option></select></div>
+        </div>
+      </div>
+      <div class="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+        <button onclick="closeTaskModal()" class="px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+        <button onclick="saveTask()" class="bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-5 py-2 text-sm font-bold shadow">Add Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared cloud data layer (same Firebase/Store used by the Production & Sales trackers).
+       Stays in LOCAL mode until firebase-config.js holds real keys — nothing breaks meanwhile. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="store.js"></script>
+
+  <!-- Distributor master list -->
+  <script src="parties-data.js"></script>
+
+  <script>
+  /* ============================================================
+     STAR Kidz — Sales CRM (field force)
+     Self-contained. Data persists in localStorage under STARKIDZ_CRM_*.
+     Reuses PARTY_GROUPS / PARTIES from parties-data.js.
+  ============================================================ */
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+
+  // ---------- identities (mirror of the Sales team in the other apps) ----------
+  const SALESPEOPLE = [
+    { id:'SALES_001', name:'DHEERAJ'  },
+    { id:'SALES_002', name:'SHUBHAMI' },
+    { id:'SALES_003', name:'RENU'     },
+    { id:'SALES_004', name:'SHAMSHAD' },
+    { id:'SALES_005', name:'ASHRAF'   },
+    { id:'SALES_006', name:'SANJEEV'  },
+  ];
+  const SALES_LOGIN_MAP = { RENU:'SALES_003', SHUBHAMI:'SALES_002', DHEERAJ:'SALES_001', SHAMSHAD:'SALES_004', SANJEEV:'SALES_006' };
+  const spName = id => (SALESPEOPLE.find(s=>s.id===id)||{}).name || 'Unassigned';
+
+  // ---------- stages ----------
+  const STAGES = [
+    { key:'awareness',   label:'Awareness',   emoji:'🌱', cls:'bg-slate-100 text-slate-700',   bar:'#94a3b8' },
+    { key:'interest',    label:'Interest',    emoji:'🔎', cls:'bg-sky-100 text-sky-700',       bar:'#0ea5e9' },
+    { key:'sample',      label:'Sample Sent', emoji:'📦', cls:'bg-violet-100 text-violet-700', bar:'#8b5cf6' },
+    { key:'negotiation', label:'Negotiation', emoji:'🤝', cls:'bg-amber-100 text-amber-700',   bar:'#f59e0b' },
+    { key:'won',         label:'Won',         emoji:'✅', cls:'bg-emerald-100 text-emerald-700',bar:'#10b981' },
+    { key:'lost',        label:'Lost',        emoji:'❌', cls:'bg-rose-100 text-rose-700',      bar:'#f43f5e' },
+  ];
+  const stageOf = k => STAGES.find(s=>s.key===k) || STAGES[0];
+  const ACTIVE_STAGES = ['awareness','interest','sample','negotiation'];
+
+  // ---------- automation rules ----------
+  const ACTION_RULES = {
+    'Sample sent':       { title:'Check-in on sample feedback',       days:7, stage:'sample'      },
+    'Follow up call':    { title:'Follow-up call',                     days:3                       },
+    'Price negotiation': { title:'Send revised quotation',            days:2, stage:'negotiation'  },
+    'Schedule visit':    { title:'Field visit',                        days:5                       },
+    'Order received':    { title:'Confirm & enter order in Sales Tracker', days:1, stage:'won'      },
+    'Not interested':    { title:'Re-engage with a fresh offer',       days:30, stage:'lost'        },
+  };
+  const KEYWORD_RULES = [
+    { re:/sampl/i,                       title:'Check-in on sample feedback', days:7 },
+    { re:/follow|call ?back|ring/i,      title:'Follow-up call',              days:3 },
+    { re:/price|rate|discount|negotiat/i,title:'Send revised quotation',      days:2 },
+    { re:/\border\b|\bpo\b|purchase/i,   title:'Confirm order details',       days:1 },
+    { re:/not interest|no requirement|reject/i, title:'Re-engage later',      days:30 },
+  ];
+
+  // ---------- helpers ----------
+  const LS = { LEADS:'STARKIDZ_CRM_LEADS', TASKS:'STARKIDZ_CRM_TASKS', ACTS:'STARKIDZ_CRM_ACTIVITIES', SEED:'STARKIDZ_CRM_SEEDED', TGT:'STARKIDZ_CRM_TARGETS' };
+  const uid    = p => p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const todayISO = ()=> new Date().toISOString().slice(0,10);
+  const addDaysISO = (d)=>{ const t=new Date(); t.setDate(t.getDate()+d); return t.toISOString().slice(0,10); };
+  const daysSince = iso => iso ? Math.floor((Date.now()-new Date(iso).getTime())/86400000) : null;
+  const daysUntil = iso => iso ? Math.ceil((new Date(iso+'T00:00:00').getTime()-Date.now())/86400000) : null;
+  const fmtINR = n => '₹'+Number(n||0).toLocaleString('en-IN');
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // Persistence routes through the shared Store layer when present (cloud sync in
+  // firebase mode, localStorage otherwise) and falls back to raw localStorage.
+  const hasStore = ()=> typeof window.Store!=='undefined';
+  const cloudMode = ()=> hasStore() && Store.mode()==='firebase';
+  const load = (k,def)=>{ try{ const raw = hasStore()?Store.getItem(k):localStorage.getItem(k); return raw==null?def:(JSON.parse(raw) ?? def); }catch(_){ return def; } };
+  const save = (k,v)=>{ try{ const s=JSON.stringify(v); if(hasStore()) Store.setItem(k,s); else localStorage.setItem(k,s); }catch(_){} };
+
+  let LEADS=[], TASKS=[], ACTS=[], TARGETS={};
+  let currentUser = null;   // { id, name, scope:'all'|'own' }
+
+  // ---------- auth gate ----------
+  function resolveUser(){
+    let u=null; try{ u=localStorage.getItem('STARKIDZ_USER'); }catch(_){}
+    if(!u){ location.href='login.html'; return null; }
+    if(u==='MASTER') return { id:null, name:'MASTER', scope:'all' };
+    if(SALES_LOGIN_MAP[u]) return { id:SALES_LOGIN_MAP[u], name:u, scope:'own' };
+    // any other logged-in person (billing/production) may view all, read mostly
+    return { id:null, name:u, scope:'all' };
+  }
+  function logout(){ try{ localStorage.removeItem('STARKIDZ_USER'); }catch(_){} location.href='login.html'; }
+
+  // leads visible to the current user
+  function myLeads(){ return currentUser.scope==='all' ? LEADS : LEADS.filter(l=>l.sp===currentUser.id); }
+  function myTasks(){ const ids=new Set(myLeads().map(l=>l.id)); return TASKS.filter(t=>!t.leadId || ids.has(t.leadId) || currentUser.scope==='all'); }
+
+  // ============================================================
+  //  SEED (only once, so the dashboard isn't empty on first open)
+  // ============================================================
+  function seedIfEmpty(){
+    if(localStorage.getItem(LS.SEED)) return;
+    const pick = (arr)=>arr[Math.floor(Math.random()*arr.length)];
+    const regionFor = name => { for(const g of (window.PARTY_GROUPS||[])) if(g.names.includes(name)) return g.region; return ''; };
+    const sample = [
+      { party:'PATLIPUTRA DISTRIBUTORS PVT LTD - PATNA', stage:'negotiation', value:180000, sp:'SALES_001', contact:'Mr. Anand', phone:'+91 90000 11111', last:45,  out:42000,  notes:'Wants 3% extra margin on croc range.' },
+      { party:'NAGPAL SHOE CO. - CHANDIGARH',            stage:'won',         value:250000, sp:'SALES_003', contact:'Rohit',     phone:'+91 90000 22222', last:8,   out:0,      notes:'Reorder placed, happy with sandals.' },
+      { party:'GANPATI FOOTWEARS - JAIPUR',              stage:'sample',      value:120000, sp:'SALES_006', contact:'Mahesh',    phone:'+91 90000 33333', last:60,  out:0,      notes:'Sample of size 24-29 sent last week.' },
+      { party:'KAPIL SHOES - NAGPUR NEW',                stage:'interest',    value:90000,  sp:'SALES_004', contact:'Kapil',     phone:'+91 90000 44444', last:75,  out:15000,  notes:'Interested in school shoes for new season.' },
+      { party:'BAJAJ FOOTWEAR - RAIPUR',                 stage:'won',         value:300000, sp:'SALES_001', contact:'Suresh',    phone:'+91 90000 55555', last:120, out:88000,  notes:'Big account, payment slightly overdue.' },
+      { party:'EAGLE FOOTWEARS - LUCKNOW',               stage:'awareness',   value:60000,  sp:'SALES_002', contact:'Imran',     phone:'+91 90000 66666', last:null,out:0,      notes:'New lead from JustDial, first call done.' },
+      { party:'DAMANI FOOTWEAR - CUTTACK',               stage:'negotiation', value:140000, sp:'SALES_006', contact:'Raj',       phone:'+91 90000 77777', last:52,  out:25000,  notes:'Comparing our rate with competitor.' },
+      { party:'MOHAN LAL SONS - SOLAN',                  stage:'interest',    value:70000,  sp:'SALES_003', contact:'Mohan',     phone:'+91 90000 88888', last:95,  out:0,      notes:'Quiet since last season, worth a push.' },
+    ];
+    LEADS = sample.map(s=>({
+      id:uid('L'), party:s.party, region:regionFor(s.party), stage:s.stage, value:s.value,
+      contact:s.contact, phone:s.phone, sp:s.sp, notes:s.notes,
+      lastContact: s.last!=null ? addDaysISO(-s.last) : null,
+      lastOrder:   s.stage==='won' ? addDaysISO(-(s.last||10)) : (s.last!=null?addDaysISO(-(s.last+20)):null),
+      outstanding: s.out, invoiceDate: s.out>0 ? addDaysISO(-(s.last||30)) : null,
+      createdAt: addDaysISO(-(120)), updatedAt: addDaysISO(-(s.last||5))
+    }));
+    TASKS = [
+      { id:uid('T'), leadId:LEADS[0].id, party:LEADS[0].party, title:'Send revised quotation', due:todayISO(),        sp:LEADS[0].sp, done:false, auto:true, priority:'High',   createdAt:todayISO() },
+      { id:uid('T'), leadId:LEADS[2].id, party:LEADS[2].party, title:'Check-in on sample feedback', due:addDaysISO(-2), sp:LEADS[2].sp, done:false, auto:true, priority:'Normal', createdAt:addDaysISO(-9) },
+      { id:uid('T'), leadId:LEADS[3].id, party:LEADS[3].party, title:'Follow-up call', due:addDaysISO(2),             sp:LEADS[3].sp, done:false, auto:true, priority:'Normal', createdAt:todayISO() },
+    ];
+    ACTS = [
+      { id:uid('A'), leadId:LEADS[1].id, party:LEADS[1].party, type:'Order received', note:'Reorder placed — happy with sandals.', by:spName(LEADS[1].sp), at:addDaysISO(-8) },
+      { id:uid('A'), leadId:LEADS[2].id, party:LEADS[2].party, type:'Sample sent',    note:'Sample of size 24-29 dispatched.',     by:spName(LEADS[2].sp), at:addDaysISO(-7) },
+      { id:uid('A'), leadId:LEADS[0].id, party:LEADS[0].party, type:'Price negotiation', note:'Wants 3% extra margin on crocs.',    by:spName(LEADS[0].sp), at:addDaysISO(-3) },
+    ];
+    TARGETS = { SALES_001:500000, SALES_002:300000, SALES_003:400000, SALES_004:300000, SALES_005:300000, SALES_006:400000 };
+    save(LS.LEADS,LEADS); save(LS.TASKS,TASKS); save(LS.ACTS,ACTS); save(LS.TGT,TARGETS);
+    localStorage.setItem(LS.SEED,'1');
+  }
+
+  function persist(){ save(LS.LEADS,LEADS); save(LS.TASKS,TASKS); save(LS.ACTS,ACTS); save(LS.TGT,TARGETS); }
+
+  // ---- real-time sync: reload the changed key and repaint when another device/tab writes ----
+  function pullKey(k){
+    if(k===LS.LEADS)      LEADS   = load(LS.LEADS,[])  || [];
+    else if(k===LS.TASKS) TASKS   = load(LS.TASKS,[])  || [];
+    else if(k===LS.ACTS)  ACTS    = load(LS.ACTS,[])   || [];
+    else if(k===LS.TGT)   TARGETS = load(LS.TGT,{})    || {};
+  }
+  let syncWired=false;
+  function wireSyncListeners(){
+    if(syncWired || !hasStore()) return; syncWired=true;
+    [LS.LEADS,LS.TASKS,LS.ACTS,LS.TGT].forEach(k=>{
+      Store.onChange(k, ()=>{ pullKey(k); renderAll(); buildMeetingForm(); });
+    });
+  }
+
+  // ============================================================
+  //  TOAST
+  // ============================================================
+  function toast(title, emoji, body, tone='brand'){
+    const ring={brand:'ring-brand-200',green:'ring-emerald-200',amber:'ring-amber-200',red:'ring-rose-200',violet:'ring-violet-200'}[tone]||'ring-brand-200';
+    const el=document.createElement('div');
+    el.className=`toast bg-white rounded-xl shadow-lg ring-1 ${ring} p-3.5 flex gap-3`;
+    el.innerHTML=`<div class="text-xl">${emoji}</div><div class="min-w-0"><p class="font-bold text-sm text-slate-900">${esc(title)}</p><p class="text-xs text-slate-500">${esc(body||'')}</p></div>`;
+    $('#toasts').appendChild(el);
+    setTimeout(()=>{ el.style.transition='opacity .4s,transform .4s'; el.style.opacity='0'; el.style.transform='translateY(-10px)'; setTimeout(()=>el.remove(),400); },4200);
+  }
+
+  // ============================================================
+  //  TABS
+  // ============================================================
+  function switchTab(tab){
+    $$('.tab-view').forEach(v=>v.classList.add('hidden'));
+    $('#view-'+tab).classList.remove('hidden');
+    $$('.tab-btn').forEach(b=>b.classList.toggle('tab-active', b.dataset.tab===tab));
+    window.scrollTo({top:0,behavior:'smooth'});
+    if(tab==='meeting') buildMeetingForm();
+  }
+
+  // ============================================================
+  //  DASHBOARD
+  // ============================================================
+  function renderDashboard(){
+    const leads=myLeads();
+    const active=leads.filter(l=>ACTIVE_STAGES.includes(l.stage));
+    const won=leads.filter(l=>l.stage==='won');
+    const closed=leads.filter(l=>l.stage==='won'||l.stage==='lost');
+    const convRate = closed.length ? Math.round(won.length/closed.length*100) : 0;
+    const pipeVal = active.reduce((s,l)=>s+(+l.value||0),0);
+    const overdue = myTasks().filter(t=>!t.done && daysUntil(t.due)<0).length;
+    const dueToday = myTasks().filter(t=>!t.done && daysUntil(t.due)===0).length;
+
+    const kpis=[
+      { label:'Open Leads',     val:active.length, sub:fmtINR(pipeVal)+' in pipeline', emoji:'📇', tone:'from-brand-500 to-brand-700' },
+      { label:'Won (all-time)', val:won.length,    sub:fmtINR(won.reduce((s,l)=>s+(+l.value||0),0)), emoji:'✅', tone:'from-emerald-500 to-emerald-700' },
+      { label:'Conversion',     val:convRate+'%',  sub:won.length+'/'+closed.length+' closed', emoji:'🎯', tone:'from-violet-500 to-violet-700' },
+      { label:'Tasks Due',      val:dueToday+overdue, sub:overdue+' overdue · '+dueToday+' today', emoji:'⏰', tone:'from-rose-500 to-star-red' },
+    ];
+    $('#kpiRow').innerHTML = kpis.map(k=>`
+      <div class="kpi-hover bg-gradient-to-br ${k.tone} text-white rounded-2xl p-4 shadow-lg">
+        <div class="flex items-center justify-between"><span class="text-2xl">${k.emoji}</span></div>
+        <p class="text-3xl font-extrabold mt-1 leading-none">${k.val}</p>
+        <p class="text-xs font-semibold text-white/80 mt-1">${k.label}</p>
+        <p class="text-[11px] text-white/60 mt-0.5 truncate">${esc(k.sub)}</p>
+      </div>`).join('');
+
+    // funnel
+    const maxC = Math.max(1,...STAGES.filter(s=>s.key!=='lost').map(s=>leads.filter(l=>l.stage===s.key).length));
+    $('#dashFunnel').innerHTML = STAGES.map(s=>{
+      const items=leads.filter(l=>l.stage===s.key);
+      const val=items.reduce((a,l)=>a+(+l.value||0),0);
+      const w = s.key==='lost'?0:Math.round(items.length/maxC*100);
+      return `<div class="flex items-center gap-3">
+        <div class="w-24 shrink-0 text-xs font-bold text-slate-600">${s.emoji} ${s.label}</div>
+        <div class="flex-1 bg-slate-100 rounded-lg h-7 overflow-hidden relative">
+          <div class="bar-fill h-7 rounded-lg" style="width:${s.key==='lost'?100:Math.max(w,items.length?8:0)}%;background:${s.bar}${s.key==='lost'?'22':''}"></div>
+          <div class="absolute inset-0 flex items-center justify-between px-2 text-[11px] font-bold ${s.key==='lost'?'text-rose-600':'text-white'}"><span>${items.length}</span><span class="${s.key==='lost'?'text-rose-400':'text-white/90'}">${fmtINR(val)}</span></div>
+        </div></div>`;
+    }).join('');
+
+    // today/overdue tasks
+    const tt = myTasks().filter(t=>!t.done && daysUntil(t.due)<=0).sort((a,b)=>a.due.localeCompare(b.due));
+    $('#dashTasks').innerHTML = tt.length ? tt.slice(0,8).map(taskRowMini).join('')
+      : `<p class="text-sm text-slate-400 py-6 text-center">🎉 Nothing overdue. You're on top of it.</p>`;
+
+    // activity
+    const acts=[...ACTS].filter(a=>currentUser.scope==='all'||myLeads().some(l=>l.id===a.leadId)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,8);
+    $('#dashActivity').innerHTML = acts.length ? acts.map(a=>`
+      <div class="flex gap-2.5 text-sm">
+        <div class="h-8 w-8 shrink-0 rounded-full bg-slate-100 grid place-items-center">${actionEmoji(a.type)}</div>
+        <div class="min-w-0"><p class="font-semibold text-slate-800 truncate">${esc(a.party)}</p>
+        <p class="text-xs text-slate-500 truncate">${esc(a.note)}</p>
+        <p class="text-[10px] text-slate-400">${esc(a.by)} · ${timeAgo(a.at)}</p></div>
+      </div>`).join('') : `<p class="text-sm text-slate-400 py-6 text-center">No activity yet — log a meeting.</p>`;
+
+    // reengage preview
+    const re = reengageData(45).slice(0,5);
+    $('#dashReengage').innerHTML = re.length ? re.map(r=>`
+      <div class="flex items-center justify-between gap-2 text-sm">
+        <div class="min-w-0"><p class="font-semibold text-slate-800 truncate">${esc(r.party)}</p>
+        <p class="text-[11px] text-slate-400">Quiet ${r.gap} days · ${esc(spName(r.sp))}</p></div>
+        <span class="text-xs font-bold text-amber-600 shrink-0">${fmtINR(r.value)}</span>
+      </div>`).join('') : `<p class="text-sm text-slate-400 py-6 text-center">All parties recently engaged 👍</p>`;
+  }
+  const taskRowMini = t=>{
+    const du=daysUntil(t.due), over=du<0;
+    return `<div class="flex items-center gap-2 p-2 rounded-lg ${over?'bg-rose-50':'bg-slate-50'}">
+      <input type="checkbox" onchange="toggleTask('${t.id}')" class="h-4 w-4 accent-emerald-600 shrink-0">
+      <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${esc(t.title)}</p>
+      <p class="text-[11px] ${over?'text-rose-600 font-bold':'text-slate-400'} truncate">${esc(t.party||'General')} · ${over?Math.abs(du)+'d overdue':(du===0?'due today':'in '+du+'d')}</p></div>
+    </div>`;
+  };
+  const actionEmoji = t=>({'Order received':'🛒','Sample sent':'📦','Price negotiation':'💬','Follow up call':'📞','Schedule visit':'📅','Not interested':'🚫'}[t]||'📝');
+  function timeAgo(iso){ const d=daysSince(iso); if(d===0)return 'today'; if(d===1)return 'yesterday'; if(d<30)return d+'d ago'; return Math.floor(d/30)+'mo ago'; }
+
+  // ============================================================
+  //  PIPELINE (Kanban)
+  // ============================================================
+  function renderPipeline(){
+    const spSel=$('#pipeFilterSP'); const spv=spSel.value;
+    const board=$('#pipeBoard'); board.innerHTML='';
+    const cols=STAGES;
+    cols.forEach(s=>{
+      let items=myLeads().filter(l=>l.stage===s.key);
+      if(spv) items=items.filter(l=>l.sp===spv);
+      const val=items.reduce((a,l)=>a+(+l.value||0),0);
+      const col=document.createElement('div');
+      col.className='bg-slate-50 rounded-xl ring-1 ring-slate-200 p-2 flex flex-col';
+      col.innerHTML=`
+        <div class="flex items-center justify-between px-1.5 py-1 mb-1">
+          <span class="text-xs font-extrabold ${s.cls} rounded-full px-2.5 py-1">${s.emoji} ${s.label}</span>
+          <span class="text-[11px] font-bold text-slate-400">${items.length}</span>
+        </div>
+        <p class="text-[11px] text-slate-400 px-1.5 mb-1.5 font-semibold">${fmtINR(val)}</p>
+        <div class="col-drop space-y-2 min-h-[60px] flex-1" data-stage="${s.key}"></div>`;
+      const drop=col.querySelector('.col-drop');
+      drop.addEventListener('dragover',e=>{ e.preventDefault(); drop.classList.add('dragover'); });
+      drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));
+      drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('dragover'); const id=e.dataTransfer.getData('text'); if(id) setStage(id,s.key); });
+      items.forEach(l=>drop.appendChild(leadCardEl(l)));
+      board.appendChild(col);
+    });
+  }
+  function leadCardEl(l){
+    const idx=STAGES.findIndex(s=>s.key===l.stage);
+    const el=document.createElement('div');
+    el.className='lead-card bg-white rounded-lg ring-1 ring-slate-200 p-2.5 shadow-sm';
+    el.draggable=true;
+    el.addEventListener('dragstart',e=>e.dataTransfer.setData('text',l.id));
+    const t=myTasks().find(t=>t.leadId===l.id && !t.done);
+    el.innerHTML=`
+      <p class="text-[13px] font-bold text-slate-800 leading-tight">${esc(shortParty(l.party))}</p>
+      <p class="text-[11px] text-slate-400 mt-0.5">${esc(l.region||'—')}</p>
+      <div class="flex items-center justify-between mt-1.5">
+        <span class="text-xs font-extrabold text-brand-700">${fmtINR(l.value)}</span>
+        <span class="text-[10px] font-semibold text-slate-400">${esc(spName(l.sp))}</span>
+      </div>
+      ${t?`<p class="text-[10px] mt-1.5 ${daysUntil(t.due)<0?'text-rose-600 font-bold':'text-slate-400'}">⏰ ${esc(t.title)}</p>`:''}
+      <div class="flex items-center justify-between mt-2">
+        <div class="flex gap-1">
+          <button onclick="event.stopPropagation();moveStage('${l.id}',-1)" class="h-6 w-6 rounded bg-slate-100 hover:bg-slate-200 text-xs ${idx<=0?'opacity-30 pointer-events-none':''}">◀</button>
+          <button onclick="event.stopPropagation();moveStage('${l.id}',1)" class="h-6 w-6 rounded bg-slate-100 hover:bg-slate-200 text-xs ${idx>=STAGES.length-1?'opacity-30 pointer-events-none':''}">▶</button>
+        </div>
+        <button onclick="event.stopPropagation();openLeadModal('${l.id}')" class="text-[11px] font-semibold text-brand-600 hover:underline">Open</button>
+      </div>`;
+    return el;
+  }
+  const shortParty = p => p.length>34 ? p.slice(0,32)+'…' : p;
+  function moveStage(id,dir){
+    const l=LEADS.find(x=>x.id===id); if(!l) return;
+    let i=STAGES.findIndex(s=>s.key===l.stage)+dir;
+    i=Math.max(0,Math.min(STAGES.length-1,i));
+    setStage(id,STAGES[i].key);
+  }
+  function setStage(id,key){
+    const l=LEADS.find(x=>x.id===id); if(!l||l.stage===key) return;
+    l.stage=key; l.updatedAt=todayISO();
+    if(key==='won' && !l.lastOrder) l.lastOrder=todayISO();
+    logActivity(l,'Stage','Moved to '+stageOf(key).label);
+    persist(); renderAll();
+    toast('Moved to '+stageOf(key).label, stageOf(key).emoji, shortParty(l.party), 'brand');
+  }
+
+  // ============================================================
+  //  LEADS table
+  // ============================================================
+  function renderLeads(){
+    const q=($('#leadSearch').value||'').toLowerCase();
+    const fs=$('#leadFilterStage').value, fr=$('#leadFilterRegion').value, fsp=$('#leadFilterSP').value;
+    let rows=myLeads();
+    if(q) rows=rows.filter(l=>(l.party+' '+(l.contact||'')+' '+(l.region||'')).toLowerCase().includes(q));
+    if(fs) rows=rows.filter(l=>l.stage===fs);
+    if(fr) rows=rows.filter(l=>l.region===fr);
+    if(fsp)rows=rows.filter(l=>l.sp===fsp);
+    rows.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+    $('#leadCount').textContent=rows.length;
+    $('#leadRows').innerHTML = rows.length ? rows.map(l=>{
+      const s=stageOf(l.stage);
+      const t=myTasks().find(t=>t.leadId===l.id && !t.done);
+      return `<tr class="hover:bg-slate-50">
+        <td class="px-4 py-2.5"><p class="font-semibold text-slate-800">${esc(shortParty(l.party))}</p><p class="text-[11px] text-slate-400 sm:hidden">${esc(l.region||'')}</p></td>
+        <td class="px-3 py-2.5 text-slate-500 hidden sm:table-cell text-xs">${esc(l.region||'—')}</td>
+        <td class="px-3 py-2.5"><span class="text-[11px] font-bold ${s.cls} rounded-full px-2 py-0.5 whitespace-nowrap">${s.emoji} ${s.label}</span></td>
+        <td class="px-3 py-2.5 text-right font-bold text-slate-700 hidden md:table-cell">${fmtINR(l.value)}</td>
+        <td class="px-3 py-2.5 hidden lg:table-cell text-xs ${t&&daysUntil(t.due)<0?'text-rose-600 font-bold':'text-slate-500'}">${t?esc(t.title):'<span class="text-slate-300">—</span>'}</td>
+        <td class="px-3 py-2.5 text-slate-500 hidden md:table-cell text-xs">${esc(spName(l.sp))}</td>
+        <td class="px-3 py-2.5 text-right"><button onclick="openLeadModal('${l.id}')" class="text-brand-600 font-semibold text-xs hover:underline">Edit</button></td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" class="text-center text-slate-400 py-10">No leads match. <button onclick="openLeadModal()" class="text-brand-600 font-semibold">Add one →</button></td></tr>`;
+  }
+
+  // ============================================================
+  //  LEAD MODAL
+  // ============================================================
+  let editingLeadId=null;
+  function openLeadModal(id){
+    editingLeadId=id||null;
+    const l = id ? LEADS.find(x=>x.id===id) : null;
+    $('#leadModalTitle').textContent = l?'Edit Lead':'New Lead';
+    $('#leadDeleteBtn').classList.toggle('hidden', !l);
+    $('#f_party').value=l?l.party:''; $('#f_contact').value=l?(l.contact||''):'';
+    $('#f_phone').value=l?(l.phone||''):''; $('#f_value').value=l?(l.value||''):'';
+    $('#f_notes').value=l?(l.notes||''):''; $('#f_lastorder').value=l?(l.lastOrder||''):'';
+    $('#f_outstanding').value=l?(l.outstanding||''):'';
+    $('#f_region').value=l?(l.region||''):''; $('#f_stage').value=l?l.stage:'awareness';
+    $('#f_sp').value=l?(l.sp||''):(currentUser.id||'');
+    $('#leadModal').classList.remove('hidden');
+  }
+  function closeLeadModal(){ $('#leadModal').classList.add('hidden'); editingLeadId=null; }
+  function saveLead(){
+    const party=$('#f_party').value.trim();
+    if(!party){ toast('Party name required','⚠️','Enter a distributor name','amber'); return; }
+    const data={
+      party, region:$('#f_region').value, stage:$('#f_stage').value,
+      contact:$('#f_contact').value.trim(), phone:$('#f_phone').value.trim(),
+      value:+$('#f_value').value||0, sp:$('#f_sp').value||currentUser.id||'',
+      notes:$('#f_notes').value.trim(), lastOrder:$('#f_lastorder').value||null,
+      outstanding:+$('#f_outstanding').value||0, updatedAt:todayISO()
+    };
+    if(data.outstanding>0 && !(editingLeadId&&LEADS.find(x=>x.id===editingLeadId)?.invoiceDate)) data.invoiceDate=data.invoiceDate||addDaysISO(-20);
+    if(editingLeadId){
+      const l=LEADS.find(x=>x.id===editingLeadId); Object.assign(l,data);
+      toast('Lead updated','✏️',shortParty(party),'brand');
+    }else{
+      const l=Object.assign({ id:uid('L'), createdAt:todayISO(), lastContact:todayISO(), invoiceDate:data.outstanding>0?addDaysISO(-20):null }, data);
+      LEADS.push(l); logActivity(l,'Lead','New lead created');
+      toast('Lead added','🎉',shortParty(party),'green');
+    }
+    persist(); closeLeadModal(); renderAll();
+  }
+  function deleteCurrentLead(){
+    if(!editingLeadId) return;
+    const l=LEADS.find(x=>x.id===editingLeadId);
+    if(!confirm('Delete "'+(l?l.party:'')+'" and its tasks?')) return;
+    LEADS=LEADS.filter(x=>x.id!==editingLeadId);
+    TASKS=TASKS.filter(t=>t.leadId!==editingLeadId);
+    persist(); closeLeadModal(); renderAll();
+    toast('Lead deleted','🗑️',l?shortParty(l.party):'','red');
+  }
+
+  // ============================================================
+  //  MEETING LOG + AUTOMATION + VOICE
+  // ============================================================
+  function buildMeetingForm(){
+    const sel=$('#mtgLead');
+    const opts=myLeads().sort((a,b)=>a.party.localeCompare(b.party))
+      .map(l=>`<option value="${l.id}">${esc(shortParty(l.party))}</option>`).join('');
+    sel.innerHTML = opts + `<option value="__new">➕ New party / lead…</option>`;
+    mtgLeadChanged();
+  }
+  function mtgLeadChanged(){ $('#mtgNewWrap').classList.toggle('hidden', $('#mtgLead').value!=='__new'); }
+
+  function submitMeeting(){
+    const sel=$('#mtgLead').value;
+    const action=$('#mtgAction').value;
+    const fb=$('#mtgFeedback').value.trim();
+    let lead;
+    if(sel==='__new'){
+      const name=$('#mtgNewName').value.trim();
+      if(!name){ toast('Party name required','⚠️','Enter the new party name','amber'); return; }
+      lead={ id:uid('L'), party:name, region:$('#mtgNewRegion').value, stage:'awareness',
+        value:+$('#mtgNewValue').value||0, contact:'', phone:'', sp:currentUser.id||'',
+        notes:fb, lastOrder:null, outstanding:0, invoiceDate:null, createdAt:todayISO(), lastContact:todayISO(), updatedAt:todayISO() };
+      LEADS.push(lead);
+    }else{
+      lead=LEADS.find(x=>x.id===sel);
+      if(!lead){ toast('Pick a party','⚠️','','amber'); return; }
+      lead.lastContact=todayISO(); lead.updatedAt=todayISO();
+      if(fb) lead.notes=fb;
+    }
+    logActivity(lead, action, fb||action);
+
+    // ---- automation: stage + auto task from the chosen action ----
+    const rule=ACTION_RULES[action];
+    let made=[];
+    if(rule){
+      if(rule.stage && lead.stage!==rule.stage){ lead.stage=rule.stage; if(rule.stage==='won'&&!lead.lastOrder) lead.lastOrder=todayISO(); }
+      made.push(createAutoTask(lead, rule.title, rule.days, action==='Order received'?'High':'Normal'));
+    }
+    // ---- keyword automation from free-text feedback (no dupes with the action rule) ----
+    if(fb){
+      KEYWORD_RULES.forEach(k=>{
+        if(k.re.test(fb) && !made.some(m=>m && m.title===k.title)) made.push(createAutoTask(lead,k.title,k.days,'Normal'));
+      });
+    }
+    made=made.filter(Boolean);
+    persist();
+    // reset
+    $('#mtgFeedback').value=''; $('#mtgNewName').value=''; $('#mtgNewValue').value='';
+    buildMeetingForm(); renderAll();
+    const taskMsg = made.length ? `${made.length} follow-up${made.length>1?'s':''} scheduled` : 'Meeting saved';
+    toast('Saved ✓', actionEmoji(action), `${shortParty(lead.party)} · ${taskMsg}`, 'green');
+    if(made.length){ notify('Auto follow-up created', made.map(m=>m.title+' · due '+m.due).join('\n')); }
+  }
+
+  function createAutoTask(lead,title,days,priority){
+    // skip if an identical open task already exists for this lead
+    if(TASKS.some(t=>t.leadId===lead.id && t.title===title && !t.done)) return null;
+    const t={ id:uid('T'), leadId:lead.id, party:lead.party, title, due:addDaysISO(days), sp:lead.sp, done:false, auto:true, priority:priority||'Normal', createdAt:todayISO() };
+    TASKS.push(t); return t;
+  }
+  function logActivity(lead,type,note){
+    ACTS.push({ id:uid('A'), leadId:lead.id, party:lead.party, type, note, by:currentUser.name, at:todayISO() });
+    if(ACTS.length>500) ACTS=ACTS.slice(-500);
+  }
+
+  // ---- Web Speech API voice-to-text ----
+  let recog=null, recogTarget=null, recogBtn=null;
+  function toggleVoice(targetId, btn){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ $('#micHint').textContent='Voice input needs Chrome or Edge — type your notes instead.'; toast('Voice not supported','🎤','Use Chrome/Edge for dictation','amber'); return; }
+    if(recog){ stopVoice(); return; }
+    recog=new SR(); recogTarget=$('#'+targetId); recogBtn=btn;
+    recog.lang='en-IN'; recog.interimResults=true; recog.continuous=true;
+    const base=recogTarget.value ? recogTarget.value.trim()+' ' : '';
+    recog.onresult=e=>{
+      let interim='', final='';
+      for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal) final+=r[0].transcript+' '; else interim+=r[0].transcript; }
+      if(final) recogTarget.value=(recogTarget.value.trim()+' '+final.trim()).trim()+' ';
+      $('#micHint').textContent = interim ? '… '+interim : 'Listening…';
+    };
+    recog.onerror=ev=>{ $('#micHint').textContent='Mic error: '+ev.error+'. Check microphone permission.'; stopVoice(); };
+    recog.onend=()=>{ if(recog) stopVoice(); };
+    try{ recog.start(); }catch(_){}
+    btn.classList.add('mic-live','bg-star-red','text-white'); btn.classList.remove('bg-rose-50','text-star-red');
+    $('#micIco').textContent='⏺'; $('#micLbl').textContent='Stop'; $('#micHint').textContent='Listening… speak now.';
+  }
+  function stopVoice(){
+    if(recog){ try{recog.stop();}catch(_){} recog=null; }
+    if(recogBtn){ recogBtn.classList.remove('mic-live','bg-star-red','text-white'); recogBtn.classList.add('bg-rose-50','text-star-red'); }
+    $('#micIco').textContent='🎤'; $('#micLbl').textContent='Dictate';
+    setTimeout(()=>{ if(!recog) $('#micHint').textContent=''; },1500);
+  }
+
+  // ============================================================
+  //  TASKS
+  // ============================================================
+  function renderTasks(){
+    const ts=myTasks();
+    const open=ts.filter(t=>!t.done);
+    const overdue=open.filter(t=>daysUntil(t.due)<0);
+    const today=open.filter(t=>daysUntil(t.due)===0);
+    const done=ts.filter(t=>t.done).length;
+    const badge=$('#taskBadge');
+    if(overdue.length+today.length>0){ badge.classList.remove('hidden'); badge.textContent=overdue.length+today.length; } else badge.classList.add('hidden');
+
+    $('#taskStat').innerHTML=[
+      {l:'Overdue',v:overdue.length,c:'text-rose-600 bg-rose-50 ring-rose-200'},
+      {l:'Due today',v:today.length,c:'text-amber-600 bg-amber-50 ring-amber-200'},
+      {l:'Completed',v:done,c:'text-emerald-600 bg-emerald-50 ring-emerald-200'},
+    ].map(s=>`<div class="rounded-xl ring-1 ${s.c} p-3 text-center"><p class="text-2xl font-extrabold">${s.v}</p><p class="text-[11px] font-bold uppercase tracking-wide">${s.l}</p></div>`).join('');
+
+    const order=t=>t.done?3:(daysUntil(t.due)<0?0:daysUntil(t.due)===0?1:2);
+    const sorted=[...ts].sort((a,b)=>order(a)-order(b) || (a.due||'').localeCompare(b.due||''));
+    $('#taskList').innerHTML = sorted.length ? sorted.map(taskRow).join('')
+      : `<p class="text-center text-slate-400 py-10">No tasks yet. They appear automatically after you log meetings.</p>`;
+  }
+  function taskRow(t){
+    const du=daysUntil(t.due), over=!t.done&&du<0, today=!t.done&&du===0;
+    const dueLbl = t.done?'done':(over?Math.abs(du)+'d overdue':today?'due today':(du>0?'in '+du+' days':''));
+    return `<div class="bg-white rounded-xl ring-1 ${over?'ring-rose-200':'ring-slate-200'} p-3 flex items-center gap-3 ${t.done?'opacity-60':''}">
+      <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}')" class="h-5 w-5 accent-emerald-600 shrink-0">
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-slate-800 ${t.done?'line-through':''}">${t.priority==='High'?'🔴 ':''}${esc(t.title)}</p>
+        <p class="text-xs text-slate-400 truncate">${esc(t.party||'General')} · ${esc(spName(t.sp))} ${t.auto?'· 🤖 auto':''}</p>
+      </div>
+      <div class="text-right shrink-0">
+        <p class="text-xs font-bold ${over?'text-rose-600':today?'text-amber-600':'text-slate-400'}">${dueLbl}</p>
+        ${!t.done?`<button onclick="snoozeTask('${t.id}')" class="text-[11px] text-slate-400 hover:text-brand-600">snooze +3d</button>`:`<button onclick="deleteTask('${t.id}')" class="text-[11px] text-slate-300 hover:text-rose-600">remove</button>`}
+      </div>
+    </div>`;
+  }
+  function toggleTask(id){ const t=TASKS.find(x=>x.id===id); if(!t)return; t.done=!t.done; t.doneAt=t.done?todayISO():null; persist(); renderAll(); if(t.done) toast('Task done','✅',esc(t.title),'green'); }
+  function snoozeTask(id){ const t=TASKS.find(x=>x.id===id); if(!t)return; t.due=addDaysISO(3); persist(); renderAll(); toast('Snoozed','😴','+3 days','brand'); }
+  function deleteTask(id){ TASKS=TASKS.filter(x=>x.id!==id); persist(); renderAll(); }
+
+  let taskModalLeadIds=[];
+  function openTaskModal(){
+    $('#t_title').value=''; $('#t_due').value=addDaysISO(3); $('#t_priority').value='Normal';
+    const sel=$('#t_lead');
+    sel.innerHTML=`<option value="">— none —</option>`+myLeads().sort((a,b)=>a.party.localeCompare(b.party)).map(l=>`<option value="${l.id}">${esc(shortParty(l.party))}</option>`).join('');
+    $('#taskModal').classList.remove('hidden');
+  }
+  function closeTaskModal(){ $('#taskModal').classList.add('hidden'); }
+  function saveTask(){
+    const title=$('#t_title').value.trim();
+    if(!title){ toast('Title required','⚠️','','amber'); return; }
+    const leadId=$('#t_lead').value; const lead=LEADS.find(l=>l.id===leadId);
+    TASKS.push({ id:uid('T'), leadId:leadId||null, party:lead?lead.party:'', title, due:$('#t_due').value||addDaysISO(3), sp:lead?lead.sp:(currentUser.id||''), done:false, auto:false, priority:$('#t_priority').value, createdAt:todayISO() });
+    persist(); closeTaskModal(); renderAll(); toast('Task added','📝',esc(title),'brand');
+  }
+
+  // ---- reminders ----
+  function enableNotifications(){
+    if(!('Notification' in window)){ toast('Not supported','🔔','This browser has no notifications','amber'); return; }
+    Notification.requestPermission().then(p=>{
+      if(p==='granted'){ $('#notifBtn').textContent='🔔 Reminders on'; toast('Reminders on','🔔','You will be alerted for due tasks','green'); checkDueReminders(); }
+    });
+  }
+  function notify(title,body){ try{ if(window.Notification && Notification.permission==='granted') new Notification('STAR Kidz CRM — '+title,{ body, icon:'icon.svg' }); }catch(_){} }
+  function checkDueReminders(){
+    const due=myTasks().filter(t=>!t.done && daysUntil(t.due)<=0);
+    if(due.length) notify(due.length+' follow-up'+(due.length>1?'s':'')+' due', due.slice(0,5).map(t=>'• '+t.title+' — '+(t.party||'')).join('\n'));
+  }
+
+  // ============================================================
+  //  RE-ENGAGE (push sales)
+  // ============================================================
+  function reengageData(gap){
+    return myLeads().filter(l=>l.stage!=='lost').map(l=>{
+      const ref=l.lastOrder||l.lastContact;
+      return { ...l, gap: daysSince(ref) };
+    }).filter(r=>r.gap!=null && r.gap>=gap).sort((a,b)=>b.gap-a.gap);
+  }
+  function renderReengage(){
+    const gap=+$('#reGap').value;
+    const list=reengageData(gap);
+    $('#reengageList').innerHTML = list.length ? list.map(r=>`
+      <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-4 card-hover">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0"><p class="font-bold text-slate-800">${esc(shortParty(r.party))}</p>
+          <p class="text-[11px] text-slate-400">${esc(r.region||'')} · ${esc(spName(r.sp))}</p></div>
+          <span class="shrink-0 text-[11px] font-extrabold text-amber-700 bg-amber-100 rounded-full px-2 py-1">${r.gap}d quiet</span>
+        </div>
+        <div class="flex items-center justify-between mt-3 text-sm">
+          <div><p class="text-[10px] text-slate-400 uppercase font-bold">Est. value</p><p class="font-bold text-slate-700">${fmtINR(r.value)}</p></div>
+          ${r.outstanding>0?`<div class="text-right"><p class="text-[10px] text-slate-400 uppercase font-bold">Outstanding</p><p class="font-bold text-rose-600">${fmtINR(r.outstanding)}</p></div>`:''}
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="pushSale('${r.id}')" class="flex-1 bg-gradient-to-r from-star-red to-star-pink text-white rounded-lg py-2 text-xs font-bold">⚡ Create Push-Sale Task</button>
+          <button onclick="openLeadModal('${r.id}')" class="px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold">Open</button>
+        </div>
+      </div>`).join('') : `<div class="sm:col-span-2 text-center text-slate-400 py-12">🎉 No parties quiet for more than ${gap} days. Great coverage!</div>`;
+  }
+  function pushSale(id){
+    const l=LEADS.find(x=>x.id===id); if(!l)return;
+    const t=createAutoTask(l,'Push-sale call — re-engage '+shortParty(l.party),1,'High');
+    if(!t){ toast('Already queued','ℹ️','A push task is already open','amber'); return; }
+    logActivity(l,'Push sale','Re-engagement push triggered');
+    persist(); renderAll();
+    toast('Push-sale scheduled','⚡',shortParty(l.party)+' · due tomorrow','red');
+    notify('Push-sale task', l.party+' — call tomorrow');
+  }
+
+  // ============================================================
+  //  REPORTS
+  // ============================================================
+  function thisMonth(iso){ if(!iso)return false; const d=new Date(iso),n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth(); }
+  function renderReports(){
+    const leads=myLeads();
+    // target vs actual (won value this month, by salesperson)
+    const sps = currentUser.scope==='all' ? SALESPEOPLE : SALESPEOPLE.filter(s=>s.id===currentUser.id);
+    $('#repTarget').innerHTML = sps.map(s=>{
+      const actual=leads.filter(l=>l.sp===s.id && l.stage==='won' && (thisMonth(l.lastOrder)||thisMonth(l.updatedAt))).reduce((a,l)=>a+(+l.value||0),0);
+      const tgt=TARGETS[s.id]||300000;
+      const pct=Math.min(100,Math.round(actual/tgt*100));
+      return `<div>
+        <div class="flex justify-between text-xs mb-1"><span class="font-bold text-slate-700">${esc(s.name)}</span><span class="text-slate-500">${fmtINR(actual)} / ${fmtINR(tgt)} <b class="${pct>=100?'text-emerald-600':pct>=60?'text-amber-600':'text-rose-600'}">${pct}%</b></span></div>
+        <div class="bg-slate-100 rounded-full h-3 overflow-hidden"><div class="bar-fill h-3 rounded-full" style="width:${pct}%;background:${pct>=100?'#10b981':pct>=60?'#f59e0b':'#f43f5e'}"></div></div>
+      </div>`;
+    }).join('');
+
+    // top parties by frequency (count of won + activity)
+    const freq={};
+    leads.forEach(l=>{ const c=ACTS.filter(a=>a.leadId===l.id && a.type==='Order received').length + (l.stage==='won'?1:0); if(c>0) freq[l.party]=(freq[l.party]||0)+c; });
+    const top=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const maxF=Math.max(1,...top.map(t=>t[1]));
+    $('#repFreq').innerHTML = top.length ? top.map(([p,c])=>`
+      <div class="flex items-center gap-2 text-xs"><span class="w-40 shrink-0 font-semibold text-slate-600 truncate">${esc(shortParty(p))}</span>
+      <div class="flex-1 bg-slate-100 rounded h-5 overflow-hidden"><div class="bar-fill h-5 bg-brand-500 rounded" style="width:${Math.round(c/maxF*100)}%"></div></div>
+      <span class="w-6 text-right font-bold text-slate-700">${c}</span></div>`).join('')
+      : `<p class="text-sm text-slate-400 py-4 text-center">No orders recorded yet.</p>`;
+
+    // payment aging
+    const buckets={'0–30':0,'31–60':0,'61–90':0,'90+':0};
+    leads.forEach(l=>{ if((+l.outstanding||0)<=0)return; const d=daysSince(l.invoiceDate||l.lastOrder||l.updatedAt)||0; const k=d<=30?'0–30':d<=60?'31–60':d<=90?'61–90':'90+'; buckets[k]+=(+l.outstanding||0); });
+    const totalOut=Object.values(buckets).reduce((a,b)=>a+b,0);
+    const colors={'0–30':'#10b981','31–60':'#f59e0b','61–90':'#f97316','90+':'#f43f5e'};
+    $('#repAging').innerHTML = `<p class="text-sm text-slate-500 mb-2">Total outstanding <b class="text-slate-800">${fmtINR(totalOut)}</b></p>`+
+      Object.entries(buckets).map(([k,v])=>`<div class="flex items-center gap-2 text-xs"><span class="w-14 shrink-0 font-bold text-slate-600">${k}d</span>
+      <div class="flex-1 bg-slate-100 rounded h-5 overflow-hidden"><div class="bar-fill h-5 rounded" style="width:${totalOut?Math.round(v/totalOut*100):0}%;background:${colors[k]}"></div></div>
+      <span class="w-20 text-right font-bold text-slate-700">${fmtINR(v)}</span></div>`).join('');
+
+    // salesperson scorecard
+    $('#repScore').innerHTML = `<table class="w-full text-xs"><thead class="text-slate-400 uppercase text-[10px]"><tr>
+      <th class="text-left py-1.5">Salesperson</th><th class="text-center">Open</th><th class="text-center">Won</th><th class="text-right">Pipeline</th><th class="text-center">Tasks</th></tr></thead><tbody class="divide-y divide-slate-100">`+
+      sps.map(s=>{
+        const ls=leads.filter(l=>l.sp===s.id);
+        const open=ls.filter(l=>ACTIVE_STAGES.includes(l.stage)).length;
+        const won=ls.filter(l=>l.stage==='won').length;
+        const pipe=ls.filter(l=>ACTIVE_STAGES.includes(l.stage)).reduce((a,l)=>a+(+l.value||0),0);
+        const tks=TASKS.filter(t=>t.sp===s.id && !t.done).length;
+        return `<tr><td class="py-2 font-semibold text-slate-700">${esc(s.name)}</td><td class="text-center">${open}</td><td class="text-center text-emerald-600 font-bold">${won}</td><td class="text-right font-semibold">${fmtINR(pipe)}</td><td class="text-center ${tks?'text-rose-600 font-bold':'text-slate-400'}">${tks}</td></tr>`;
+      }).join('')+`</tbody></table>`;
+  }
+
+  // ============================================================
+  //  RENDER ALL + INIT
+  // ============================================================
+  function renderAll(){ renderDashboard(); renderPipeline(); renderLeads(); renderTasks(); renderReengage(); renderReports(); }
+
+  function fillSelectsAndFilters(){
+    // stage selects
+    const stageOpts=STAGES.map(s=>`<option value="${s.key}">${s.emoji} ${s.label}</option>`).join('');
+    $('#f_stage').innerHTML=stageOpts;
+    $('#leadFilterStage').innerHTML=`<option value="">All stages</option>`+stageOpts;
+    // region selects
+    const regions=(window.PARTY_GROUPS||[]).map(g=>g.region);
+    const regionOpts=regions.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');
+    $('#f_region').innerHTML=`<option value="">— Region —</option>`+regionOpts;
+    $('#mtgNewRegion').innerHTML=`<option value="">— Region —</option>`+regionOpts;
+    $('#leadFilterRegion').innerHTML=`<option value="">All regions</option>`+regionOpts;
+    // salesperson selects
+    const spOpts=SALESPEOPLE.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    $('#f_sp').innerHTML=spOpts;
+    if(currentUser.scope==='all'){
+      $('#leadFilterSP').innerHTML=`<option value="">All sales reps</option>`+spOpts;
+      $('#pipeFilterSP').innerHTML=`<option value="">All reps</option>`+spOpts;
+    }else{
+      $('#leadFilterSP').innerHTML=`<option value="${currentUser.id}">${esc(currentUser.name)}</option>`;
+      $('#pipeFilterSP').innerHTML=`<option value="${currentUser.id}">${esc(currentUser.name)}</option>`;
+      $('#f_sp').value=currentUser.id;
+    }
+    // party datalist for the modal
+    $('#partyList').innerHTML=(window.PARTIES||[]).map(p=>`<option value="${esc(p)}">`).join('');
+  }
+
+  function startClock(){
+    const el=$('#clockText'); if(!el) return;
+    const tick=()=>{ try{
+      el.textContent=new Date().toLocaleString('en-IN',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
+    }catch(_){ el.textContent=new Date().toLocaleString(); } };
+    tick(); setInterval(tick,30000);
+  }
+
+  (function init(){
+    currentUser=resolveUser(); if(!currentUser) return;
+    // header identity
+    $('#whoName').textContent=currentUser.name;
+    $('#whoAvatar').textContent=(currentUser.name||'·').slice(0,1).toUpperCase();
+    if(currentUser.scope==='own'){ /* sales rep: locked to own leads */ }
+
+    // register CRM keys with the shared Store so they cache-warm + get cloud listeners
+    if(hasStore()) [LS.LEADS,LS.TASKS,LS.ACTS,LS.TGT].forEach(k=>Store.register(k));
+
+    LEADS=load(LS.LEADS,null); TASKS=load(LS.TASKS,null); ACTS=load(LS.ACTS,null); TARGETS=load(LS.TGT,null);
+    // Seed demo data only on a fresh LOCAL install — never in cloud mode (it would
+    // pollute the shared DB; real data arrives over sync instead).
+    if((!LEADS||!TASKS||!ACTS) && !cloudMode()){ seedIfEmpty(); LEADS=load(LS.LEADS,[]); TASKS=load(LS.TASKS,[]); ACTS=load(LS.ACTS,[]); TARGETS=load(LS.TGT,{}); }
+    LEADS=LEADS||[]; TASKS=TASKS||[]; ACTS=ACTS||[]; TARGETS=TARGETS||{};
+
+    fillSelectsAndFilters();
+    if('Notification' in window && Notification.permission==='granted'){ $('#notifBtn').textContent='🔔 Reminders on'; }
+    wireSyncListeners();
+    renderAll();
+    buildMeetingForm();
+    startClock();
+    switchTab('dashboard');
+    setTimeout(checkDueReminders,1500);
+  })();
+  </script>
+</body>
+</html>

@@ -1,9 +1,11 @@
 /* STAR Kidz — service worker (makes the app installable & usable offline) */
-var CACHE = 'starkidz-v1';
+var CACHE = 'starkidz-v3';
 var CORE = [
   'index.html', 'login.html',
   'ojas-dispatch-tracker.html', 'star-kidz-production-system.html',
-  'articles-data.js', 'store.js', 'firebase-config.js',
+  'star-kidz-sales-crm.html',
+  'articles-data.js', 'parties-data.js', 'store.js', 'firebase-config.js',
+  'croc-loader.js', 'pwa.js', 'product-croc.png',
   'manifest.json', 'icon.svg'
 ];
 

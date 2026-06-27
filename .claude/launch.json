@@ -5,7 +5,8 @@
       "name": "starkidz-static",
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ".claude/static-server.ps1"],
-      "port": 8765
+      "port": 8765,
+      "autoPort": true
     }
   ]
 }

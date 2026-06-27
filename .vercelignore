@@ -1,0 +1,19 @@
+# Confidential business data — must NEVER be published publicly
+_busy_csv/
+*.csv
+articles-raw.txt
+
+# Internal tooling / scaffolding (not part of the website)
+.claude/
+starkidz-erp/
+*.ps1
+*.py
+README-DEPLOY.md
+
+# OS / editor junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+*~
+*.tmp
+*.log

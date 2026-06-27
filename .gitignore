@@ -17,5 +17,9 @@ venv/
 # Logs
 *.log
 
+# Confidential business data — never commit/publish
+_busy_csv/
+*.csv
+
 # Local Claude Code settings (machine-specific)
 .claude/settings.local.json
