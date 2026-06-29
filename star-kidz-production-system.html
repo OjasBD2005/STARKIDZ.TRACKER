@@ -5548,21 +5548,67 @@ function syncBusy(){
 
 // ── PERSISTENCE ──
 const DATA_KEY='STARKIDZ_PROD_DATA_V2';
+// Cloud-sync state for the whole production dataset (article/machine/packing plans,
+// orders, inventory, costing…). Until we've reconciled with the cloud copy we must NOT
+// push — otherwise a freshly-opened device would overwrite everyone's data with its
+// seed/local copy. See setupDataCloudSync() wired from init().
+let cloudHydrated=false;   // true once cloud reconciled, or cloud confirmed empty, or LOCAL mode
+let dataUpdated=0;         // timestamp of the data currently in memory (last-write-wins)
 function saveData(){
-  try{const d={orders:ORDERS,inventory:INVENTORY,stockLog:STOCK_LOG,products:PRODUCTS,machines:MACHINES,moulds:MOULDS,
-    machinePlans:MACHINE_PLANS,upperPlans:UPPER_PLANS,articlePlans:ARTICLE_PLANS,packingPlans:PACKING_PLANS,
-    log:LOG,seq,planSeq:PLAN_SEQ,pendency:PENDENCY,allotments:ALLOTMENTS,allotQueue:ALLOT_QUEUE,
-    cuttingContractors:CUTTING_CONTRACTORS,inhouseStitchers:INHOUSE_STITCHERS,
-    inhousePrinters:INHOUSE_PRINTERS,fabricatorsJobwork:FABRICATORS_JOBWORK,
-    fabricatorsStitching:FABRICATORS_STITCHING,
-    costingMaster:COSTING_MASTER,costingHistory:COSTING_HISTORY,
-    upperRequirements:UPPER_REQUIREMENTS};
-    localStorage.setItem(DATA_KEY,JSON.stringify(d));
+  try{
+    dataUpdated=Date.now();
+    const d={updated:dataUpdated,orders:ORDERS,inventory:INVENTORY,stockLog:STOCK_LOG,products:PRODUCTS,machines:MACHINES,moulds:MOULDS,
+      machinePlans:MACHINE_PLANS,upperPlans:UPPER_PLANS,articlePlans:ARTICLE_PLANS,packingPlans:PACKING_PLANS,
+      log:LOG,seq,planSeq:PLAN_SEQ,pendency:PENDENCY,allotments:ALLOTMENTS,allotQueue:ALLOT_QUEUE,
+      cuttingContractors:CUTTING_CONTRACTORS,inhouseStitchers:INHOUSE_STITCHERS,
+      inhousePrinters:INHOUSE_PRINTERS,fabricatorsJobwork:FABRICATORS_JOBWORK,
+      fabricatorsStitching:FABRICATORS_STITCHING,
+      costingMaster:COSTING_MASTER,costingHistory:COSTING_HISTORY,
+      upperRequirements:UPPER_REQUIREMENTS};
+    const json=JSON.stringify(d);
+    if(window.Store&&Store.mode&&Store.mode()==='firebase'&&cloudHydrated){
+      Store.setItem(DATA_KEY,json);                 // cloud (Firestore) + local copy
+    }else{
+      try{localStorage.setItem(DATA_KEY,json)}catch(e){}   // LOCAL mode or pre-hydration: device only
+    }
   }catch(e){}
 }
-function loadData(){
-  try{const raw=localStorage.getItem(DATA_KEY);if(!raw)return;
+// Re-render whatever the user is currently looking at (used after adopting cloud data).
+function rerenderActiveViews(){
+  try{buildArticleSelect($('#pCode'));buildArticleSelect($('#mouldArticleSel'));populateAllMachines('#mpMachineSel');}catch(e){}
+  try{renderDash();renderOrders();renderGM();renderPending();updateQueueBadges();}catch(e){}
+  const a=document.querySelector('.view.active');
+  if(a){const vid=a.id.replace('view-','');try{go(vid)}catch(e){}}
+}
+// Sync the whole dataset across devices via Firestore, guarding against the
+// fresh-device-overwrites-everyone race.
+function setupDataCloudSync(){
+  if(!(window.Store&&Store.mode&&Store.mode()==='firebase')){cloudHydrated=true;return;} // LOCAL mode: unchanged
+  Store.register(DATA_KEY);
+  Store.onChange(DATA_KEY,()=>{
+    try{
+      const raw=Store.getItem(DATA_KEY);if(!raw)return;
+      const incoming=JSON.parse(raw);const inTs=incoming.updated||0;
+      if(cloudHydrated&&inTs<=dataUpdated)return;   // ignore our own echo / older copies
+      loadData(raw);cloudHydrated=true;rerenderActiveViews();
+    }catch(e){}
+  });
+  // Fallback: if no cloud copy arrives shortly, treat THIS device as the source of
+  // truth and push our current data up as the baseline.
+  setTimeout(()=>{
+    if(cloudHydrated)return;
+    try{const raw=Store.getItem(DATA_KEY);
+      if(raw){const inc=JSON.parse(raw);if((inc.updated||0)>dataUpdated){loadData(raw);cloudHydrated=true;rerenderActiveViews();return;}}
+    }catch(e){}
+    cloudHydrated=true;saveData();
+  },4000);
+}
+function loadData(rawOverride){
+  try{let raw=rawOverride;
+    if(raw==null){try{raw=localStorage.getItem(DATA_KEY)}catch(e){raw=null}}
+    if(!raw)return;
     const d=JSON.parse(raw);
+    if(d.updated)dataUpdated=d.updated;
     if(d.orders)ORDERS=d.orders;if(d.inventory)INVENTORY=d.inventory;if(d.stockLog)STOCK_LOG=d.stockLog;
     if(d.products)PRODUCTS=d.products;
     // Machines & moulds: keep the user's saved set, but append any new catalog defaults (matched by id)
@@ -5842,6 +5888,7 @@ function seedInventifyOrders(){
   }
 
   loadData();
+  setupDataCloudSync();   // ← sync the whole production dataset across devices via Firebase
   seedInventifyOrders();
   buildArticleSelect($('#pCode'));
   buildArticleSelect($('#mouldArticleSel'));
