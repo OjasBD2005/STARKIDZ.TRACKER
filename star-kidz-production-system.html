@@ -465,7 +465,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <h2 style="font-size:20px;font-weight:800;color:#0f172a">⚙️ Machine Running Planning</h2>
     <div style="display:flex;gap:8px;align-items:center">
       <select id="mpPeriod" class="inp" style="width:auto" onchange="renderMachinePlan()">
-        <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+        <option value="all">All Dates</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
       </select>
       <select id="mpCat" class="inp" style="width:auto" onchange="renderMachinePlan()">
         <option value="all">All Categories</option><option value="PU">PU</option><option value="PVC">PVC</option><option value="Stuckon">Stuckon</option><option value="Eva Crocs Injection">Eva Crocs Injection</option>
@@ -571,8 +571,11 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <!-- ===== PACKING PLANNING ===== -->
 <section id="view-packing-plan" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-    <h2 style="font-size:20px;font-weight:800;color:#0f172a">📦 Packing Planning — Today's Ready Material</h2>
+    <h2 style="font-size:20px;font-weight:800;color:#0f172a">📦 Packing Planning — Ready Material</h2>
     <div style="display:flex;gap:8px">
+      <select id="ppPeriod" class="inp" style="width:auto" onchange="renderPackingPlan()">
+        <option value="all">All Dates</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+      </select>
       <input type="date" id="ppDate" class="inp" style="width:auto" onchange="renderPackingPlan()">
       <select id="ppCat" class="inp" style="width:auto" onchange="renderPackingPlan()">
         <option value="all">All Categories</option><option value="PU">PU</option><option value="PVC">PVC</option><option value="Stuckon">Stuckon</option><option value="Eva Crocs Injection">Eva Crocs Injection</option>
@@ -4564,10 +4567,7 @@ function renderMachinePlan(){
   const period=$('#mpPeriod').value,cat=$('#mpCat').value,date=$('#mpDate').value||todayISO();
   let plans=MACHINE_PLANS.filter(p=>{
     if(cat!=='all'&&p.category!==cat)return false;
-    if(period==='daily')return p.date===date;
-    if(period==='weekly'){const d=new Date(date),pd=new Date(p.date);return Math.abs(pd-d)<7*86400000&&pd>=new Date(d.getFullYear(),d.getMonth(),d.getDate()-d.getDay())}
-    if(period==='monthly'){return p.date.slice(0,7)===date.slice(0,7)}
-    return true;
+    return inPeriod(p.date,period,date,date);
   });
   const supDept=supervisorDept();if(supDept)plans=plans.filter(p=>p.category===supDept);
   const lockBanner=canPlan()?'':`<div class="lock-banner">🔒 View-only — <span>${currentUser.title}</span> · Only Komal Jain / Sushil can create or edit plans.</div>`;
@@ -4758,9 +4758,10 @@ function exportArticleConsolidated(){
 // ── PACKING PLAN ──
 function renderPackingPlan(){
   const date=$('#ppDate').value||todayISO(),cat=$('#ppCat').value;
+  const period=$('#ppPeriod')?$('#ppPeriod').value:'all';
   let plans=PACKING_PLANS.filter(p=>{
     if(cat!=='all'&&p.category!==cat)return false;
-    return p.date===date;
+    return inPeriod(p.date,period,date,date);
   });
   buildArticleSelect($('#ppArticleSel'));
   const lockBannerPP=canPlan()?'':`<div class="lock-banner">🔒 View-only — <span>${currentUser.title}</span> · Only Komal Jain / Sushil can create or edit packing plans.</div>`;
@@ -4772,7 +4773,7 @@ function renderPackingPlan(){
       <td><span class="pill ${p.status==='Packed'?'pill-green':'pill-amber'}">${p.status}</span></td>
       <td>${p.createdBy}</td>
     </tr>`).join('')}
-  </tbody></table>`:'<div class="card" style="text-align:center;color:#94a3b8">No packing plans for this date.</div>');
+  </tbody></table>`:'<div class="card" style="text-align:center;color:#94a3b8">No packing plans for this period.</div>');
 }
 function addPackingPlan(e){
   e.preventDefault();if(!canPlan())return;
