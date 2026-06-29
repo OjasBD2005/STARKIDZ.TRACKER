@@ -5580,25 +5580,73 @@ function rerenderActiveViews(){
   const a=document.querySelector('.view.active');
   if(a){const vid=a.id.replace('view-','');try{go(vid)}catch(e){}}
 }
-// Sync the whole dataset across devices via Firestore, guarding against the
-// fresh-device-overwrites-everyone race.
+// Collections that must MERGE (union by key) rather than be replaced, so a record
+// added on one device is never lost when another device's copy arrives.
+const MERGE_SPECS=[
+  ['orders','order_no'],['inventory','id'],['stockLog','id'],['products','id'],
+  ['machinePlans','id'],['upperPlans','id'],['articlePlans','id'],['packingPlans','id'],
+  ['log','id'],['pendency','id'],['allotments','id'],['allotQueue','id'],
+  ['cuttingContractors','id'],['inhouseStitchers','id'],['inhousePrinters','id'],
+  ['fabricatorsJobwork','id'],['fabricatorsStitching','id'],
+  ['costingMaster','id'],['costingHistory','id'],['upperRequirements','id']
+];
+const MERGE_VARS={orders:()=>ORDERS,inventory:()=>INVENTORY,stockLog:()=>STOCK_LOG,products:()=>PRODUCTS,
+  machinePlans:()=>MACHINE_PLANS,upperPlans:()=>UPPER_PLANS,articlePlans:()=>ARTICLE_PLANS,packingPlans:()=>PACKING_PLANS,
+  log:()=>LOG,pendency:()=>PENDENCY,allotments:()=>ALLOTMENTS,allotQueue:()=>ALLOT_QUEUE,
+  cuttingContractors:()=>CUTTING_CONTRACTORS,inhouseStitchers:()=>INHOUSE_STITCHERS,inhousePrinters:()=>INHOUSE_PRINTERS,
+  fabricatorsJobwork:()=>FABRICATORS_JOBWORK,fabricatorsStitching:()=>FABRICATORS_STITCHING,
+  costingMaster:()=>COSTING_MASTER,costingHistory:()=>COSTING_HISTORY,upperRequirements:()=>UPPER_REQUIREMENTS};
+function setMergeVar(name,arr){switch(name){
+  case'orders':ORDERS=arr;break;case'inventory':INVENTORY=arr;break;case'stockLog':STOCK_LOG=arr;break;case'products':PRODUCTS=arr;break;
+  case'machinePlans':MACHINE_PLANS=arr;break;case'upperPlans':UPPER_PLANS=arr;break;case'articlePlans':ARTICLE_PLANS=arr;break;case'packingPlans':PACKING_PLANS=arr;break;
+  case'log':LOG=arr;break;case'pendency':PENDENCY=arr;break;case'allotments':ALLOTMENTS=arr;break;case'allotQueue':ALLOT_QUEUE=arr;break;
+  case'cuttingContractors':CUTTING_CONTRACTORS=arr;break;case'inhouseStitchers':INHOUSE_STITCHERS=arr;break;case'inhousePrinters':INHOUSE_PRINTERS=arr;break;
+  case'fabricatorsJobwork':FABRICATORS_JOBWORK=arr;break;case'fabricatorsStitching':FABRICATORS_STITCHING=arr;break;
+  case'costingMaster':COSTING_MASTER=arr;break;case'costingHistory':COSTING_HISTORY=arr;break;case'upperRequirements':UPPER_REQUIREMENTS=arr;break;
+}}
+// Apply a cloud payload by MERGING: take the cloud copy, then add back any local
+// records the cloud didn't have. Returns true if this device contributed extras
+// (meaning we should push the union back so others receive them).
+function adoptCloudData(raw){
+  const cloud=JSON.parse(raw);
+  // snapshot current (local) arrays before loadData overwrites them
+  const local={};MERGE_SPECS.forEach(([f])=>{const g=MERGE_VARS[f];local[f]=g?g().slice():[];});
+  loadData(raw);                       // memory now = cloud (with migrations/catalog merges)
+  let extras=false;
+  MERGE_SPECS.forEach(([f,key])=>{
+    const cur=(MERGE_VARS[f]()||[]);
+    const have=new Set(cur.map(x=>x&&x[key]).filter(v=>v!=null));
+    const merged=cur.slice();
+    (local[f]||[]).forEach(x=>{const k=x&&x[key];if(k!=null&&!have.has(k)){merged.push(x);have.add(k);extras=true;}});
+    if(extras||merged.length!==cur.length)setMergeVar(f,merged);
+  });
+  // keep the highest running sequence numbers so new IDs never collide
+  if(typeof seq==='number'&&cloud.seq&&cloud.seq>seq)seq=cloud.seq;
+  if(cloud.planSeq&&cloud.planSeq>PLAN_SEQ)PLAN_SEQ=cloud.planSeq;
+  dataUpdated=Math.max(dataUpdated,cloud.updated||0);
+  return extras;
+}
+// Sync the whole dataset across devices via Firestore. Merges (never blind-replaces),
+// so plans/orders added on any device are preserved and converge everywhere.
 function setupDataCloudSync(){
   if(!(window.Store&&Store.mode&&Store.mode()==='firebase')){cloudHydrated=true;return;} // LOCAL mode: unchanged
   Store.register(DATA_KEY);
   Store.onChange(DATA_KEY,()=>{
     try{
       const raw=Store.getItem(DATA_KEY);if(!raw)return;
-      const incoming=JSON.parse(raw);const inTs=incoming.updated||0;
+      const inTs=(JSON.parse(raw).updated)||0;
       if(cloudHydrated&&inTs<=dataUpdated)return;   // ignore our own echo / older copies
-      loadData(raw);cloudHydrated=true;rerenderActiveViews();
+      const extras=adoptCloudData(raw);
+      cloudHydrated=true;rerenderActiveViews();
+      if(extras)saveData();            // push the union so other devices get our extras
     }catch(e){}
   });
-  // Fallback: if no cloud copy arrives shortly, treat THIS device as the source of
-  // truth and push our current data up as the baseline.
+  // Fallback: if no cloud copy arrives shortly, treat THIS device's data as the
+  // baseline and push it up.
   setTimeout(()=>{
     if(cloudHydrated)return;
     try{const raw=Store.getItem(DATA_KEY);
-      if(raw){const inc=JSON.parse(raw);if((inc.updated||0)>dataUpdated){loadData(raw);cloudHydrated=true;rerenderActiveViews();return;}}
+      if(raw){const inc=JSON.parse(raw);if((inc.updated||0)>0){const extras=adoptCloudData(raw);cloudHydrated=true;rerenderActiveViews();if(extras)saveData();return;}}
     }catch(e){}
     cloudHydrated=true;saveData();
   },4000);
