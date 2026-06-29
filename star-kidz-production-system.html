@@ -639,6 +639,36 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   <div id="ordersList"></div>
 </section>
 
+<!-- ===== PULL SALE — lead funnel (ported from old Sales Dashboard) ===== -->
+<section id="view-sales-pull" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📥 Pull Sale — Lead Funnel</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">New distributors &amp; MBO chains to onboard. Move each lead Prospect → Pending → Approved.</p>
+    </div>
+    <button class="btn btn-outline" onclick="addLeadPrompt()">➕ Add Lead</button>
+  </div>
+  <div id="pullKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    <button id="sd" class="btn btn-outline" onclick="setPull('dist')">Distributors</button>
+    <button id="sm" class="btn btn-outline" onclick="setPull('mbo')">MBO Chains</button>
+    <button id="sp" class="btn btn-outline" onclick="setPull('plat')">Sourcing Platforms</button>
+    <input id="pullSearch" oninput="renderSalesPull()" placeholder="🔍 Search" class="inp" style="max-width:200px">
+    <select id="pullCat" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All categories</option><option>New Party</option><option>Working Party</option></select>
+    <select id="pullStatus" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All status</option><option>Prospect</option><option>Pending</option><option>Approved</option></select>
+  </div>
+  <div style="overflow:auto"><table class="tbl" id="leadTbl"></table></div>
+</section>
+
+<!-- ===== PUSH SALE — sales analytics (migrating) ===== -->
+<section id="view-sales-push" class="view">
+  <h2 style="font-size:20px;font-weight:800;color:#0f172a">📤 Push Sale</h2>
+  <div class="card" style="margin-top:12px;color:#475569;line-height:1.6">
+    The <b>lead funnel</b> is live under <b>📥 Pull Sale</b>, and sales-entered orders appear under <b>📥 Pending Orders</b>.<br>
+    The Busy-style <b>sales analytics</b> (pivot tables by customer / state / salesperson) will be migrated into this screen next.
+  </div>
+</section>
+
 <!-- ===== PENDING ORDERS ===== -->
 <section id="view-pending" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
@@ -1780,6 +1810,7 @@ function go(view){
   else if(view==='upper-plan')renderUpperPlan();
   else if(view==='article-plan')renderArticlePlan();
   else if(view==='packing-plan')renderPackingPlan();
+  else if(view==='sales-pull')setPull(pullTab);
   else if(view==='settings')loadSettings();
   else if(view==='upper-issuance'){renderUpperIssuanceView();}
   else if(view==='cutting-dept'){renderUpperIssuanceView();}
@@ -5547,6 +5578,98 @@ function syncBusy(){
   });
 }
 
+// ── PULL SALE — lead funnel (ported from the old Sales Dashboard; syncs via DATA_KEY) ──
+const SALES_PLATFORMS=[
+  {name:'IndiaMART',web:'https://www.indiamart.com/proddetail/kids-footwear.html',note:'Largest B2B; filter by GST, TrustSEAL, years, city'},
+  {name:'TradeIndia',web:'https://www.tradeindia.com',note:'Footwear distributors & wholesalers directory'},
+  {name:'ExportersIndia',web:'https://www.exportersindia.com',note:'Manufacturer/exporter listings'},
+  {name:'Justdial B2B',web:'https://www.justdial.com',note:'City-wise footwear wholesalers'},
+  {name:'Udaan',web:'https://udaan.com',note:'B2B marketplace — onboard as a seller to reach retailers'},
+  {name:'LinkedIn Sales Nav',web:'https://www.linkedin.com',note:'Category buyers / sourcing heads at MBO chains'},
+  {name:'GetDistributors',web:'https://www.getdistributors.com/kids-shoes-distributors.html',note:'Distributors actively seeking kids-footwear principals'},
+  {name:'Sulekha (city-wise)',web:'https://www.sulekha.com/kids-footwear-shops/bangalore',note:'City-wise kids footwear shops & dealers'},
+  {name:'Dial4trade',web:'https://www.dial4trade.com/bangalore/shoes.htm',note:'Shoe wholesalers & suppliers by city'}
+];
+let SALES_LEADS=[
+  {type:'MBO',name:'Metro Brands (Metro/Mochi/Walkway)',loc:'Mumbai',focus:'Crocs, Skechers, Fila, Clarks, Puma, Adidas + own labels',outlets:'1,000+',kids:'Yes',contact:'+91-22-6656-0444',email:'info@metrobrands.com',web:'https://metrobrands.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Regal Shoes',loc:'Mumbai / Delhi',focus:'Crocs, Skechers, Ecco + own Imperio & Rocia',outlets:'30+',kids:'Yes',contact:'+91-98199-39302',email:'orders@regalshoes.co.in',web:'https://regalshoes.in',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Sreeleathers',loc:'Kolkata',focus:'Own-label + limited sourced brands',outlets:'40+',kids:'Some',contact:'+91-33-2286-1506',email:'sreeleathers@sreeleathers.com',web:'https://sreeleathers.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Shoppers Stop',loc:'Mumbai',focus:'National & intl footwear + kids floor',outlets:'~120',kids:'Yes',contact:'022-42497000',email:'customercare@shoppersstop.com',web:'https://shoppersstop.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Lifestyle (Landmark Group)',loc:'Bengaluru',focus:'Hundreds of brands incl footwear + kids',outlets:'~100+',kids:'Yes',contact:'Contact page',email:'',web:'https://lifestylestores.com/in/en/contact',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'V-Mart Retail',loc:'New Delhi / Gurugram',focus:'Multiple footwear + own; strong kids; Tier 2-4',outlets:'~577',kids:'Yes',contact:'Vendor onboarding',email:'info@vmart.co.in',web:'https://vmart.co.in/contact',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'V2 Retail',loc:'Gurugram',focus:'Multiple footwear + own; kids ≈25%',outlets:'~245-305',kids:'Yes',contact:'Vendor onboarding',email:'customercare@v2kart.com',web:'https://v2retail.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Reliance Retail (Central/Smart Bazaar/Trends)',loc:'Mumbai',focus:'Multi-brand; vendor portal scm.ril.com',outlets:'Many',kids:'Yes',contact:'scm.ril.com (PAN+GST)',email:'',web:'https://relianceretail.com',source:'Vendor portal',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Vishal Mega Mart',loc:'Gurugram',focus:'Value/Hyper multi-brand',outlets:'Many',kids:'Yes',contact:'0124-4555100',email:'customercare@vishalmegamart.com',web:'https://vishalmegamart.com',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'DMart (Avenue Supermarts)',loc:'Mumbai',focus:'Value/Hyper multi-brand',outlets:'Many',kids:'Yes',contact:'022-6697-0100',email:'suggestion@dmartindia.com',web:'https://dmartindia.com',source:'Official site',cat:'Working Party',status:'Approved'},
+  {type:'Distributor',name:'Footcraft India Pvt Ltd',loc:'Panchkula, Haryana',focus:'Wholesale all incl kids; MOQ 1 carton; PAN-India + export',outlets:'',kids:'Yes',contact:'Via site/app',email:'',web:'https://footcraftindia.com',source:'Company / LinkedIn / MCA',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Cindy Footwears',loc:'New Delhi',focus:'Ladies wholesale + customization; 1,000+ styles; 400+ cities',outlets:'',kids:'Some',contact:'Via site',email:'',web:'https://cindyfootwears.com',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Picaaso Footwear',loc:'India (export)',focus:'OEM/contract mfr + wholesale; EVA/PU/TPR/PVC; private label',outlets:'',kids:'Yes',contact:'Via site',email:'',web:'https://picaasofootwear.com',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Phagun Mal & Sons',loc:'New Delhi',focus:'Kids, casual & sports footwear',outlets:'',kids:'Yes',contact:'+91 7942545149',email:'',web:'https://www.indiamart.com',source:'IndiaMART (GST, 10 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Baxxico',loc:'Agra, UP',focus:'Men/women/sports & kids (BAXXY, BOKZZON)',outlets:'',kids:'Yes',contact:'+91 8047790880',email:'',web:'https://www.indiamart.com',source:'IndiaMART (TrustSEAL, 12 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Nexxon International',loc:'Narela, New Delhi',focus:'Casual & sports shoes (BOKZZON)',outlets:'',kids:'No',contact:'+91 7949284086',email:'',web:'https://www.indiamart.com',source:'IndiaMART (TrustSEAL, 8 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Anjaniputra Paduka Pvt Ltd',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 7942783964',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Sava Udyog',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 8043823480',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Hemico',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 7942544294',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Mitsico',loc:'India',focus:'Kids footwear',outlets:'',kids:'Yes',contact:'+91 8047649165',email:'',web:'https://www.indiamart.com',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Venus Global Exports Co.',loc:'Secunderabad, Hyderabad',focus:'Kids (Khadim) & wholesale',outlets:'',kids:'Yes',contact:'View on IndiaMART',email:'',web:'https://www.indiamart.com',source:'IndiaMART (GST, 8 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Shri Balaji Trading Company',loc:'Nangloi, New Delhi',focus:'Kids, PVC & sports footwear',outlets:'',kids:'Yes',contact:'View on IndiaMART',email:'',web:'https://www.indiamart.com',source:'IndiaMART (TrustSEAL, 8 yrs)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'IndianTrendShoes',loc:'Agra / Delhi / Mumbai',focus:'Mfr & wholesaler, 30 yrs; ladies & kids footwear',outlets:'',kids:'Yes',contact:'+91-9811007735 / +91-9289960080',email:'',web:'https://www.google.com/search?q=IndianTrendShoes+wholesale',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Keshav India Footwear Pvt. Ltd.',loc:'New Delhi',focus:'Kids footwear manufacturer & supplier',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://www.google.com/search?q=Keshav+India+Footwear+Pvt+Ltd',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'TFC — Thakur Footcare Industries',loc:'Agra, UP',focus:'Largest wholesaler/mfr — ladies & kids footwear',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Thakur+Footcare+Industries+Agra',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Jay Kay Sales',loc:'Agra, UP',focus:'Shoe wholesaler — formal, sports, boots, slippers',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Jay+Kay+Sales+shoe+wholesaler+Agra',source:'Web search (company)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Shop Tribe (FootTales)',loc:'Mumbai',focus:'Footwear distributor since 2009; kids range',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://shoptribeindia.com/kids/',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Kats Footwear',loc:'New Delhi',focus:'Kids footwear mfr (crocs/sandals/shoes)',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://katsfootwear.com/',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Raj Sourcing',loc:'Agra, UP',focus:'Kids footwear manufacturer & exporter',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://www.rajsourcing.co.in/kids-footwear.htm',source:'Company website',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'GT Global Trading Co.',loc:'Madhavaram, Chennai',focus:'Kids footwear (South India)',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://www.exportersindia.com/chennai/kids-footwear.htm',source:'ExportersIndia',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:"Khadim's (Khadim India Ltd.)",loc:'Kolkata',focus:'750+ outlets, 357 distributors (East); Hawai/PVC/EVA/PU/School',outlets:'750+',kids:'Yes',contact:'Franchise/vendor portal',email:'',web:'https://www.khadims.com/pages/franchisee-partnership',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'Ajanta Shoes India Pvt. Ltd.',loc:'Kolkata',focus:'Men, women & kids footwear (multi-range)',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://ajantashoes.com/',source:'Official site',cat:'New Party',status:'Prospect'},
+  {type:'MBO',name:'VKC Group',loc:'Kozhikode, Kerala',focus:'Sandals/slippers/floaters/casual; mass value',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://dir.indiamart.com/impcat/vkc-footwears.html',source:'IndiaMART',cat:'New Party',status:'Prospect'}
+];
+let pullTab='dist';
+function setPull(t){pullTab=t;[['dist','sd'],['mbo','sm'],['plat','sp']].forEach(function(p){var el=$('#'+p[1]);if(el){el.style.background=(p[0]===t)?'#1b3187':'';el.style.color=(p[0]===t)?'#fff':'';}});renderSalesPull();}
+function renderSalesPullKpi(){
+  const d=SALES_LEADS.filter(l=>l.type==='Distributor').length,m=SALES_LEADS.filter(l=>l.type==='MBO').length;
+  const ap=SALES_LEADS.filter(l=>l.status==='Approved').length,pe=SALES_LEADS.filter(l=>l.status==='Pending').length;
+  const k=[['Total Leads',SALES_LEADS.length,'#1b3187'],['Distributors',d,'#7c3aed'],['MBO Chains',m,'#5b8cff'],['Pending',pe,'#d97706'],['Approved',ap,'#059669']];
+  const el=$('#pullKpi');if(el)el.innerHTML=k.map(x=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
+}
+function renderSalesPull(){
+  if(!$('#leadTbl'))return;
+  renderSalesPullKpi();
+  if(pullTab==='plat'){
+    $('#leadTbl').innerHTML='<thead><tr><th>Platform</th><th>Profile / Link</th><th>How to use</th></tr></thead><tbody>'+
+      SALES_PLATFORMS.map(p=>`<tr><td><b>${p.name}</b></td><td><a style="color:#2442b8" href="${p.web}" target="_blank" rel="noopener">${p.web.replace('https://','')}</a></td><td>${p.note}</td></tr>`).join('')+'</tbody>';
+    return;
+  }
+  const q=($('#pullSearch').value||'').trim().toLowerCase(),cat=$('#pullCat').value,stf=$('#pullStatus').value;
+  let rows=SALES_LEADS.filter(l=>pullTab==='dist'?l.type==='Distributor':l.type==='MBO');
+  if(q)rows=rows.filter(l=>((l.name||'')+(l.loc||'')+(l.focus||'')+(l.email||'')).toLowerCase().includes(q));
+  if(cat!=='all')rows=rows.filter(l=>l.cat===cat);
+  if(stf!=='all')rows=rows.filter(l=>l.status===stf);
+  const stPill=s=>({Prospect:'background:#e2e8f0;color:#475569',Pending:'background:#fef3c7;color:#92400e',Approved:'background:#bbf7d0;color:#166534'}[s]||'');
+  $('#leadTbl').innerHTML='<thead><tr><th>Company</th><th>Location</th><th>Brands / Focus</th><th>Outlets</th><th>Kids</th><th>Contact</th><th>Profile</th><th>Source</th><th>Category</th><th>Status</th></tr></thead><tbody>'+
+    (rows.length?rows.map(l=>{const idx=SALES_LEADS.indexOf(l);return `<tr>
+      <td><b>${l.name}</b></td><td>${l.loc||'—'}</td><td style="white-space:normal;max-width:260px">${l.focus||'—'}</td>
+      <td>${l.outlets||'—'}</td><td>${l.kids||'—'}</td>
+      <td style="white-space:normal">${l.contact||''}${l.email?'<br><a style="color:#2442b8" href="mailto:'+l.email+'">'+l.email+'</a>':''}</td>
+      <td>${l.web?'<a style="color:#2442b8" href="'+l.web+'" target="_blank" rel="noopener">visit ↗</a>':'—'}</td>
+      <td style="font-size:11px;color:#64748b">${l.source||''}</td>
+      <td><span class="pill" style="${l.cat==='Working Party'?'background:#dbeafe;color:#1e40af':'background:#f3e8ff;color:#7c3aed'}">${l.cat||'New Party'}</span></td>
+      <td><select class="inp" style="font-size:11px;padding:3px 6px" onchange="moveLead(${idx},this.value)">
+        <option ${l.status==='Prospect'?'selected':''}>Prospect</option>
+        <option ${l.status==='Pending'?'selected':''}>Pending</option>
+        <option ${l.status==='Approved'?'selected':''}>Approved</option>
+      </select></td></tr>`}).join(''):'<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:18px">No leads in this list.</td></tr>')+'</tbody>';
+}
+function moveLead(i,status){if(!SALES_LEADS[i])return;SALES_LEADS[i].status=status;if(status==='Approved')SALES_LEADS[i].cat='Working Party';saveData();renderSalesPull();}
+function addLeadPrompt(){
+  const name=prompt('Company / lead name?');if(!name)return;
+  let type=(prompt('Type — Distributor or MBO?','Distributor')||'Distributor');
+  type=/mbo/i.test(type)?'MBO':'Distributor';
+  SALES_LEADS.unshift({type,name:name.trim(),loc:prompt('Location?')||'',focus:prompt('Brands / focus?')||'',outlets:'',kids:'',contact:prompt('Contact (phone / email)?')||'',email:'',web:'',source:'Manual',cat:'New Party',status:'Prospect'});
+  saveData();renderSalesPull();toast('Lead added','➕',name);
+}
+
 // ── PERSISTENCE ──
 const DATA_KEY='STARKIDZ_PROD_DATA_V2';
 // Cloud-sync state for the whole production dataset (article/machine/packing plans,
@@ -5565,7 +5688,7 @@ function saveData(){
       inhousePrinters:INHOUSE_PRINTERS,fabricatorsJobwork:FABRICATORS_JOBWORK,
       fabricatorsStitching:FABRICATORS_STITCHING,
       costingMaster:COSTING_MASTER,costingHistory:COSTING_HISTORY,
-      upperRequirements:UPPER_REQUIREMENTS};
+      upperRequirements:UPPER_REQUIREMENTS,salesLeads:SALES_LEADS};
     const json=JSON.stringify(d);
     if(window.Store&&Store.mode&&Store.mode()==='firebase'&&cloudHydrated){
       Store.setItem(DATA_KEY,json);                 // cloud (Firestore) + local copy
@@ -5589,14 +5712,14 @@ const MERGE_SPECS=[
   ['log','id'],['pendency','id'],['allotments','id'],['allotQueue','id'],
   ['cuttingContractors','id'],['inhouseStitchers','id'],['inhousePrinters','id'],
   ['fabricatorsJobwork','id'],['fabricatorsStitching','id'],
-  ['costingMaster','id'],['costingHistory','id'],['upperRequirements','id']
+  ['costingMaster','id'],['costingHistory','id'],['upperRequirements','id'],['salesLeads','name']
 ];
 const MERGE_VARS={orders:()=>ORDERS,inventory:()=>INVENTORY,stockLog:()=>STOCK_LOG,products:()=>PRODUCTS,
   machinePlans:()=>MACHINE_PLANS,upperPlans:()=>UPPER_PLANS,articlePlans:()=>ARTICLE_PLANS,packingPlans:()=>PACKING_PLANS,
   log:()=>LOG,pendency:()=>PENDENCY,allotments:()=>ALLOTMENTS,allotQueue:()=>ALLOT_QUEUE,
   cuttingContractors:()=>CUTTING_CONTRACTORS,inhouseStitchers:()=>INHOUSE_STITCHERS,inhousePrinters:()=>INHOUSE_PRINTERS,
   fabricatorsJobwork:()=>FABRICATORS_JOBWORK,fabricatorsStitching:()=>FABRICATORS_STITCHING,
-  costingMaster:()=>COSTING_MASTER,costingHistory:()=>COSTING_HISTORY,upperRequirements:()=>UPPER_REQUIREMENTS};
+  costingMaster:()=>COSTING_MASTER,costingHistory:()=>COSTING_HISTORY,upperRequirements:()=>UPPER_REQUIREMENTS,salesLeads:()=>SALES_LEADS};
 function setMergeVar(name,arr){switch(name){
   case'orders':ORDERS=arr;break;case'inventory':INVENTORY=arr;break;case'stockLog':STOCK_LOG=arr;break;case'products':PRODUCTS=arr;break;
   case'machinePlans':MACHINE_PLANS=arr;break;case'upperPlans':UPPER_PLANS=arr;break;case'articlePlans':ARTICLE_PLANS=arr;break;case'packingPlans':PACKING_PLANS=arr;break;
@@ -5604,6 +5727,7 @@ function setMergeVar(name,arr){switch(name){
   case'cuttingContractors':CUTTING_CONTRACTORS=arr;break;case'inhouseStitchers':INHOUSE_STITCHERS=arr;break;case'inhousePrinters':INHOUSE_PRINTERS=arr;break;
   case'fabricatorsJobwork':FABRICATORS_JOBWORK=arr;break;case'fabricatorsStitching':FABRICATORS_STITCHING=arr;break;
   case'costingMaster':COSTING_MASTER=arr;break;case'costingHistory':COSTING_HISTORY=arr;break;case'upperRequirements':UPPER_REQUIREMENTS=arr;break;
+  case'salesLeads':SALES_LEADS=arr;break;
 }}
 // Apply a cloud payload by MERGING: take the cloud copy, then add back any local
 // records the cloud didn't have. Returns true if this device contributed extras
@@ -5678,6 +5802,7 @@ function loadData(rawOverride){
     if(d.costingMaster)COSTING_MASTER=d.costingMaster;
     if(d.costingHistory)COSTING_HISTORY=d.costingHistory;
     if(d.upperRequirements)UPPER_REQUIREMENTS=d.upperRequirements;
+    if(d.salesLeads)SALES_LEADS=d.salesLeads;
     // ── Data migration: add missing fields to older saved records ──
     ORDERS.forEach(o=>{
       if(!o.cutting){
