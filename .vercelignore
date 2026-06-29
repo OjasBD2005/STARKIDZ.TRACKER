@@ -6,8 +6,10 @@ articles-raw.txt
 # Internal tooling / scaffolding (not part of the website)
 .claude/
 starkidz-erp/
+google-apps-script/
 *.ps1
 *.py
+*.gs
 README-DEPLOY.md
 
 # OS / editor junk

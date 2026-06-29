@@ -1,0 +1,17 @@
+# ============================================================
+#  STAR Kidz — Netlify hosting config
+#  Plain static site (HTML/JS/SVG) — no build step.
+#  Publishes everything in the repo root; index.html is the
+#  landing page. Every push to the connected branch redeploys.
+# ============================================================
+[build]
+  publish = "."
+  command = ""
+
+# Security headers (free, applied to every page).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

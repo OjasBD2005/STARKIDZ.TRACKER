@@ -53,6 +53,28 @@ This means only the app (signed in) can read/write the data — not the public i
 
 ---
 
+## Step 2b — (Optional) Mirror the data into Google Sheets (~3 min)
+
+Firebase stays the real database. This just adds a **read-only copy** of the data
+into a Google Sheet so you can view/report on it like any spreadsheet.
+
+1. Open **https://sheets.new** to create a blank Google Sheet (name it `STAR Kidz Data`).
+2. **Extensions → Apps Script**. Delete the sample code.
+3. Open **`google-apps-script/Code.gs`** (in this folder), copy everything, paste it
+   into the Apps Script editor, and **Save**.
+4. Click **Deploy → New deployment → ⚙️ → Web app**.
+   - **Execute as:** Me
+   - **Who has access:** Anyone
+   Click **Deploy**, authorize when asked, and **copy the Web app URL**.
+5. Open **`sheets-config.js`** (in this folder) and paste that URL in place of
+   `PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL`. Save.
+
+Done. From now on, every save in the app also appears in the sheet — one tab per
+data type (e.g. `STARKIDZ_SALES_ORDERS`, `STARKIDZ_PROD_STATUS`) plus a `_log`
+history tab. Leave the URL as `PASTE_…` to keep the mirror **off** (nothing breaks).
+
+---
+
 ## Step 3 — Put it online at erp.starkidz.co.in (~10 min, drag & drop)
 
 Firebase/Cloud needs a real web address (it won't fully work by double-clicking the
@@ -69,6 +91,22 @@ file). Easiest no-tools way:
    add both your `*.netlify.app` URL and `erp.starkidz.co.in`.
 
 *(Cloudflare Pages or Vercel work the same way if you prefer them over Netlify.)*
+
+### Deploying on Vercel (the chosen host — auto-deploys from GitHub)
+
+The repo already has a `.vercelignore`, so confidential files and dev tooling are
+never published. To go live:
+
+1. Go to **https://vercel.com** → sign in with **GitHub**.
+2. **Add New… → Project** → import **`OjasBD2005/STARKIDZ.TRACKER`**.
+3. Framework preset: **Other** (it's a plain static site — no build step). Click **Deploy**.
+4. You get a permanent free URL like **`starkidz-tracker.vercel.app`** with automatic HTTPS.
+   Every `git push` to the branch redeploys automatically.
+5. In Firebase → **Authentication → Settings → Authorized domains → Add domain** →
+   add your `*.vercel.app` URL (and any custom domain you add later in Vercel → Settings → Domains).
+
+> The free `*.vercel.app` address is yours for life at no cost. A custom domain
+> (e.g. `erp.starkidz.co.in`) can be added later under Vercel → **Settings → Domains**.
 
 ---
 

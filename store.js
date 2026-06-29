@@ -37,6 +37,28 @@
   // strip the ever-changing `updated` timestamp so we don't write identical data repeatedly
   function coreOf(v) { try { var o = JSON.parse(v); delete o.updated; return JSON.stringify(o); } catch (e) { return v; } }
 
+  // ---- Google Sheets mirror (optional, read-only copy for reporting) ----
+  // If sheets-config.js holds a real Apps Script Web App URL, every cloud write
+  // is also POSTed there (fire-and-forget) so the data shows up in a spreadsheet.
+  // Firebase remains the source of truth; this never blocks or breaks a save.
+  function sheetsUrl() {
+    var u = global.SHEETS_MIRROR_URL;
+    return (typeof u === 'string' && u.indexOf('PASTE') < 0 && u.indexOf('http') === 0) ? u : null;
+  }
+  function mirrorToSheets(k, v) {
+    var url = sheetsUrl();
+    if (!url || typeof fetch !== 'function') return;
+    try {
+      // text/plain avoids a CORS preflight; Apps Script reads e.postData.contents.
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ key: k, payload: v, updated: Date.now() })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   // Warm the cache from localStorage so the first paint isn't empty.
   function warm(k) { var v = lsGet(k); if (v && !(k in cache)) cache[k] = v; }
 
@@ -67,6 +89,7 @@
         lastCore[k] = core;
         lsSet(k, v);                          // keep a local copy too (offline / fast restart)
         db.collection('sync').doc(k).set({ payload: v, updated: Date.now() }).catch(function () {});
+        mirrorToSheets(k, v);                 // also copy into Google Sheets (if configured)
       } else {
         lsSet(k, v);                          // LOCAL mode: storage event notifies other tabs
       }
