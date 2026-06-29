@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /_busy_csv/
+
+Sitemap: https://starkidz-tracker.vercel.app/sitemap.xml

@@ -1,12 +1,12 @@
 /* STAR Kidz — service worker (makes the app installable & usable offline) */
-var CACHE = 'starkidz-v3';
+var CACHE = 'starkidz-v4';
 var CORE = [
   'index.html', 'login.html',
   'ojas-dispatch-tracker.html', 'star-kidz-production-system.html',
   'star-kidz-sales-crm.html',
-  'articles-data.js', 'parties-data.js', 'store.js', 'firebase-config.js',
-  'croc-loader.js', 'pwa.js', 'product-croc.png',
-  'manifest.json', 'icon.svg'
+  'articles-data.js', 'parties-data.js', 'store.js', 'firebase-config.js', 'sheets-config.js',
+  'star-loader.js', 'pwa.js',
+  'manifest.json', 'icon.svg', 'star-kidz-logo-full.svg'
 ];
 
 self.addEventListener('install', function (e) {
