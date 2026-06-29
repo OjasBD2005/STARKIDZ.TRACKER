@@ -10,10 +10,11 @@
 //     while you set Firebase up.
 // ============================================================
 window.FIREBASE_CONFIG = {
-  apiKey:            "PASTE_YOUR_API_KEY",
-  authDomain:        "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId:         "PASTE_YOUR_PROJECT_ID",
-  storageBucket:     "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId:             "PASTE_APP_ID"
+  apiKey:            "AIzaSyA-piA6GrSyJWElottZjR5p_3lMURDE3qA",
+  authDomain:        "starkidz-935ce.firebaseapp.com",
+  projectId:         "starkidz-935ce",
+  storageBucket:     "starkidz-935ce.firebasestorage.app",
+  messagingSenderId: "432170086992",
+  appId:             "1:432170086992:web:3d323a33f8bb003382d755",
+  measurementId:     "G-JRWE7VHFLS"
 };
