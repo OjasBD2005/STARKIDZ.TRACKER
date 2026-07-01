@@ -197,6 +197,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div class="sb-sub" style="max-height:200px">
       <div class="sb-item" data-view="sales-push" onclick="go('sales-push')">📤 Push Sale</div>
       <div class="sb-item" data-view="sales-pull" onclick="go('sales-pull')">📥 Pull Sale</div>
+      <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Enter Order</div>
     </div>
   </div>
@@ -666,6 +667,25 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <select id="pullStatus" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All status</option><option>Prospect</option><option>Pending</option><option>Approved</option></select>
   </div>
   <div style="overflow:auto"><table class="tbl" id="leadTbl"></table></div>
+</section>
+
+<!-- ===== MY PARTIES — distributor master mapped from the sale target sheet (state + salesperson wise) ===== -->
+<section id="view-my-parties" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">🏬 My Parties — Distributor Master</h2>
+      <p id="myPartiesNote" style="font-size:11px;color:#94a3b8;margin-top:2px"></p>
+    </div>
+    <button class="btn btn-outline" onclick="exportPartiesCSV()">⬇️ Export CSV</button>
+  </div>
+  <div id="myPartiesKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px"></div>
+  <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+    <div id="mpSPWrap"><label class="lbl">Salesperson</label><select id="mpSP" class="inp" style="width:auto" onchange="renderMyParties()"><option value="all">All</option></select></div>
+    <div><label class="lbl">State</label><select id="mpState" class="inp" style="width:auto" onchange="renderMyParties()"></select></div>
+    <div><label class="lbl">Status</label><select id="mpStatus" class="inp" style="width:auto" onchange="renderMyParties()"><option value="all">All</option><option>WORKING</option><option>CLOSED</option></select></div>
+    <div style="flex:1;min-width:160px"><label class="lbl">Search</label><input id="mpSearch" class="inp" placeholder="🔍 firm / state…" oninput="renderMyParties()"></div>
+  </div>
+  <div class="card"><div style="overflow:auto;max-height:60vh"><table class="tbl" id="myPartiesTbl"></table></div></div>
 </section>
 
 <!-- ===== ENTER ORDER (Sales) — same pending-order pipeline as ojas-dispatch-tracker.html ===== -->
@@ -2046,7 +2066,7 @@ function isRestrictedSales(){return !IS_MASTER && currentUser.role==='SALES'}
 function hasStateLock(){return isRestrictedSales() && Array.isArray(currentUser.states)}
 function isRestrictedProduction(){return !IS_MASTER && currentUser.role!=='SALES'}
 const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
-const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry'];
+const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties'];
 function renderBlocked(view,reason){
   const el=$('#view-'+view);if(!el)return;
   el.innerHTML=`<div class="card" style="text-align:center;padding:60px 20px">
@@ -2080,6 +2100,7 @@ function go(view){
   else if(view==='packing-plan')renderPackingPlan();
   else if(view==='sales-pull')setPull(pullTab);
   else if(view==='sales-push')renderPushSale();
+  else if(view==='my-parties')renderMyParties();
   else if(view==='sales-order-entry')renderOrderEntry();
   else if(view==='settings')loadSettings();
   else if(view==='upper-issuance'){renderUpperIssuanceView();}
@@ -6101,12 +6122,22 @@ const PARTY_SP_MASTER=[
   {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'JOSHI AGENCIES - KOTDWAR'},{sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'MAGIC TRADING CO -HALDWANI'},
   {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'RAB AGENCIES - KASHIPUR'},{sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'SIDHBALI TRADING COMPANY - KOTDWAR'}
 ];
+// Working/Closed status (W/C column from the June-26 sale target sheet) — enrich the party master.
+const _CLOSED_FIRMS=new Set(['NICE SHOE STORES- KISHANGANJ','S N TRADERS - DARBHANGA','BIHAR SHOE CENTRE','GENERAL LEATHER - DHANBAD','HAPPY SHOES - GIRIDIH','SHIBA SALES AGENCY - AGARTALA','MILEAGE ACTIVEWEAR PRIVATE LTD.- KOLKATA','D M TRADING COMPANY - SEELAMPUR','GUPTA FOOTWEAR STORE - PANIPAT','B S ENTERPRISES - HOSHIARPUR','HIND SHOES - AJMER','JANTA TRADING COMPANY-KOTA','R R AGENCIES--JAIPUR','SHUBH AGENCIES- JODHPUR','BOMBAY FOOTWEAR - DURG','NITIN FOOTWEAR- RAIPUR','SHUBHAM FOOTWEAR - BHOPAL','AB ENTERPRISES - BHADRAK','AFNAAN BOOT HOUSE - FAKIRABAD','HELLO KIDS SHOES - KHORDHA','KALA SHOE CENTRE - DAVANGERE','S M ENTERPRISES - THIRUVANATHAPURAM','SPLASH MARKETING - ERNAKULAM','Y&K POLYMERS - CALICUT','ELITE ENTERPRISES - SALEM','SAFIYA FOOTWEAR - KANNIYAKUMARI','KABIR ENTERPRISES-KOLHAPUR','NEW SAINATH SHOE PALACE-AHMADNAGAR','PATEL FOOTWEAR PRIVATE LIMITED - LATUR','SWASTIK ENTERPRISES - AKOLA','WANASKAR SALES - SOLAPUR','FANCY SHOE COLLECTION - SHAHGANJ','WINTEX FOOTWEAR - VARANASI','MAGIC TRADING CO -HALDWANI']);
+PARTY_SP_MASTER.forEach(p=>{ if(!p.status) p.status = _CLOSED_FIRMS.has(p.firm) ? 'CLOSED' : 'WORKING'; });
 // Fuzzy-match a Busy/seed customer string (e.g. "Asha Agencies - Pimpri") against the real party master.
 function attributeSP(customerName){
   const n=String(customerName||'').toUpperCase().trim();
   if(!n)return null;
   const hit=PARTY_SP_MASTER.find(p=>n.includes(p.firm.toUpperCase())||p.firm.toUpperCase().includes(n));
   return hit?hit.sp:null;
+}
+// Parties visible to the current user: reps → their assigned states; MASTER/coordinators → all (respecting Push Sale filters).
+function myPartyMaster(){
+  let rows=PARTY_SP_MASTER.slice();
+  if(hasStateLock())rows=rows.filter(p=>(currentUser.states||[]).some(s=>stateEq(s,p.state)));
+  else if(isRestrictedSales()){/* coordinator: all */}
+  return rows;
 }
 function renderSalespersonBreakdown(){
   const el=$('#pSpTbl');if(!el)return;
@@ -6737,6 +6768,57 @@ function soOnArticle(){
     colSel.disabled=!cols.length;
   };
 }
+// ── MY PARTIES — distributor master, role-scoped ──
+let _myPartiesBuilt=false;
+function fillMyPartiesFilters(){
+  const rows=myPartyMaster();
+  const mc=isMasterOrCoord();
+  $('#mpSPWrap').style.display=mc?'':'none';
+  if(mc){
+    const sps=[...new Set(rows.map(r=>r.sp))].sort();
+    $('#mpSP').innerHTML='<option value="all">All Salespersons</option>'+sps.map(s=>`<option>${s}</option>`).join('');
+  }
+  const states=[...new Set(rows.map(r=>r.state))].sort();
+  $('#mpState').innerHTML='<option value="all">All States</option>'+states.map(s=>`<option>${s}</option>`).join('');
+}
+function myPartiesFiltered(){
+  let rows=myPartyMaster();
+  const mc=isMasterOrCoord();
+  const sp=mc&&$('#mpSP')?$('#mpSP').value:'all';
+  const st=$('#mpState')?$('#mpState').value:'all';
+  const stf=$('#mpStatus')?$('#mpStatus').value:'all';
+  const q=($('#mpSearch')?$('#mpSearch').value:'').trim().toLowerCase();
+  if(sp&&sp!=='all')rows=rows.filter(r=>r.sp===sp);
+  if(st&&st!=='all')rows=rows.filter(r=>stateEq(r.state,st));
+  if(stf&&stf!=='all')rows=rows.filter(r=>r.status===stf);
+  if(q)rows=rows.filter(r=>(r.firm+r.state+r.sp).toLowerCase().includes(q));
+  return rows;
+}
+function renderMyParties(){
+  if(!_myPartiesBuilt){fillMyPartiesFilters();_myPartiesBuilt=true;}
+  const all=myPartyMaster();
+  $('#myPartiesNote').textContent=hasStateLock()
+    ?'🔒 Your assigned region: '+(currentUser.states||[]).join(', ')
+    :(isRestrictedSales()?'👁️ Coordinator — all salespersons & states.':'👁️ MASTER — all salespersons & states.');
+  const rows=myPartiesFiltered();
+  const working=all.filter(p=>p.status==='WORKING').length, closed=all.filter(p=>p.status==='CLOSED').length;
+  const states=new Set(all.map(p=>p.state)).size;
+  const k=[['Total Parties',all.length,'#1b3187'],['Working',working,'#059669'],['Closed',closed,'#dc2626'],['States',states,'#7c3aed']];
+  $('#myPartiesKpi').innerHTML=k.map(x=>`<div class="card" style="padding:10px 14px;border-left:4px solid ${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:20px;font-weight:800">${x[1]}</div></div>`).join('');
+  const showSP=isMasterOrCoord();
+  $('#myPartiesTbl').innerHTML='<thead><tr>'+(showSP?'<th>Salesperson</th>':'')+'<th>State</th><th>Firm / Distributor</th><th>Status</th></tr></thead><tbody>'+
+    (rows.length?rows.slice().sort((a,b)=>a.state.localeCompare(b.state)||a.firm.localeCompare(b.firm)).map(r=>`<tr>${showSP?`<td>${r.sp}</td>`:''}<td>${r.state}</td><td><b>${r.firm}</b></td><td><span class="pill ${r.status==='WORKING'?'pill-green':'pill-red'}">${r.status}</span></td></tr>`).join('')
+      :'<tr><td colspan="'+(showSP?4:3)+'" style="text-align:center;color:#94a3b8;padding:18px">No parties match.</td></tr>')+'</tbody>';
+}
+function exportPartiesCSV(){
+  const rows=myPartiesFiltered();
+  if(!rows.length){toast('Nothing to export','⚠️','');return}
+  const head=['Salesperson','State','Firm','Status'];
+  const lines=[head.join(',')].concat(rows.map(r=>[r.sp,r.state,r.firm,r.status].map(csvEscape).join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-parties-'+todayISO()+'.csv';a.click();
+  toast('Exported','⬇️',rows.length+' parties');
+}
 function renderOrderEntry(){
   buildArticleSelect($('#soArticle'));
   if(!$('#soDate').value)$('#soDate').value=todayISO();
@@ -7000,7 +7082,7 @@ const PROD_LOGIN_MAP={'KOMAL JAIN':'U_GM','SUSHIL':'U_PL1','DISPATCH 1':'U_PL1',
   'RENU':'U_SL1','SANJEEV':'U_SL2','DHEERAJ':'U_SL3','SHAMSHAD':'U_SL4','SHUBHAMI':'U_SL5','ROSHAN':'U_SL6','PAWAN TIWARI':'U_SL7','ASHRAF':'U_SL8'};
 function onUserChange(){
   currentUser=USERS.find(u=>u.id===$('#userSelect').value)||USERS[0];
-  _pushFiltersBuilt=false;   // rebuild Push Sale filters for the newly-selected role
+  _pushFiltersBuilt=false;_myPartiesBuilt=false;   // rebuild role-scoped filters for the newly-selected user
   toast('Logged in','👤',currentUser.name+' · '+currentUser.title);refresh();
 }
 function logout(){try{localStorage.removeItem('STARKIDZ_USER')}catch(_){}window.location.href='login.html'}
