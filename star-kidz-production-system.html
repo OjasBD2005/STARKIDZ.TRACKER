@@ -645,13 +645,20 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div>
       <h2 style="font-size:20px;font-weight:800;color:#0f172a">📥 Pull Sale — Lead Funnel</h2>
       <p style="font-size:12px;color:#64748b;margin-top:2px">New distributors &amp; MBO chains to onboard. Move each lead Prospect → Pending → Approved.</p>
+      <p id="autoLeadNote" style="font-size:11px;color:#94a3b8;margin-top:4px"></p>
     </div>
-    <button class="btn btn-outline" onclick="addLeadPrompt()">➕ Add Lead</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline" onclick="addLeadPrompt()">➕ Add Lead</button>
+      <button class="btn btn-outline" onclick="exportLeadsCSV()">⬇️ Export CSV</button>
+      <label class="btn btn-outline" style="cursor:pointer">📥 Import Leads CSV
+        <input type="file" accept=".csv" style="display:none" onchange="importLeadsCSV(event)"></label>
+    </div>
   </div>
   <div id="pullKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
     <button id="sd" class="btn btn-outline" onclick="setPull('dist')">Distributors</button>
     <button id="sm" class="btn btn-outline" onclick="setPull('mbo')">MBO Chains</button>
+    <button id="sx" class="btn btn-outline" onclick="setPull('exp')">🌍 Exporters</button>
     <button id="sp" class="btn btn-outline" onclick="setPull('plat')">Sourcing Platforms</button>
     <input id="pullSearch" oninput="renderSalesPull()" placeholder="🔍 Search" class="inp" style="max-width:200px">
     <select id="pullCat" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All categories</option><option>New Party</option><option>Working Party</option></select>
@@ -666,6 +673,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div>
       <h2 style="font-size:20px;font-weight:800;color:#0f172a">📤 Push Sale — Sales Analytics</h2>
       <p style="font-size:12px;color:#64748b;margin-top:2px">Busy-style pivots, customer/article tracking &amp; year-over-year comparison.</p>
+      <p id="pushScopeNote" style="font-size:11px;color:#94a3b8;margin-top:4px"></p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span id="pushSyncBadge" class="pill pill-amber">⏳ Showing last-imported data</span>
@@ -1248,6 +1256,15 @@ const USERS=[
   {id:'U_S6',  empId:'PRD-106',name:'Supervisor 6',title:'Cutting Incharge',       role:'CUTTING',  phone:'9810000106',whatsapp:'9810000106'},
   {id:'U_S7',  empId:'PRD-107',name:'Supervisor 7',title:'Raw Material Store',     role:'RMSTORE',  phone:'9810000107',whatsapp:'9810000107'},
   {id:'U_S8',  empId:'PRD-108',name:'Supervisor 8',title:'Dispatch',role:'RMDISP',   phone:'9810000108',whatsapp:'9810000108'},
+  // --- Field Sales reps — state-restricted (RENU & SHUBHAMI are Coordinators: states:null = see everything) ---
+  {id:'U_SL1', empId:'SLS-01', name:'RENU',         title:'Sales Coordinator', role:'SALES', phone:'9254174722', states:null},
+  {id:'U_SL2', empId:'SLS-02', name:'SANJEEV',      title:'Field Sales',       role:'SALES', phone:'9999534491', states:['GUJARAT','MAHARASHTRA']},
+  {id:'U_SL3', empId:'SLS-03', name:'DHEERAJ',      title:'Field Sales',       role:'SALES', phone:'9015087041', states:['DELHI','HARYANA','HIMACHAL PRADESH','JAMMU','PUNJAB','RAJASTHAN']},
+  {id:'U_SL4', empId:'SLS-04', name:'SHAMSHAD',     title:'Field Sales',       role:'SALES', phone:'9254174708', states:['NEPAL','UTTAR PRADESH','UTTARAKHAND']},
+  {id:'U_SL5', empId:'SLS-05', name:'SHUBHAMI',     title:'Sales Coordinator', role:'SALES', phone:'9254174722', states:null},
+  {id:'U_SL6', empId:'SLS-06', name:'ROSHAN OJHA',  title:'Field Sales',       role:'SALES', phone:'—',          states:['CHATISGARH','MADHYA PRADESH','ODISHA']},
+  {id:'U_SL7', empId:'SLS-07', name:'PAWAN TIWARI', title:'Field Sales',       role:'SALES', phone:'9138575477', states:['ANDHRA PRADESH','GOA','KARNATAKA','KERALA','TAMIL NADU']},
+  {id:'U_SL8', empId:'SLS-08', name:'ASHRAF',       title:'Field Sales',       role:'SALES', phone:'9254174707', states:['ASSAM','BIHAR','JHARKHAND','TRIPURA','WEST BENGAL']},
 ];
 let currentUser=USERS[0], IS_MASTER=false;
 function isMaster(){return IS_MASTER}
@@ -1934,12 +1951,26 @@ function pOnArticle(){
 }
 
 // ── NAVIGATION ──
+// SALES role: Push Sale (state-locked) and Pull Sale are theirs; everything Production-related is blocked.
+// Coordinators (RENU, SHUBHAMI: states===null) are still SALES role — blocked from Production too — but see ALL states in Push Sale, like MASTER.
+function isRestrictedSales(){return !IS_MASTER && currentUser.role==='SALES'}
+function hasStateLock(){return isRestrictedSales() && Array.isArray(currentUser.states)}
+const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
+function renderBlocked(view){
+  const el=$('#view-'+view);if(!el)return;
+  el.innerHTML=`<div class="card" style="text-align:center;padding:60px 20px">
+    <div style="font-size:42px;margin-bottom:12px">🚫</div>
+    <div style="font-size:18px;font-weight:800;color:#b91c1c;margin-bottom:6px">Access Restricted</div>
+    <div style="color:#64748b">You are not allowed to see this. Production data is only visible to Production &amp; Management roles.</div>
+  </div>`;
+}
 function go(view){
   $$('.view').forEach(v=>v.classList.remove('active'));
   const el=$('#view-'+view);if(el)el.classList.add('active');
   $$('.sb-item').forEach(i=>i.classList.toggle('active',i.dataset.view===view));
   document.querySelector('.sidebar').classList.remove('open');
   window.scrollTo({top:0,behavior:'smooth'});
+  if(isRestrictedSales()&&SALES_BLOCKED_VIEWS.includes(view)){renderBlocked(view);return;}
   if(view==='dash')renderDash();
   else if(view==='orders')renderOrders();
   else if(view==='pending')renderPending();
@@ -5726,6 +5757,9 @@ function syncBusy(){
 
 // ── PULL SALE — lead funnel (ported from the old Sales Dashboard; syncs via DATA_KEY) ──
 const SALES_PLATFORMS=[
+  {name:'Apollo AI',web:'https://www.apollo.io',note:'AI B2B contact/company database — search footwear distributors & exporters by industry, location, headcount; pulls verified emails & phones'},
+  {name:'Clay AI',web:'https://www.clay.com',note:'AI lead enrichment & waterfall — enrich a company/contact list (from IndiaMART, Apollo, etc.) with verified emails, LinkedIn, firmographics'},
+  {name:'Web Prospecting',web:'https://www.google.com/search?q=footwear+distributor+India',note:'Manual web/Google search sweeps for distributor & exporter directories not covered by the platforms below'},
   {name:'IndiaMART',web:'https://www.indiamart.com/proddetail/kids-footwear.html',note:'Largest B2B; filter by GST, TrustSEAL, years, city'},
   {name:'TradeIndia',web:'https://www.tradeindia.com',note:'Footwear distributors & wholesalers directory'},
   {name:'ExportersIndia',web:'https://www.exportersindia.com',note:'Manufacturer/exporter listings'},
@@ -5734,7 +5768,8 @@ const SALES_PLATFORMS=[
   {name:'LinkedIn Sales Nav',web:'https://www.linkedin.com',note:'Category buyers / sourcing heads at MBO chains'},
   {name:'GetDistributors',web:'https://www.getdistributors.com/kids-shoes-distributors.html',note:'Distributors actively seeking kids-footwear principals'},
   {name:'Sulekha (city-wise)',web:'https://www.sulekha.com/kids-footwear-shops/bangalore',note:'City-wise kids footwear shops & dealers'},
-  {name:'Dial4trade',web:'https://www.dial4trade.com/bangalore/shoes.htm',note:'Shoe wholesalers & suppliers by city'}
+  {name:'Dial4trade',web:'https://www.dial4trade.com/bangalore/shoes.htm',note:'Shoe wholesalers & suppliers by city'},
+  {name:'DGFT / Seair Exim',web:'https://www.seair.co.in',note:'India export shipment records — find real footwear exporters by HS code & destination country'}
 ];
 let SALES_LEADS=[
   {type:'MBO',name:'Metro Brands (Metro/Mochi/Walkway)',loc:'Mumbai',focus:'Crocs, Skechers, Fila, Clarks, Puma, Adidas + own labels',outlets:'1,000+',kids:'Yes',contact:'+91-22-6656-0444',email:'info@metrobrands.com',web:'https://metrobrands.com',source:'Official site',cat:'New Party',status:'Prospect'},
@@ -5772,23 +5807,33 @@ let SALES_LEADS=[
   {type:'MBO',name:'VKC Group',loc:'Kozhikode, Kerala',focus:'Sandals/slippers/floaters/casual; mass value',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://dir.indiamart.com/impcat/vkc-footwears.html',source:'IndiaMART',cat:'New Party',status:'Prospect'}
 ];
 let pullTab='dist';
-function setPull(t){pullTab=t;[['dist','sd'],['mbo','sm'],['plat','sp']].forEach(function(p){var el=$('#'+p[1]);if(el){el.style.background=(p[0]===t)?'#1b3187':'';el.style.color=(p[0]===t)?'#fff':'';}});renderSalesPull();}
+const PULL_TYPE={dist:'Distributor',mbo:'MBO',exp:'Exporter'};
+function setPull(t){pullTab=t;[['dist','sd'],['mbo','sm'],['exp','sx'],['plat','sp']].forEach(function(p){var el=$('#'+p[1]);if(el){el.style.background=(p[0]===t)?'#1b3187':'';el.style.color=(p[0]===t)?'#fff':'';}});renderSalesPull();}
 function renderSalesPullKpi(){
-  const d=SALES_LEADS.filter(l=>l.type==='Distributor').length,m=SALES_LEADS.filter(l=>l.type==='MBO').length;
+  const d=SALES_LEADS.filter(l=>l.type==='Distributor').length,m=SALES_LEADS.filter(l=>l.type==='MBO').length,x=SALES_LEADS.filter(l=>l.type==='Exporter').length;
   const ap=SALES_LEADS.filter(l=>l.status==='Approved').length,pe=SALES_LEADS.filter(l=>l.status==='Pending').length;
-  const k=[['Total Leads',SALES_LEADS.length,'#1b3187'],['Distributors',d,'#7c3aed'],['MBO Chains',m,'#5b8cff'],['Pending',pe,'#d97706'],['Approved',ap,'#059669']];
+  const k=[['Total Leads',SALES_LEADS.length,'#1b3187'],['Distributors',d,'#7c3aed'],['MBO Chains',m,'#5b8cff'],['Exporters',x,'#0891b2'],['Pending',pe,'#d97706'],['Approved',ap,'#059669']];
   const el=$('#pullKpi');if(el)el.innerHTML=k.map(x=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
 }
 function renderSalesPull(){
   if(!$('#leadTbl'))return;
   renderSalesPullKpi();
+  const note=$('#autoLeadNote');
+  if(note){
+    if(pullTab==='plat')note.textContent='';
+    else{
+      const rows=SALES_LEADS.filter(l=>l.type===PULL_TYPE[pullTab]);
+      const bySource={};rows.forEach(l=>{const s=l.source||'Manual';bySource[s]=(bySource[s]||0)+1});
+      note.textContent=rows.length?('🤖 '+rows.length+' leads — '+Object.entries(bySource).map(([s,n])=>s+': '+n).join(' · ')):'';
+    }
+  }
   if(pullTab==='plat'){
     $('#leadTbl').innerHTML='<thead><tr><th>Platform</th><th>Profile / Link</th><th>How to use</th></tr></thead><tbody>'+
       SALES_PLATFORMS.map(p=>`<tr><td><b>${p.name}</b></td><td><a style="color:#2442b8" href="${p.web}" target="_blank" rel="noopener">${p.web.replace('https://','')}</a></td><td>${p.note}</td></tr>`).join('')+'</tbody>';
     return;
   }
   const q=($('#pullSearch').value||'').trim().toLowerCase(),cat=$('#pullCat').value,stf=$('#pullStatus').value;
-  let rows=SALES_LEADS.filter(l=>pullTab==='dist'?l.type==='Distributor':l.type==='MBO');
+  let rows=SALES_LEADS.filter(l=>l.type===PULL_TYPE[pullTab]);
   if(q)rows=rows.filter(l=>((l.name||'')+(l.loc||'')+(l.focus||'')+(l.email||'')).toLowerCase().includes(q));
   if(cat!=='all')rows=rows.filter(l=>l.cat===cat);
   if(stf!=='all')rows=rows.filter(l=>l.status===stf);
@@ -5810,10 +5855,62 @@ function renderSalesPull(){
 function moveLead(i,status){if(!SALES_LEADS[i])return;SALES_LEADS[i].status=status;if(status==='Approved')SALES_LEADS[i].cat='Working Party';saveData();renderSalesPull();}
 function addLeadPrompt(){
   const name=prompt('Company / lead name?');if(!name)return;
-  let type=(prompt('Type — Distributor or MBO?','Distributor')||'Distributor');
-  type=/mbo/i.test(type)?'MBO':'Distributor';
+  let type=(prompt('Type — Distributor, MBO, or Exporter?','Distributor')||'Distributor');
+  type=/mbo/i.test(type)?'MBO':/exp/i.test(type)?'Exporter':'Distributor';
   SALES_LEADS.unshift({type,name:name.trim(),loc:prompt('Location?')||'',focus:prompt('Brands / focus?')||'',outlets:'',kids:'',contact:prompt('Contact (phone / email)?')||'',email:'',web:'',source:'Manual',cat:'New Party',status:'Prospect'});
   saveData();renderSalesPull();toast('Lead added','➕',name);
+}
+
+// ── LEADS CSV EXPORT / IMPORT (manual + assistant-sourced batches) ──
+function csvEscape(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function exportLeadsCSV(){
+  const rows=pullTab==='plat'?[]:SALES_LEADS.filter(l=>l.type===PULL_TYPE[pullTab]);
+  if(!rows.length){toast('Nothing to export','⚠️','No leads in this tab');return}
+  const cols=['name','type','loc','web','contact','email','rating','focus','source','cat','status'];
+  const head=['Agency Name','Type','Address','Website','Contact','Email','Rating','Focus','Source','Category','Status'];
+  const lines=[head.join(',')].concat(rows.map(r=>cols.map(c=>csvEscape(r[c])).join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='starkidz-leads-'+pullTab+'-'+todayISO()+'.csv';a.click();
+  toast('Exported','⬇️',rows.length+' leads');
+}
+function parseCSVLine(line){
+  const out=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){const c=line[i];
+    if(inQ){if(c==='"'){if(line[i+1]==='"'){cur+='"';i++}else inQ=false}else cur+=c}
+    else{if(c==='"')inQ=true;else if(c===','){out.push(cur);cur=''}else cur+=c}
+  }
+  out.push(cur);return out;
+}
+function importLeadsCSV(e){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const lines=String(ev.target.result).split(/\r?\n/).filter(l=>l.trim().length);
+      if(lines.length<2){alert('CSV has no data rows.');return}
+      const H=parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase());
+      const idx=name=>H.findIndex(h=>h.includes(name));
+      const ci={name:idx('name'),web:idx('website'),loc:idx('address')>=0?idx('address'):idx('location'),contact:idx('contact'),email:idx('email'),rating:idx('rating'),type:idx('type')};
+      let added=0;
+      for(let i=1;i<lines.length;i++){
+        const c=parseCSVLine(lines[i]);
+        const name=(ci.name>=0?c[ci.name]:'').trim();
+        if(!name)continue;
+        if(SALES_LEADS.some(l=>l.name.toLowerCase()===name.toLowerCase()))continue; // skip duplicates
+        let type=(ci.type>=0?c[ci.type]:'Distributor').trim();
+        type=/mbo/i.test(type)?'MBO':/exp/i.test(type)?'Exporter':'Distributor';
+        SALES_LEADS.push({type,name,loc:ci.loc>=0?(c[ci.loc]||'').trim():'',focus:'',outlets:'',kids:'',
+          contact:ci.contact>=0?(c[ci.contact]||'').trim():'',email:ci.email>=0?(c[ci.email]||'').trim():'',
+          web:ci.web>=0?(c[ci.web]||'').trim():'',rating:ci.rating>=0?(c[ci.rating]||'').trim():'',
+          source:'CSV Import',cat:'New Party',status:'Prospect'});
+        added++;
+      }
+      saveData();renderSalesPull();
+      toast('Leads imported','📥',added+' new leads added ('+(lines.length-1-added)+' duplicates skipped)');
+    }catch(err){alert('Import failed: '+err.message)}
+  };
+  rd.readAsText(f);
 }
 
 // ── SALESPERSON MASTER (ids for the 5 field sales reps in login.html) ──
@@ -5911,6 +6008,7 @@ const PUSH_DIMFIELD={'Customer Name':'customer','Billno':'billno','State':'state
 const pushSortState={A:{col:'qty',dir:-1},B:{col:'taxpaid',dir:-1}};
 function pushFactFiltered(){
   let r=PUSH_FACT;
+  if(hasStateLock())r=r.filter(x=>currentUser.states.includes(x.state));   // hard restriction, independent of the (disabled) dropdown
   const st=$('#pfState').value,sp=$('#pfSP').value,mc=$('#pfMachine').value,cu=$('#pfCust').value.trim().toLowerCase();
   if(st&&st!=='all')r=r.filter(x=>x.state===st);
   if(sp&&sp!=='all')r=r.filter(x=>x.salesperson===sp);
@@ -5928,6 +6026,7 @@ function pushAggFact(dim){
 }
 function pushFilteredCust(){
   let r=pushCustRows.slice();
+  if(hasStateLock())r=r.filter(x=>currentUser.states.includes(x.state));
   const st=$('#pfState').value,cu=$('#pfCust').value.trim().toLowerCase();
   if(st&&st!=='all')r=r.filter(x=>x.state===st);
   if(cu)r=r.filter(x=>x.customer.toLowerCase().includes(cu));
@@ -5985,7 +6084,14 @@ function renderPushSide(){
 function fillPushFilters(){
   const src=PUSH_FACT.length?PUSH_FACT:null;
   const states=src?[...new Set(src.map(r=>r.state))].filter(Boolean).sort():[...new Set(pushCustRows.map(r=>r.state))].sort();
-  $('#pfState').innerHTML='<option value="all">All States</option>'+states.map(s=>`<option>${s}</option>`).join('');
+  if(hasStateLock()){
+    const mine=currentUser.states||[];
+    $('#pfState').innerHTML=mine.map(s=>`<option>${s}</option>`).join('')||'<option value="all">— no state assigned —</option>';
+    $('#pfState').disabled=true;
+  }else{
+    $('#pfState').disabled=false;
+    $('#pfState').innerHTML='<option value="all">All States</option>'+states.map(s=>`<option>${s}</option>`).join('');
+  }
   const mach=src?[...new Set(src.map(r=>r.machine))].filter(Boolean).sort():[...new Set(pushStockRows.map(r=>r.machine))];
   $('#pfMachine').innerHTML='<option value="all">All Machines</option>'+mach.map(s=>`<option>${s}</option>`).join('');
   const spNames=[...new Set(SALESPERSONS.map(s=>s.name).concat(src?src.map(r=>r.salesperson):[]))].filter(s=>s&&s!=='—');
@@ -6164,6 +6270,12 @@ function renderCompare(){
 }
 function renderPushSale(){
   fillPushFilters();renderPushKpi();renderPushPivots();renderPushSide();renderSalespersonBreakdown();renderCompare();renderLinkPanel();
+  const note=$('#pushScopeNote');
+  if(note)note.textContent=hasStateLock()
+    ?'🔒 Locked to your state'+(currentUser.states.length>1?'s':'')+': '+(currentUser.states.join(', ')||'— none assigned, contact MASTER —')
+    :(isRestrictedSales()?'👁️ Coordinator — full visibility across all states.':'');
+  const linkBtn=document.querySelector('#view-sales-push button[onclick="toggleLinkPanel()"]');
+  if(linkBtn)linkBtn.style.display=isRestrictedSales()?'none':'';
 }
 
 // ── PERSISTENCE ──
@@ -6390,7 +6502,9 @@ function checkLink(){
 }
 
 // ── AUTH ──
-const PROD_LOGIN_MAP={'KOMAL JAIN':'U_GM','SUSHIL':'U_PL1','DISPATCH 1':'U_PL1','SUPERVISOR 1':'U_S1','SUPERVISOR 2':'U_S2','SUPERVISOR:3':'U_S3','SUPERVISOR-4':'U_S4','SUPERVISOR :5':'U_S5','SUPERVISOR 6':'U_S6','SUPERVISOR 7':'U_S7'};
+const PROD_LOGIN_MAP={'KOMAL JAIN':'U_GM','SUSHIL':'U_PL1','DISPATCH 1':'U_PL1','SUPERVISOR 1':'U_S1','SUPERVISOR 2':'U_S2','SUPERVISOR:3':'U_S3','SUPERVISOR-4':'U_S4','SUPERVISOR :5':'U_S5','SUPERVISOR 6':'U_S6','SUPERVISOR 7':'U_S7',
+  // Field sales — restricted view if they ever land here directly (normal login still routes them to ojas-dispatch-tracker.html)
+  'RENU':'U_SL1','SANJEEV':'U_SL2','DHEERAJ':'U_SL3','SHAMSHAD':'U_SL4','SHUBHAMI':'U_SL5','ROSHAN':'U_SL6','PAWAN TIWARI':'U_SL7','ASHRAF':'U_SL8'};
 function onUserChange(){
   currentUser=USERS.find(u=>u.id===$('#userSelect').value)||USERS[0];
   toast('Logged in','👤',currentUser.name+' · '+currentUser.title);refresh();
@@ -6614,6 +6728,7 @@ function seedInventifyOrders(){
   // Route each role to their default landing view
   if(_r==='UPPER'||_r==='CUTTING')go('upper-issuance');
   else if(_r==='RMSTORE')go('rm-store');
+  else if(_r==='SALES')go('sales-push');
   else go('dash');
 })();
 </script>

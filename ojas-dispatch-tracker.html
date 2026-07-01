@@ -116,6 +116,10 @@
           class="tab-btn flex-1 min-w-[120px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 transition flex items-center justify-center gap-2">
           <span>🚚</span> Billing / Dispatch
         </button>
+        <button data-tab="parties" onclick="switchTab('parties')"
+          class="tab-btn flex-1 min-w-[120px] whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-white/90 transition flex items-center justify-center gap-2">
+          <span>📊</span> My State &amp; Aging
+        </button>
       </div>
     </nav>
   </header>
@@ -269,6 +273,27 @@
         <div id="dispatchedList" class="mt-4 space-y-2"></div>
       </details>
     </section>
+
+    <!-- ================= MY STATE & AGING VIEW ================= -->
+    <section id="view-parties" class="tab-view hidden space-y-6">
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-4">
+        <div id="partiesScopeNote" class="text-xs text-slate-500 mb-3"></div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" id="agingKpis"></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100">
+          <h2 class="font-bold text-slate-900">⏳ Order Aging — days since order, not yet dispatched</h2>
+        </div>
+        <div id="agingList" class="divide-y divide-slate-100"></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+          <h2 class="font-bold text-slate-900">🗺️ Party Master — State-wise</h2>
+          <input id="partySearch" oninput="renderPartiesView()" placeholder="🔍 search party/state" class="ml-auto text-sm border border-slate-300 rounded-lg px-2 py-1">
+        </div>
+        <div class="overflow-auto"><table class="w-full text-sm" id="partyTbl"></table></div>
+      </div>
+    </section>
   </main>
 
   <!-- Toast container -->
@@ -295,17 +320,208 @@
 
 // ---------- Seed: USERS ----------
 const USERS = [
-  // --- Sales team (Ojas Footwear) ---
-  { user_id: 'SALES_001', name: 'DHEERAJ',  role: 'Sales',      phone:'+91 90000 00001' },
-  { user_id: 'SALES_002', name: 'SHUBHAMI', role: 'Sales',      phone:'+91 90000 00002' },
-  { user_id: 'SALES_003', name: 'RENU',     role: 'Sales',      phone:'+91 90000 00003' },
-  { user_id: 'SALES_004', name: 'SHAMSHAD', role: 'Sales',      phone:'+91 90000 00004' },
-  { user_id: 'SALES_005', name: 'ASHRAF',   role: 'Sales',      phone:'+91 90000 00005' },
-  { user_id: 'SALES_006', name: 'SANJEEV',  role: 'Sales',      phone:'+91 90000 00006' },
+  // --- Sales team (Ojas Footwear) --- `states` = party-master states this rep owns (from June-26 sale target sheet).
+  // RENU & SHUBHAMI are Coordinators (see COORDINATORS below) — no state restriction, they see everyone's data.
+  { user_id: 'SALES_001', name: 'DHEERAJ',  role: 'Sales',      phone:'+91 90000 00001', states:['DELHI','HARYANA','HIMACHAL PRADESH','JAMMU','PUNJAB','RAJASTHAN'] },
+  { user_id: 'SALES_002', name: 'SHUBHAMI', role: 'Sales',      phone:'+91 90000 00002', states:null },
+  { user_id: 'SALES_003', name: 'RENU',     role: 'Sales',      phone:'+91 90000 00003', states:null },
+  { user_id: 'SALES_004', name: 'SHAMSHAD', role: 'Sales',      phone:'+91 90000 00004', states:['NEPAL','UTTAR PRADESH','UTTARAKHAND'] },
+  { user_id: 'SALES_005', name: 'ASHRAF',   role: 'Sales',      phone:'+91 90000 00005', states:['ASSAM','BIHAR','JHARKHAND','TRIPURA','WEST BENGAL'] },
+  { user_id: 'SALES_006', name: 'SANJEEV',  role: 'Sales',      phone:'+91 90000 00006', states:['GUJARAT','MAHARASHTRA'] },
+  { user_id: 'SALES_007', name: 'ROSHAN OJHA', role: 'Sales',   phone:'+91 90000 00007', states:['CHATISGARH','MADHYA PRADESH','ODISHA'] },
+  { user_id: 'SALES_008', name: 'PAWAN TIWARI', role: 'Sales',  phone:'+91 90000 00008', states:['ANDHRA PRADESH','GOA','KARNATAKA','KERALA','TAMIL NADU'] },
   // --- Billing / Dispatch (production is managed in the Production System app) ---
   { user_id: 'BILL_002',  name: 'SANDEEP', title:'Billing Person',     role: 'Billing', phone:'+91 90000 00030' },
   { user_id: 'BILL_001',  name: 'SUSHIL',  title:'Billing / Dispatch', role: 'Billing', phone:'+91 90000 00044' },
 ];
+
+// ---------- PARTY MASTER (from June-26 sale target sheet) — real distributor/party list per salesperson/state ----------
+const PARTY_MASTER=[
+  {sp:'ASHRAF',state:'ASSAM',firm:'DHANANI SHOES PRIVATE LIMITED -GUWAHATI',status:'WORKING'},
+  {sp:'ASHRAF',state:'BIHAR',firm:'MYGRAND SHOE STORE PVT LTD - KATIHAR',status:'WORKING'},
+  {sp:'ASHRAF',state:'BIHAR',firm:'NICE SHOE STORES- KISHANGANJ',status:'CLOSED'},
+  {sp:'ASHRAF',state:'BIHAR',firm:'PATLIPUTRA DISTRIBUTORS PVT LTD- PATNA',status:'WORKING'},
+  {sp:'ASHRAF',state:'BIHAR',firm:'PRINCE FOOTWEAR - MUZAFFARPUR',status:'WORKING'},
+  {sp:'ASHRAF',state:'BIHAR',firm:'S N TRADERS - DARBHANGA',status:'CLOSED'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'BIHAR SHOE CENTRE',status:'CLOSED'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'GENERAL LEATHER - DHANBAD',status:'CLOSED'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'HAPPY SHOES - GIRIDIH',status:'CLOSED'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'LAL FOOTWEAR - RANCHI',status:'WORKING'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'M.A. FOOTWEAR - CHAS',status:'WORKING'},
+  {sp:'ASHRAF',state:'TRIPURA',firm:'SHIBA SALES AGENCY - AGARTALA',status:'CLOSED'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'B. LEATHERS ELEGANCE PVT LTD',status:'WORKING'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'CENTURY SALES CORPORATION - ASANSOL',status:'WORKING'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'ELEGENT ENTERPRISES - KOLKATA',status:'WORKING'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'HALF & HALF SHOES PRIVATE LTD-KOLKATA',status:'WORKING'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'MILEAGE ACTIVEWEAR PRIVATE LTD.- KOLKATA',status:'CLOSED'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'RATNA FOOTWEAR-SILIGURI',status:'WORKING'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'D M TRADING COMPANY - SEELAMPUR',status:'CLOSED'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'NOVA MARKETING',status:'WORKING'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'SACHDEVA ENTERPRISES- SUBHASH NAGAR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'DEEPAK FOOTWEARS - NAJAFGARH',status:'WORKING'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'TECHNOCART ENTERPRISES-NEW DELHI',status:'WORKING'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'VIKAS FOOT WEAR - SHAHDARA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'AGGARWAL FOOTWEAR - JIND',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'BANSAL FOOTWEARS - BALLABGARH',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'DEEPAK CHAPPAL STORE-KARNAL',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'GAURAV AGENCIES -  GURUGRAM',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'GUPTA FOOTWEAR STORE - PANIPAT',status:'CLOSED'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'HARYANA SHOE COMPANY- BHIWANI',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'JYOTI SHOES & GENERAL MERCHANT - SIRSA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'KHALSA ENTERPRISES - AMBALA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'NAGPAL SHOE CO.-CHANDIGARH',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'RAJ FOOTWEAR - AMBALA CITY',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'S. K. TRADERS -TOHANA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'V.L.TRADING CO. - SONIPAT',status:'WORKING'},
+  {sp:'DHEERAJ',state:'HIMACHAL PRADESH',firm:'MOHAN LAL SONS - SOLAN',status:'WORKING'},
+  {sp:'DHEERAJ',state:'JAMMU',firm:'R.S TRADERS - JAMMU',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'ANEJA FOOTWEARS (AGENCIES) - LUDHIANA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'B S ENTERPRISES - HOSHIARPUR',status:'CLOSED'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'DELHI BOOT HOUSE - BARNALA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'DIWAN FOOTWEAR - ROPAR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'FRIENDS ENTERPRISES - JALANDHAR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'H.S.P FOOTWEAR - AMRITSAR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'MUNJAL SHOE CO. - FAZILKA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'PAWAN BOOT HOUSE - SANGRUR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'PRABHAT SHOE CO. - PATIALA',status:'WORKING'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'SHIRI ANAND FOOTWEAR- GURDASPUR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'GANPATI FOOTWEARS-JAIPUR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'GOYAL FOOTWEAR-HANUMANGARH',status:'WORKING'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'GURU JI FOOTWEAR - SRI GANGANAGAR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'HIND SHOES - AJMER',status:'CLOSED'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'JANTA TRADING COMPANY-KOTA',status:'CLOSED'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'KESHRI MARKETING - BIKANER',status:'WORKING'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'OMKAR FOOTSTEP - JAIPUR',status:'WORKING'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'R R AGENCIES--JAIPUR',status:'CLOSED'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'SHUBH AGENCIES- JODHPUR',status:'CLOSED'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'VIPUL ENTERPRISES - AJMER',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'BAJAJ FOOTWEAR- RAIPUR',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'BOMBAY FOOTWEAR - DURG',status:'CLOSED'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'LARI FOOTWEAR - KORBA',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'NITIN FOOTWEAR- RAIPUR',status:'CLOSED'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'ROYAL SHOES - RAIPUR',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'SHYAM BOOT HOUSE- SAKTI',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'ACTIVE AGENCIES - BHOPAL',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'ALAM BOOT HOUSE - SAGAR',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'ASHISH ENTERPRISES - JABALPUR',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'MANISH SHOE PLAZA - INDORE',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'NEW JHW FOOT WEAR - INDORE',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'RAYAL SHOUES - KHANDWA',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'SHUBHAM FOOTWEAR - BHOPAL',status:'CLOSED'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'AB ENTERPRISES - BHADRAK',status:'CLOSED'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'AFNAAN BOOT HOUSE - FAKIRABAD',status:'CLOSED'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'DAMANI FOOTWEAR- CUTTACK',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'DAMANI STORE - ANGUL',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'HELLO KIDS SHOES - KHORDHA',status:'CLOSED'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'HI CHOICE FOOTWEAR - BERHAMPUR',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'KADAM FOOTWEAR - ROURKELA',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'NEW BHARAT BOOT HOUSE - KESINGA',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'NIKHIL ENTERPRISES - SAMBHALPUR',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'BALAJI SALES - BHUBANESWAR',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'RAJA FOOTWEAR - DASPALLA',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'RAJPAL FOOTWEAR - CUTTACK',status:'WORKING'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'SHOE XPRESS-BHUBNESHWAR',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'KAMADHENU FOOTNEEDS - KURNOOL',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'MAANYA FOOTWEAR-VIJAYWADA',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'NOBEL ASSOCIATES- HYDERABAD',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'SNEHLATA ASSOCIATES - VIJAYWADA',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'VENUS ENTERPRISES - VIJAYAWADA',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'GOA',firm:'VINAYAK TRADING - MARGOA',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'KALA SHOE CENTRE - DAVANGERE',status:'CLOSED'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'RAJ TRADING CO. - MANGALORE',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'SANJAY MARKETING - HUBLI',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'SHRI PADMAVATI DRESSES - HULAKOTI',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'T. STANES & COMPANY LIMITED - BANGALORE',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'T. STANES & COMPANY LIMITED - MANGALORE',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'UDAYAA MARKETING-BENGALORE',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'BROOKS FOOTWEAR GROUPS - THIRUVANANTHAPU',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'COLOURS TRADERS - KOTTAYAM',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'FALCON AGENCIES PVT. LTD. - ERNAKULAM',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'FOOTWEAR AGENCIES - ERNAKULAM',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'M.M. VENTURES - KARUNAGAPPALLY',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'MERINO FOOTWEAR TRADERS - ERNAKULAM',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'S M ENTERPRISES - THIRUVANATHAPURAM',status:'CLOSED'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'SPLASH MARKETING - ERNAKULAM',status:'CLOSED'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'SWAPNA AGENCIES - THRISSUR',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'Y&K POLYMERS - CALICUT',status:'CLOSED'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'BARUN FOOT TEX - THANJAVAUR',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'BEAUTY BAGS - PUDUCHEERY',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'BHALAJI TRADERS - DINDIGUL',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'ELITE ENTERPRISES - SALEM',status:'CLOSED'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'MADRAS SHOE MART - CHENNAI',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'MORFIK MARKETING - CHENNAI',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'SAFIYA FOOTWEAR - KANNIYAKUMARI',status:'CLOSED'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'SARAVANA STORES (TEX)',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'THE LEGEND NEW SARAVANA STORES- 129',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'THE LEGEND NEW SARAVANA STORES- 15',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'THE MADRAS SILKS INDIA PVT LTD - CHENNAI',status:'WORKING'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'VIJAY TRADERS - CHENNAI',status:'WORKING'},
+  {sp:'SANJEEV',state:'GUJARAT',firm:'BOSS ENTERPRISES - NAVAGAM',status:'WORKING'},
+  {sp:'SANJEEV',state:'GUJARAT',firm:'MANISH INTERNATIONAL MF PVT LTDAHMEDABAD',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'ARADHANA SHOES - ULAHASNAGAR',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'ASHA AGENCIES - PIMPRI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'CHANDAN ENTERPRISES-AHMADNAGAR',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'G S MARKETING - AURANGABAD',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'GAURI AGENCIES - PIMPRI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'KABIR ENTERPRISES-KOLHAPUR',status:'CLOSED'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'KAPIL ENTERPRISES -  TURBHE',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'KAPIL SHOES- NAGPUR NEW',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'KARTIK ENTERPRISES - MUMBAI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'MAHALAXMI AGENCY - KOLHAPUR',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'NAMRATA FOOTWEAR- AMRAVATI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'NEW MADNE SHOES CENTRE- NANDED',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'NEW SAINATH SHOE PALACE-AHMADNAGAR',status:'CLOSED'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'PATEL FOOTWEAR PRIVATE LIMITED - LATUR',status:'CLOSED'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'PATEL TRADELINK - PRABHANI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'PRAKASH ENTERPRISES-BHIWANDI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'RAVIRAJ FOOT WEAR- KOLHAPUR',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'SANCHI ENTERPRISES - PIMPRI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'SOHAM SALES-AMALNER',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'STAR AGENCIES - BARSHI',status:'WORKING'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'SWASTIK ENTERPRISES - AKOLA',status:'CLOSED'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'WANASKAR SALES - SOLAPUR',status:'CLOSED'},
+  {sp:'SHAMSHAD',state:'NEPAL',firm:'H.N. TRADERS - (BIKASHPATH - NEPAL)',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'NEPAL',firm:'NEPAL FOOTWARE -BUTWAL- NEPAL',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'NEPAL',firm:'R.R.TRADING-KAPILAVASTU-NEPAL',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'ANANYA TRADERS - JHANSI',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'B.K. TRADERS - AMROHA',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BAJAJ SHOE CO. - SAHARANPUR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BALKESHWAR NATH ENTERPRISES - AGRA',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BANSAL TRADERS - MEERUT',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BROTHERS SHOE COMPANY -MUZAFFARNAGAR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'CHARAN SHOBHA - MAHARAJGANJ',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'CLASSIC FOOTWEAR AGENCY - LUCKNOW',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'EAGLE FOOTWEARS - LUCKNOW',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'FANCY SHOE COLLECTION - SHAHGANJ',status:'CLOSED'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'GROVER TRADER - CHANDAUSI',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'GUPTA TRADERS - KANPUR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'PRABHAT SHOE CO - ALIGARH',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'QUALITY BOOT HOUSE - GORAKHPUR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHAMSI TRADERS - BAREILLY',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHIVAY ENTERPRISES- VARANASI',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHREE RADHEY ENTERPRISES - PRAYAGRAJ',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHRI BALAJI SALES - GHAZIABAD',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SUPER SHOES - VARANASI',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'WINTEX FOOTWEAR - VARANASI',status:'CLOSED'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'AGARWAL & COMPANY - RAMNAGAR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'BAJAJ SHOE COMPANY - DEHRADUN',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'DURGA ENTERPRISES - RISHIKESH',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'HIND SHOE AGENCIES - KASHIPUR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'JOSHI AGENCIES - KOTDWAR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'MAGIC TRADING CO -HALDWANI',status:'CLOSED'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'RAB AGENCIES - KASHIPUR',status:'WORKING'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'SIDHBALI TRADING COMPANY - KOTDWAR',status:'WORKING'}
+];
+// COORDINATORS (RENU, SHUBHAMI) see all states; everyone else is locked to their own states unless IS_MASTER.
+function myStates(){
+  if(IS_MASTER)return null;                 // null = no restriction
+  if(COORDINATORS.includes(currentUser.user_id))return null;
+  return currentUser.states||[];
+}
+function partiesForCurrentUser(){
+  const states=myStates();
+  return states===null?PARTY_MASTER:PARTY_MASTER.filter(p=>states.includes(p.state));
+}
 
 // ---------- ARTICLE MASTER (loaded from articles-data.js) ----------
 // Three cascading indexes: Article Name → Size → Colour
@@ -821,6 +1037,51 @@ function approveProduction(id){
 // =================================================================
 //  BILLING VIEW  (gated: Completed AND Approved)
 // =================================================================
+function daysSince(d){const ms=Date.now()-new Date(d).getTime();return Math.max(0,Math.floor(ms/86400000))}
+function agingBucket(days){return days<=7?'0-7 days':days<=15?'8-15 days':days<=30?'16-30 days':'30+ days'}
+function renderPartiesView(){
+  const el=$('#view-parties'); if(!el) return;
+  const states=myStates();
+  const scoped = states===null;
+  $('#partiesScopeNote').innerHTML = scoped
+    ? `👁️ Full visibility — ${IS_MASTER?'MASTER':'Coordinator'} sees every state and every salesperson's data.`
+    : `🔒 Locked to your assigned state${states.length>1?'s':''}: <b>${states.join(', ')||'— none assigned yet, contact MASTER —'}</b>`;
+
+  // ---- Order aging: this salesperson's own pending (not-yet-dispatched) orders; coordinators/master see all ----
+  const myOrders = scoped ? ORDERS : ORDERS.filter(o=>o.salesperson_id===currentUser.user_id);
+  const pending = myOrders.filter(o=>o.dispatch_status!=='Dispatched').map(o=>({...o, days:daysSince(o.order_date)}));
+  const buckets = {'0-7 days':0,'8-15 days':0,'16-30 days':0,'30+ days':0};
+  pending.forEach(o=>buckets[agingBucket(o.days)]++);
+  $('#agingKpis').innerHTML =
+    kpiCard('0-7 days', buckets['0-7 days'],'🟢','green') +
+    kpiCard('8-15 days', buckets['8-15 days'],'🟡','amber') +
+    kpiCard('16-30 days', buckets['16-30 days'],'🟠','blue') +
+    kpiCard('30+ days (overdue)', buckets['30+ days'],'🔴','red');
+  const sorted = pending.slice().sort((a,b)=>b.days-a.days);
+  $('#agingList').innerHTML = sorted.length ? sorted.map(o=>`
+    <div class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-slate-900">${o.party_name}</span>
+          <span class="text-xs text-slate-400">#${o.order_id}</span>
+          ${badge(agingBucket(o.days), o.days>30?'red':o.days>15?'blue':o.days>7?'amber':'green')}
+        </div>
+        <div class="text-xs text-slate-500 mt-0.5">Art <b>${o.article_no}</b> · ${o.days} day${o.days===1?'':'s'} since order (${o.order_date})</div>
+      </div>
+    </div>`).join('') : `<div class="px-5 py-6 text-center text-slate-400 text-sm">No pending orders.</div>`;
+
+  // ---- Party master, state-wise ----
+  const q=($('#partySearch').value||'').trim().toLowerCase();
+  let rows = partiesForCurrentUser();
+  if(q) rows = rows.filter(p=>(p.firm+p.state).toLowerCase().includes(q));
+  rows = rows.slice().sort((a,b)=> a.state.localeCompare(b.state) || a.firm.localeCompare(b.firm));
+  $('#partyTbl').innerHTML = `<thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="text-left px-4 py-2">State</th><th class="text-left px-4 py-2">Firm</th><th class="text-left px-4 py-2">Status</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">` +
+    (rows.length ? rows.map(p=>`<tr><td class="px-4 py-2">${p.state}</td><td class="px-4 py-2">${p.firm}</td><td class="px-4 py-2">${badge(p.status,p.status==='WORKING'?'green':'gray')}</td></tr>`).join('')
+      : `<tr><td colspan="3" class="text-center text-slate-400 py-6">No parties${states&&states.length?' for your assigned state(s)':''}.</td></tr>`) +
+    `</tbody>`;
+}
 function renderBilling(){
   const cleared   = ORDERS.filter(o=>o.production_status==='Completed' && o.production_approval==='Approved' && o.dispatch_allowance==='Approved' && o.dispatch_status!=='Dispatched');
   const dispatched= ORDERS.filter(o=>o.dispatch_status==='Dispatched');
@@ -1030,7 +1291,7 @@ function renderSalesNotifs(){
 }
 function logout(){ try{ localStorage.removeItem('STARKIDZ_USER'); }catch(_){} window.location.href='login.html'; }
 
-function renderAll(){ renderSales(); renderProduction(); renderBilling(); renderSalesNotifs(); renderDistributorLedger(); syncShared(); }
+function renderAll(){ renderSales(); renderProduction(); renderBilling(); renderSalesNotifs(); renderDistributorLedger(); renderPartiesView(); syncShared(); }
 
 // ===== APP LINK: push Sales orders to shared storage for the Production System =====
 const SHARED_KEY = 'STARKIDZ_SALES_ORDERS';
@@ -1094,6 +1355,7 @@ function miniBar(pct){
 // ---------- PER-PERSON AUTH (no one can view another person's ID) ----------
 const SALES_LOGIN_MAP = {
   'RENU':'SALES_003','SHUBHAMI':'SALES_002','DHEERAJ':'SALES_001','SHAMSHAD':'SALES_004','SANJEEV':'SALES_006',
+  'ASHRAF':'SALES_005','ROSHAN':'SALES_007','PAWAN TIWARI':'SALES_008',
   'DISPATCH 1':'BILL_001',   // SUSHIL  (Billing / Dispatch)
   'DISPATCH2':'BILL_002'     // SANDEEP (Billing Person)
 };

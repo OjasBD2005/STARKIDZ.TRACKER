@@ -333,6 +333,7 @@ applyThemeUI();
 // ============ IDENTITY REGISTRY (client-side demo gate) ============
 const USERS = {
   'RENU':'9254174722','SANJEEV':'9999534491','DHEERAJ':'9015087041','SHAMSHAD':'9254174708','SHUBHAMI':'9254174722',
+  'ROSHAN':'OJAS@6424','PAWAN TIWARI':'9138575477','ASHRAF':'9254174707',   // field sales — state-wise (see xlsx party master)
   'KOMAL JAIN':'9215060303','SUPERVISOR 1':'24-25','SUPERVISOR 2':'64-65','SUPERVISOR:3':'24-65',
   'SUPERVISOR-4':'65-25','SUPERVISOR :5':'64-25',
   'SUPERVISOR 6':'OJAS@64',                          // Cutting Incharge
@@ -344,12 +345,19 @@ const USERS = {
 
 // route each person to the dashboard they own
 function destFor(u){
-  const sales=['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI','DISPATCH2'];  // Sales + Billing/Dispatch
+  const sales=['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI','ROSHAN','PAWAN TIWARI','ASHRAF','DISPATCH2'];  // Sales + Billing/Dispatch
   const prod =['KOMAL JAIN','SUPERVISOR 1','SUPERVISOR 2','SUPERVISOR:3','SUPERVISOR-4','SUPERVISOR :5','SUPERVISOR 6','SUPERVISOR 7','SUSHIL','DISPATCH 1'];
   if(u==='MASTER') return 'index.html';                 // master = global control
   if(sales.includes(u)) return 'ojas-dispatch-tracker.html';
   if(prod.includes(u))  return 'star-kidz-production-system.html';
   return 'index.html';
+}
+// time-of-day greeting, synced to IST regardless of the device's own clock/timezone
+function timeGreeting(){
+  const hour=+new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',hour:'numeric',hour12:false}).format(new Date());
+  if(hour<12)return'Good Morning';
+  if(hour<17)return'Good Afternoon';
+  return'Good Evening';
 }
 function logoFallback(){
   document.getElementById('logoImg').style.display='none';
@@ -380,8 +388,9 @@ function doLogin(e){
   try{ localStorage.setItem('STARKIDZ_USER', u); }catch(_){}
   // brief premium transition, then enter THIS PERSON'S OWN dashboard
   setTimeout(()=>{
-    if(window.CrocLoader){ CrocLoader.show('Loading your dashboard'); }
-    else { document.getElementById('loadMsg').textContent='Loading your dashboard'; }
+    const greetMsg=timeGreeting()+', '+u+'! Welcome — loading your dashboard';
+    if(window.CrocLoader){ CrocLoader.show(greetMsg); }
+    else { document.getElementById('loadMsg').textContent=greetMsg; }
   }, 1400);
   setTimeout(()=>{ window.location.href = destFor(u); }, 2600);
 }
