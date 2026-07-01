@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>STAR Kidz — Production Planning & Tracking System</title>
+<title>Star Kidz Tracker — Production &amp; Sales System</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = { theme: { extend: {
@@ -164,7 +164,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   </svg>
   <div style="min-width:0;flex:0 0 auto">
     <div style="font-weight:800;font-size:14px;line-height:1.1">STAR <span style="color:#3358e0">Kidz</span></div>
-    <div style="font-size:10px;color:rgba(255,255,255,.6)">Production Planning & Tracking · Ojas Footwear</div>
+    <div style="font-size:10px;color:rgba(255,255,255,.6)">Star Kidz Tracker · Ojas Footwear</div>
   </div>
   <div id="clock" class="clock-chip" style="margin-left:auto;font-size:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:4px 12px">
     🕒 <span id="clockText">—</span>
@@ -280,7 +280,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   </div>
 
   <div style="padding:16px;font-size:10px;color:#4b5563;border-top:1px solid #1f2937;margin-top:auto">
-    v2.0 · Production Planning System<br>© STAR Kidz · Ojas Footwear
+    v2.0 · Star Kidz Tracker<br>© STAR Kidz · Ojas Footwear
   </div>
 </nav>
 
@@ -660,14 +660,158 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   <div style="overflow:auto"><table class="tbl" id="leadTbl"></table></div>
 </section>
 
-<!-- ===== PUSH SALE — sales analytics (migrating) ===== -->
+<!-- ===== PUSH SALE — sales analytics (full, linked) ===== -->
 <section id="view-sales-push" class="view">
-  <h2 style="font-size:20px;font-weight:800;color:#0f172a">📤 Push Sale</h2>
-  <div class="card" style="margin-top:12px;color:#475569;line-height:1.6">
-    The <b>lead funnel</b> is live under <b>📥 Pull Sale</b>, and sales-entered orders appear under <b>📥 Pending Orders</b>.<br>
-    The Busy-style <b>sales analytics</b> (pivot tables by customer / state / salesperson) will be migrated into this screen next.
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📤 Push Sale — Sales Analytics</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Busy-style pivots, customer/article tracking &amp; year-over-year comparison.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="pushSyncBadge" class="pill pill-amber">⏳ Showing last-imported data</span>
+      <button class="btn btn-outline" onclick="toggleLinkPanel()">🔗 Link &amp; Configure</button>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div id="pushKpiStrip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px"></div>
+
+  <!-- Filters + Busy import -->
+  <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+    <div><label class="lbl">State</label><select id="pfState" class="inp" style="width:auto" onchange="renderPushPivots()"></select></div>
+    <div><label class="lbl">Salesperson</label><select id="pfSP" class="inp" style="width:auto" onchange="renderPushPivots()"><option value="all">All</option></select></div>
+    <div><label class="lbl">Machine / Mould</label><select id="pfMachine" class="inp" style="width:auto" onchange="renderPushPivots()"></select></div>
+    <div style="flex:1;min-width:160px"><label class="lbl">Customer</label><input id="pfCust" class="inp" placeholder="type to filter…" oninput="renderPushPivots()"></div>
+    <label class="btn btn-outline" style="cursor:pointer">📥 Import Busy Consolidated_report
+      <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importConsolidated(event)"></label>
+  </div>
+
+  <!-- Dual pivots -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <select id="pGrpA" class="inp" style="width:auto" onchange="renderPushPivots()"></select>
+        <span style="font-size:11px;color:#94a3b8">click a column to sort</span>
+      </div>
+      <div style="overflow:auto;max-height:340px"><table class="tbl" id="pPivA"></table></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <select id="pGrpB" class="inp" style="width:auto" onchange="renderPushPivots()"></select>
+        <span style="font-size:11px;color:#94a3b8">click a column to sort</span>
+      </div>
+      <div style="overflow:auto;max-height:340px"><table class="tbl" id="pPivB"></table></div>
+    </div>
+  </div>
+
+  <!-- Salesperson breakdown — live from real Production Orders -->
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:10px">🧑‍💼 Orders by Salesperson <span style="font-weight:500;font-size:11px;color:#94a3b8">— live from Production Orders</span></div>
+    <div style="overflow:auto"><table class="tbl" id="pSpTbl"></table></div>
+  </div>
+
+  <!-- Period comparison -->
+  <div class="card" style="margin-top:16px">
+    <div style="font-weight:800;margin-bottom:10px">📅 Current Period vs Previous Period — Customer comparison</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div><div style="font-size:12px;font-weight:700;color:#2442b8;margin-bottom:6px">Current</div><div style="overflow:auto;max-height:300px"><table class="tbl" id="pCmpCur"></table></div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px">Previous</div><div style="overflow:auto;max-height:300px"><table class="tbl" id="pCmpPrev"></table></div></div>
+    </div>
+  </div>
+
+  <!-- Party / Article YoY — from Link & Configure uploads -->
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:800">🔗 Party Sale — Year-over-Year (Linked Data)</div>
+      <span id="partyYoYNote" style="font-size:11px;color:#94a3b8"></span>
+    </div>
+    <div style="overflow:auto;max-height:340px"><table class="tbl" id="partyYoY"></table></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:800">🔗 Article Sale — Year-over-Year (Linked Data)</div>
+      <span id="articleYoYNote" style="font-size:11px;color:#94a3b8"></span>
+    </div>
+    <div style="overflow:auto;max-height:340px"><table class="tbl" id="articleYoY"></table></div>
+  </div>
+
+  <!-- Top articles + Stock + Monthly + Low billing -->
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-top:16px">
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:8px">🏆 Top-Selling Articles (Mould)</div>
+      <div style="overflow:auto;max-height:340px"><table class="tbl" id="pTopArt"></table></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:8px">📦 Stock by Machine</div>
+      <div style="overflow:auto;max-height:340px"><table class="tbl" id="pStockTbl"></table></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:8px">📈 Monthly Sales</div>
+      <div style="overflow:auto;max-height:340px"><table class="tbl" id="pMonthTbl"></table></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:8px;color:#b91c1c">🔻 Low-Billing Distributors</div>
+      <div style="overflow:auto;max-height:340px"><table class="tbl" id="pLowBill"></table></div>
+    </div>
   </div>
 </section>
+
+<!-- ===== LINK & CONFIGURE MODAL — Push Sale data sync ===== -->
+<div id="linkModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+  <div class="card" style="max-width:760px;width:100%;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-weight:800;font-size:17px">🔗 Link &amp; Configure — Push Sale Data Sync</div>
+      <span onclick="toggleLinkPanel()" style="cursor:pointer;font-size:20px;color:#94a3b8">✕</span>
+    </div>
+
+    <div class="card" style="background:#f8fafc">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:11px;color:#64748b;font-weight:700">SYNC API KEY</div>
+          <div id="apiKeyText" style="font-family:monospace;font-size:15px;font-weight:800;color:#2442b8"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="copyApiKey()">📋 Copy</button>
+          <button class="btn btn-outline" onclick="regenApiKey()">♻️ Regenerate</button>
+        </div>
+      </div>
+      <div id="linkSyncStatus" style="font-size:11px;color:#94a3b8;margin-top:8px"></div>
+    </div>
+
+    <div style="font-size:12px;color:#64748b;margin:10px 0">This key is generated locally for cross-device linking of the uploads below — it is <b>not</b> the Busy accounting API key (that one lives under ⚙️ Settings → Busy Item Master Sync and must come from Busy itself).</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:4px">📦 Item Master</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Article/Item code, name, category</div>
+        <label class="btn btn-outline" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'itemMaster')"></label>
+        <div id="stat-itemMaster" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:4px">🏬 Party Master</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Party/customer code, name, city, state</div>
+        <label class="btn btn-outline" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'partyMaster')"></label>
+        <div id="stat-partyMaster" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:4px">🧾 Party Sale Data — Current FY</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Party, article, qty, value (this year)</div>
+        <label class="btn btn-outline" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'saleCur')"></label>
+        <div id="stat-saleCur" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:4px">📜 Party Sale Data — Previous FY</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Same shape, for last year's comparison</div>
+        <label class="btn btn-outline" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'salePrev')"></label>
+        <div id="stat-salePrev" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ===== PENDING ORDERS ===== -->
 <section id="view-pending" class="view">
@@ -1082,6 +1226,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Excel engine for professional, bordered, logo'd exports (graceful CSV fallback if offline) -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <script>
 /* ================================================================
@@ -1811,6 +1956,7 @@ function go(view){
   else if(view==='article-plan')renderArticlePlan();
   else if(view==='packing-plan')renderPackingPlan();
   else if(view==='sales-pull')setPull(pullTab);
+  else if(view==='sales-push')renderPushSale();
   else if(view==='settings')loadSettings();
   else if(view==='upper-issuance'){renderUpperIssuanceView();}
   else if(view==='cutting-dept'){renderUpperIssuanceView();}
@@ -4001,7 +4147,7 @@ function renderPending(){
         ${o.plan.planned?'<span class="pill pill-green">✅ PLANNED</span>':'<span class="pill pill-amber">⏳ Awaiting</span>'}
         ${o.allottedRole?`<span class="pill pill-blue">🏷️ ${o.allottedDept}</span>`:'<span class="pill pill-red">⚠ No dept</span>'}
       </div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:8px">${o.article_code} · ${o.qty} prs · by <b>${o.enteredBy||o.salesPerson||'Sales'}</b></div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px">${o.article_code} · ${o.qty} prs · by <b>${o.enteredBy||o.salesPerson||'Sales'}</b>${spBadge(o.salesPerson)}</div>
       ${o.plan.committedDate?`<div style="font-size:12px;font-weight:600;color:#0369a1;margin-bottom:8px">🎯 Committed: ${fmt(o.plan.committedDate)}</div>`:''}
       ${canP?`<div style="display:flex;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:6px;align-items:center;font-size:12px;background:#eef3ff;border:1px solid #bdd0ff;border-radius:8px;padding:6px 10px">
@@ -5670,6 +5816,356 @@ function addLeadPrompt(){
   saveData();renderSalesPull();toast('Lead added','➕',name);
 }
 
+// ── SALESPERSON MASTER (ids for the 5 field sales reps in login.html) ──
+const SALESPERSONS=[
+  {id:'SP01',name:'RENU'},{id:'SP02',name:'SANJEEV'},{id:'SP03',name:'DHEERAJ'},
+  {id:'SP04',name:'SHAMSHAD'},{id:'SP05',name:'SHUBHAMI'}
+];
+function spMatch(name){return SALESPERSONS.find(s=>s.name.toUpperCase()===String(name||'').trim().toUpperCase());}
+function spBadge(name){const s=spMatch(name);return s?`<span class="pill pill-blue" style="margin-left:6px">${s.id}</span>`:'';}
+function renderSalespersonBreakdown(){
+  const el=$('#pSpTbl');if(!el)return;
+  const m={};
+  ORDERS.filter(o=>o.fromSales).forEach(o=>{
+    const name=o.salesPerson||o.enteredBy||'Unassigned';
+    (m[name]=m[name]||{name,orders:0,qty:0,planned:0});
+    m[name].orders++;m[name].qty+=+o.qty||0;if(o.plan&&o.plan.planned)m[name].planned++;
+  });
+  const rows=Object.values(m).sort((a,b)=>b.orders-a.orders);
+  el.innerHTML='<thead><tr><th>ID</th><th>Salesperson</th><th style="text-align:right">Orders</th><th style="text-align:right">Qty (pairs)</th><th style="text-align:right">Planned</th></tr></thead><tbody>'+
+    (rows.length?rows.map(r=>{const s=spMatch(r.name);return `<tr><td><b>${s?s.id:'—'}</b></td><td>${r.name}</td><td style="text-align:right">${r.orders}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${r.planned}</td></tr>`}).join(''):'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:18px">No sales-entered orders yet.</td></tr>')+'</tbody>';
+}
+
+// ── PUSH SALE — sales analytics (ported from old Sales Dashboard, real Busy-export seed data) ──
+const fmtN=n=>n==null||isNaN(n)?'—':Number(n).toLocaleString('en-IN');
+const fmtCr=n=>{n=+n||0;if(n>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr';if(n>=1e5)return '₹'+(n/1e5).toFixed(2)+' L';return '₹'+fmtN(n)};
+const PUSH_KPI=[
+  {l:'Latest Synced Day',v:'0',s:'24-Jun-2026',c:'#1b3187'},
+  {l:'Previous Day',v:'222',s:'23-Jun-2026',c:'#7c3aed'},
+  {l:'Selected Period',v:'222',s:'23–23 Jun 2026',c:'#5b8cff'},
+  {l:'Stock',v:'17,063',s:fmtCr(29876360),c:'#d97706'},
+  {l:'Receivable',v:fmtCr(87719475),s:'outstanding',c:'#059669'},
+  {l:'Payable',v:'0',s:'—',c:'#64748b'}
+];
+const pushBillRows=[
+  {billno:'Sn38/26-27/1226',qty:16,taxpaid:107069,taxless:101970},
+  {billno:'Sn38/26-27/1220',qty:12,taxpaid:59283,taxless:56460},
+  {billno:'Sn38/26-27/1213',qty:11,taxpaid:68733,taxless:65460},
+  {billno:'Ss38/26-27/0283',qty:10,taxpaid:57691,taxless:54944},
+  {billno:'Sn38/26-27/1211',qty:9,taxpaid:65457,taxless:62340},
+  {billno:'Sn38/26-27/1218',qty:8,taxpaid:37800,taxless:36000},
+  {billno:'Sn38/26-27/1215',qty:7,taxpaid:42231,taxless:40220},
+  {billno:'Sn38/26-27/1224',qty:7,taxpaid:40824,taxless:38880}
+];
+const pushCustRows=[
+  {customer:'Mygrand Shoe Store Pvt Ltd - Katihar',city:'Katihar',state:'Bihar',qty:21,taxpaid:111531,taxless:106220},
+  {customer:'Sachdeva Enterprises - Subhash Nagar',city:'Delhi',state:'Delhi',qty:16,taxpaid:107069,taxless:101970},
+  {customer:'Sanchi Enterprises - Pimpri',city:'Pimpri',state:'Maharashtra',qty:14,taxpaid:85743,taxless:81660},
+  {customer:'Eagle Footwears - Lucknow',city:'Lucknow',state:'Uttar Pradesh',qty:11,taxpaid:68355,taxless:65100},
+  {customer:'Agarbandhu Footwear P Ltd - Muzaffarnagar',city:'Muzaffarnagar',state:'Uttar Pradesh',qty:10,taxpaid:57691,taxless:54944},
+  {customer:'Bajaj Shoe Co. - Saharanpur',city:'Saharanpur',state:'Uttar Pradesh',qty:9,taxpaid:65457,taxless:62340},
+  {customer:'Snehlata Associates - Vijaywada',city:'Vijayawada',state:'Andhra Pradesh',qty:8,taxpaid:37800,taxless:36000},
+  {customer:'Asha Agencies - Pimpri',city:'Pimpri',state:'Maharashtra',qty:7,taxpaid:40824,taxless:38880}
+];
+const pushCustPrev=[
+  {customer:'Saravana Stores (Tex)',state:'Tamil Nadu',taxless:974653,asp:5195,contr:3},
+  {customer:'Lari Footwear - Korba',state:'Chhattisgarh',taxless:1052154,asp:6070,contr:3},
+  {customer:'Dhanani Shoes Pvt Ltd - Guwahati',state:'Assam',taxless:913748,asp:5360,contr:3},
+  {customer:'Prakash Enterprises - Bhiwandi',state:'Maharashtra',taxless:1002582,asp:6266,contr:3},
+  {customer:'Sachdeva Enterprises - Subhash Nagar',state:'Delhi',taxless:947553,asp:5958,contr:3},
+  {customer:'Kapil Shoes - Nagpur New',state:'Maharashtra',taxless:965480,asp:6144,contr:3},
+  {customer:'Nobel Associates - Hyderabad',state:'Telangana',taxless:908802,asp:6078,contr:3},
+  {customer:'Sanchi Enterprises - Pimpri',state:'Maharashtra',taxless:882630,asp:6667,contr:3}
+];
+const pushMachineOf={Sports:'Rotary',Ksj:'Stuckon',Stanlay:'Eva',Eagle:'Rotary',Tina:'Eva','Eva Gola':'Stuckon',Sonic:'Vertical','Star Girl':'Vertical','Star Gola':'Vertical',Creta:'Pu',Luke:'Vertical',Joy:'Eva',Dash:'Vertical',Ksd:'Pu','Star Boy':'Vertical',Venus:'Pu',Ranger:'Vertical',Bear:'Vertical',Marina:'Pu',Skid:'Stuckon'};
+const pushTopArticles=[
+  {mould:'Sports',qty:39,taxpaid:103950},{mould:'Ksj',qty:32,taxpaid:275436},{mould:'Stanlay',qty:19,taxpaid:88461},
+  {mould:'Eagle',qty:16,taxpaid:23184},{mould:'Tina',qty:16,taxpaid:81648},{mould:'Eva Gola',qty:15,taxpaid:106682},
+  {mould:'Sonic',qty:10,taxpaid:67001},{mould:'Star Girl',qty:9,taxpaid:41071},{mould:'Star Gola',qty:8,taxpaid:50731},
+  {mould:'Creta',qty:7,taxpaid:42336},{mould:'Luke',qty:7,taxpaid:39690},{mould:'Joy',qty:7,taxpaid:45696},
+  {mould:'Dash',qty:7,taxpaid:10584},{mould:'Ksd',qty:7,taxpaid:38934},{mould:'Star Boy',qty:6,taxpaid:26101},
+  {mould:'Venus',qty:4,taxpaid:27846},{mould:'Ranger',qty:3,taxpaid:18144},{mould:'Bear',qty:3,taxpaid:4158},
+  {mould:'Marina',qty:2,taxpaid:11340},{mould:'Skid',qty:2,taxpaid:5040}
+].map(a=>({...a,machine:pushMachineOf[a.mould]||'—',taxless:Math.round(a.taxpaid/1.05)}));
+const pushStockRows=[
+  {machine:'Vertical',qty:6932,taxpaid:12576320},{machine:'Stuckon',qty:4555,taxpaid:5210000},
+  {machine:'Rotary',qty:1747,taxpaid:4745000},{machine:'Pu',qty:2498,taxpaid:4100000},
+  {machine:'Eva',qty:1315,taxpaid:3170040},{machine:'Out Side',qty:15,taxpaid:75000},{machine:'Air',qty:1,taxpaid:0}
+];
+const pushMonthRows=[
+  {m:'Jun, 26',taxpaid:21289387,qty:4250},{m:'May, 26',taxpaid:34737863,qty:5885},{m:'Apr, 26',taxpaid:43243820,qty:7504},
+  {m:'Mar, 26',taxpaid:60430285,qty:10614},{m:'Feb, 26',taxpaid:50591136,qty:9085},{m:'Jan, 26',taxpaid:41719269,qty:7189},
+  {m:'Dec, 25',taxpaid:57798987,qty:10951}
+];
+const pushReceivables=[
+  {customer:'Saravana Stores (Tex)',amt:3575483},{customer:'Prakash Enterprises - Bhiwandi',amt:3023948},
+  {customer:'Shri Balaji Sales - Ghaziabad',amt:2573777},{customer:'Nobel Associates - Hyderabad',amt:2307830},
+  {customer:'Dhanani Shoes Pvt Ltd - Guwahati',amt:2272987},{customer:'Gauri Agencies - Pimpri',amt:2257623},
+  {customer:'Asha Agencies - Pimpri',amt:2142952},{customer:'Sachdeva Enterprises - Subhash Nagar',amt:2036625},
+  {customer:'Quality Boot House - Gorakhpur',amt:1953716},{customer:'Gupta Traders - Kanpur',amt:1702606}
+];
+
+let PUSH_FACT=[]; // populated by real Busy Consolidated_report import (line-item grain)
+const PUSH_DIMS=['Customer Name','Billno','State','Salesperson','Machine','Mould','Open Close','City'];
+const PUSH_DIMFIELD={'Customer Name':'customer','Billno':'billno','State':'state','Salesperson':'salesperson','Machine':'machine','Mould':'mould','Open Close':'openClose','City':'city'};
+const pushSortState={A:{col:'qty',dir:-1},B:{col:'taxpaid',dir:-1}};
+function pushFactFiltered(){
+  let r=PUSH_FACT;
+  const st=$('#pfState').value,sp=$('#pfSP').value,mc=$('#pfMachine').value,cu=$('#pfCust').value.trim().toLowerCase();
+  if(st&&st!=='all')r=r.filter(x=>x.state===st);
+  if(sp&&sp!=='all')r=r.filter(x=>x.salesperson===sp);
+  if(mc&&mc!=='all')r=r.filter(x=>x.machine===mc);
+  if(cu)r=r.filter(x=>(x.customer||'').toLowerCase().includes(cu));
+  return r;
+}
+function pushAggFact(dim){
+  const field=PUSH_DIMFIELD[dim]||'customer',m={};
+  pushFactFiltered().forEach(r=>{const k=r[field]||'—';(m[k]=m[k]||{qty:0,taxpaid:0,taxless:0});m[k].qty+=r.qty;m[k].taxpaid+=r.taxpaid;m[k].taxless+=r.taxless});
+  const rows=Object.keys(m).map(k=>({label:k,qty:m[k].qty,taxpaid:m[k].taxpaid,taxless:m[k].taxless}));
+  const tot=rows.reduce((s,r)=>s+r.taxpaid,0)||1;
+  rows.forEach(r=>{r.asp_taxless=r.qty?Math.round(r.taxless/r.qty):0;r.asp_taxpaid=r.qty?Math.round(r.taxpaid/r.qty):0;r.contr=+(r.taxpaid/tot*100).toFixed(1)});
+  return rows;
+}
+function pushFilteredCust(){
+  let r=pushCustRows.slice();
+  const st=$('#pfState').value,cu=$('#pfCust').value.trim().toLowerCase();
+  if(st&&st!=='all')r=r.filter(x=>x.state===st);
+  if(cu)r=r.filter(x=>x.customer.toLowerCase().includes(cu));
+  return r;
+}
+function pushAggregate(dim){
+  if(PUSH_FACT.length)return pushAggFact(dim);
+  let rows=[];
+  const cust=pushFilteredCust();
+  if(dim==='Customer Name')rows=cust.map(r=>({label:r.customer,qty:r.qty,taxpaid:r.taxpaid,taxless:r.taxless}));
+  else if(dim==='Billno')rows=pushBillRows.map(r=>({label:r.billno,qty:r.qty,taxpaid:r.taxpaid,taxless:r.taxless}));
+  else if(dim==='State'||dim==='City'){const key=dim==='State'?'state':'city';const m={};cust.forEach(r=>{const k=r[key]||'—';(m[k]=m[k]||{qty:0,taxpaid:0,taxless:0});m[k].qty+=r.qty;m[k].taxpaid+=r.taxpaid;m[k].taxless+=r.taxless});rows=Object.keys(m).map(k=>({label:k,...m[k]}))}
+  else if(dim==='Mould'){let a=pushTopArticles;const mf=$('#pfMachine').value;if(mf!=='all')a=a.filter(x=>x.machine===mf);rows=a.map(r=>({label:r.mould,qty:r.qty,taxpaid:r.taxpaid,taxless:r.taxless}))}
+  else if(dim==='Machine')rows=pushStockRows.map(r=>({label:r.machine,qty:r.qty,taxpaid:r.taxpaid,taxless:Math.round(r.taxpaid/1.05)}));
+  else if(dim==='Salesperson'){
+    const m={};ORDERS.filter(o=>o.fromSales).forEach(o=>{const k=o.salesPerson||'—';(m[k]=m[k]||{qty:0,taxpaid:0,taxless:0});m[k].qty+=+o.qty||0});
+    rows=Object.keys(m).map(k=>({label:k,qty:m[k].qty,taxpaid:m[k].taxpaid,taxless:m[k].taxless}));
+  }
+  const tot=rows.reduce((s,r)=>s+r.taxpaid,0)||1;
+  rows.forEach(r=>{r.asp_taxless=r.qty?Math.round(r.taxless/r.qty):0;r.asp_taxpaid=r.qty?Math.round(r.taxpaid/r.qty):0;r.contr=+(r.taxpaid/tot*100).toFixed(1)});
+  return rows;
+}
+function pushPivotTable(elId,dim,panel){
+  const rows=pushAggregate(dim),st=pushSortState[panel];
+  rows.sort((a,b)=>(a[st.col]>b[st.col]?1:-1)*st.dir);
+  const cols=[['label',dim,''],['qty','Qty','num'],['taxpaid','Taxpaid','num'],['taxless','Taxless','num'],['asp_taxless','ASP Taxless','num'],['asp_taxpaid','ASP Taxpaid','num'],['contr','Contr %','num']];
+  const head='<thead><tr>'+cols.map(c=>`<th style="${c[2]==='num'?'text-align:right':''};cursor:pointer" onclick="pushSortPiv('${panel}','${c[0]}')">${c[1]}${st.col===c[0]?(st.dir<0?' ▾':' ▴'):''}</th>`).join('')+'</tr></thead>';
+  const body='<tbody>'+rows.map(r=>`<tr><td>${r.label}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.taxpaid)}</td><td style="text-align:right">${fmtN(r.taxless)}</td><td style="text-align:right">${fmtN(r.asp_taxless)}</td><td style="text-align:right">${fmtN(r.asp_taxpaid)}</td><td style="text-align:right">${r.contr}</td></tr>`).join('')+'</tbody>';
+  $(elId).innerHTML=head+body;
+}
+function pushSortPiv(panel,col){const st=pushSortState[panel];if(st.col===col)st.dir*=-1;else{st.col=col;st.dir=-1}renderPushPivots()}
+function renderPushPivots(){pushPivotTable('#pPivA',$('#pGrpA').value,'A');pushPivotTable('#pPivB',$('#pGrpB').value,'B')}
+function renderPushKpi(){
+  $('#pushKpiStrip').innerHTML=PUSH_KPI.map(k=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${k.c}">
+    <div style="font-size:11px;color:#64748b;font-weight:600">${k.l}</div>
+    <div style="font-size:22px;font-weight:800;color:#0f172a">${k.v}</div>
+    <div style="font-size:11px;color:#94a3b8">${k.s}</div></div>`).join('');
+}
+function renderPushSide(){
+  $('#pCmpCur').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Qty</th><th style="text-align:right">Taxless</th><th style="text-align:right">ASP</th></tr></thead><tbody>'+
+    pushCustRows.map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.taxless)}</td><td style="text-align:right">${fmtN(Math.round(r.taxless/r.qty))}</td></tr>`).join('')+'</tbody>';
+  $('#pCmpPrev').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Taxless</th><th style="text-align:right">ASP</th><th style="text-align:right">Contr</th></tr></thead><tbody>'+
+    pushCustPrev.map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtN(r.taxless)}</td><td style="text-align:right">${fmtN(r.asp)}</td><td style="text-align:right">${r.contr}</td></tr>`).join('')+'</tbody>';
+  $('#pTopArt').innerHTML='<thead><tr><th>Mould</th><th>Machine</th><th style="text-align:right">Sales Qty</th><th style="text-align:right">Taxpaid</th><th style="text-align:right">ASP</th></tr></thead><tbody>'+
+    pushTopArticles.slice().sort((a,b)=>b.qty-a.qty).map((r,i)=>`<tr><td>${i<3?'🏅 ':''}${r.mould}</td><td>${r.machine}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.taxpaid)}</td><td style="text-align:right">${fmtN(Math.round(r.taxpaid/r.qty))}</td></tr>`).join('')+'</tbody>';
+  $('#pStockTbl').innerHTML='<thead><tr><th>Machine</th><th style="text-align:right">Stock Qty</th><th style="text-align:right">Value</th></tr></thead><tbody>'+
+    pushStockRows.map(r=>`<tr><td>${r.machine}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtCr(r.taxpaid)}</td></tr>`).join('')+
+    `<tr style="font-weight:800;background:#f1f5f9"><td>Total</td><td style="text-align:right">17,063</td><td style="text-align:right">${fmtCr(29876360)}</td></tr></tbody>`;
+  $('#pMonthTbl').innerHTML='<thead><tr><th>Month</th><th style="text-align:right">Sales</th><th style="text-align:right">Qty</th></tr></thead><tbody>'+
+    pushMonthRows.map(r=>`<tr><td>${r.m}</td><td style="text-align:right">${fmtCr(r.taxpaid)}</td><td style="text-align:right">${fmtN(r.qty)}</td></tr>`).join('')+
+    `<tr style="font-weight:800;background:#f1f5f9"><td>FY 25-26</td><td style="text-align:right">${fmtCr(309810747)}</td><td style="text-align:right">55,478</td></tr></tbody>`;
+  $('#pLowBill').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Receivable</th><th>Flag</th></tr></thead><tbody>'+
+    pushReceivables.filter(r=>r.amt<2200000).map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtCr(r.amt)}</td><td><span class="pill pill-red">watch</span></td></tr>`).join('')+'</tbody>';
+}
+function fillPushFilters(){
+  const src=PUSH_FACT.length?PUSH_FACT:null;
+  const states=src?[...new Set(src.map(r=>r.state))].filter(Boolean).sort():[...new Set(pushCustRows.map(r=>r.state))].sort();
+  $('#pfState').innerHTML='<option value="all">All States</option>'+states.map(s=>`<option>${s}</option>`).join('');
+  const mach=src?[...new Set(src.map(r=>r.machine))].filter(Boolean).sort():[...new Set(pushStockRows.map(r=>r.machine))];
+  $('#pfMachine').innerHTML='<option value="all">All Machines</option>'+mach.map(s=>`<option>${s}</option>`).join('');
+  const spNames=[...new Set(SALESPERSONS.map(s=>s.name).concat(src?src.map(r=>r.salesperson):[]))].filter(s=>s&&s!=='—');
+  $('#pfSP').innerHTML='<option value="all">All</option>'+spNames.map(s=>`<option>${s}</option>`).join('');
+  $('#pGrpA').innerHTML=PUSH_DIMS.map(d=>`<option ${d==='Billno'?'selected':''}>${d}</option>`).join('');
+  $('#pGrpB').innerHTML=PUSH_DIMS.map(d=>`<option ${d==='Customer Name'?'selected':''}>${d}</option>`).join('');
+}
+function importConsolidated(e){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let h=-1;for(let i=0;i<15;i++){if((aoa[i]||[]).some(c=>String(c).trim()==='Billno')){h=i;break}}
+      if(h<0){alert('Could not find the Billno header row — is this a Consolidated_report export?');return}
+      const H=aoa[h].map(x=>String(x).trim()),col=n=>H.indexOf(n);
+      const ci={billno:col('Billno'),customer:col('Customer Name'),state:col('State'),salesperson:col('Salesperson'),machine:col('Machine'),openClose:col('Open Close'),mould:col('Mould'),taxpaid:col('Taxpaidvalue'),taxless:col('Taxlessvalue'),qty:col('Qty')};
+      const num=v=>+(String(v==null?'':v).replace(/,/g,''))||0;
+      const norm=v=>{const s=String(v==null?'':v).trim();return (s===''||s==='-')?'—':s};
+      PUSH_FACT=[];
+      for(let i=h+1;i<aoa.length;i++){const r=aoa[i];if(!r||!r.length)continue;
+        const c=String(r[ci.customer]||'').trim(),bill=String(r[ci.billno]||'').trim();
+        if(!c&&!bill)continue;
+        if(bill.toLowerCase()==='total'||c.toLowerCase()==='total')continue;
+        const city=c.includes(' - ')?c.split(' - ').pop().replace(/[()]/g,'').trim():'—';
+        PUSH_FACT.push({billno:bill,customer:c,city,state:norm(r[ci.state]),salesperson:norm(r[ci.salesperson]),machine:norm(r[ci.machine]),openClose:norm(r[ci.openClose]),mould:norm(r[ci.mould]),qty:num(r[ci.qty]),taxpaid:num(r[ci.taxpaid]),taxless:num(r[ci.taxless])});
+      }
+      const cm={};PUSH_FACT.forEach(r=>{if(!r.customer)return;(cm[r.customer]=cm[r.customer]||{customer:r.customer,city:r.city,state:r.state,qty:0,taxpaid:0,taxless:0});cm[r.customer].qty+=r.qty;cm[r.customer].taxpaid+=r.taxpaid;cm[r.customer].taxless+=r.taxless});
+      pushCustRows.length=0;Object.values(cm).sort((a,b)=>b.taxpaid-a.taxpaid).slice(0,200).forEach(r=>pushCustRows.push(r));
+      const bm={};PUSH_FACT.forEach(r=>{if(!r.billno)return;(bm[r.billno]=bm[r.billno]||{billno:r.billno,qty:0,taxpaid:0,taxless:0});bm[r.billno].qty+=r.qty;bm[r.billno].taxpaid+=r.taxpaid;bm[r.billno].taxless+=r.taxless});
+      pushBillRows.length=0;Object.values(bm).sort((a,b)=>b.taxpaid-a.taxpaid).slice(0,200).forEach(r=>pushBillRows.push(r));
+      $('#pushSyncBadge').textContent='✅ Imported '+PUSH_FACT.length.toLocaleString('en-IN')+' bill-lines · '+Object.keys(cm).length+' customers';
+      $('#pushSyncBadge').className='pill pill-green';
+      fillPushFilters();renderPushSale();
+    }catch(err){alert('Import failed: '+err.message)}
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// ── LINK & CONFIGURE — sync API key + item/party master + sale data uploads ──
+const LINK_KEY='STARKIDZ_SALES_LINK';
+let LINK={apiKey:'',itemMaster:[],partyMaster:[],saleCur:[],salePrev:[],updated:0};
+function genApiKey(){const seg=()=>Math.random().toString(36).slice(2,8).toUpperCase();return 'SKZ-'+seg()+'-'+seg();}
+function loadLink(){
+  try{
+    const raw=(window.Store?Store.getItem(LINK_KEY):localStorage.getItem(LINK_KEY));
+    if(raw)LINK=Object.assign(LINK,JSON.parse(raw));
+  }catch(e){}
+  if(!LINK.apiKey){LINK.apiKey=genApiKey();saveLink();}
+}
+function saveLink(){
+  LINK.updated=Date.now();
+  const s=JSON.stringify(LINK);
+  if(window.Store)Store.setItem(LINK_KEY,s);else try{localStorage.setItem(LINK_KEY,s)}catch(e){}
+}
+function toggleLinkPanel(){
+  const m=$('#linkModal');
+  const open=m.style.display==='none'||!m.style.display;
+  m.style.display=open?'flex':'none';
+  if(open)renderLinkPanel();
+}
+function copyApiKey(){
+  if(navigator.clipboard)navigator.clipboard.writeText(LINK.apiKey).catch(()=>{});
+  const el=$('#apiKeyText');el.textContent='✅ Copied!';setTimeout(()=>el.textContent=LINK.apiKey,900);
+}
+function regenApiKey(){
+  if(!confirm('Regenerate the sync key? Any other device still on the old key will need the new one to stay linked to this data.'))return;
+  LINK.apiKey=genApiKey();saveLink();renderLinkPanel();
+}
+function renderLinkPanel(){
+  $('#apiKeyText').textContent=LINK.apiKey;
+  const cloud=window.Store&&Store.mode()==='firebase';
+  $('#linkSyncStatus').innerHTML=cloud
+    ?'🟢 Cloud sync active — uploads here appear on every device using this key.'
+    :'🟡 Local only (this browser) — Firebase isn\'t configured, so this stays on this device.';
+  const stat=(k,rows,label)=>{
+    const el=$('#stat-'+k);if(!el)return;
+    el.textContent=(rows&&rows.length)?('✅ '+rows.length.toLocaleString('en-IN')+' '+label+' loaded'):'No file uploaded';
+    el.style.color=(rows&&rows.length)?'#166534':'#64748b';
+  };
+  stat('itemMaster',LINK.itemMaster,'items');
+  stat('partyMaster',LINK.partyMaster,'parties');
+  stat('saleCur',LINK.saleCur,'sale rows');
+  stat('salePrev',LINK.salePrev,'sale rows');
+}
+const LINK_ALIASES={
+  itemMaster:{code:['Item Code','Article Code','SKU','Code'],name:['Item Name','Article Name','Article','Mould','Item'],category:['Category','Machine','Group','Segment'],mrp:['MRP','Rate','Price']},
+  partyMaster:{code:['Party Code','Customer Code','Account Code','Code'],name:['Party Name','Customer Name','Party','Customer','Name'],city:['City'],state:['State'],type:['Type','Party Type','Category']},
+  sale:{party:['Party Name','Customer Name','Party','Customer'],article:['Article','Item Name','Item','Mould','Product'],qty:['Qty','Quantity','Qty.'],value:['Taxless Value','Taxlessvalue','Taxpaidvalue','Taxpaid Value','Value','Amount','Sale Value'],date:['Date','Bill Date','Invoice Date']}
+};
+function findHeaderRow(aoa,aliasGroups){
+  let best=-1,bestScore=0;
+  for(let i=0;i<Math.min(20,aoa.length);i++){
+    const row=(aoa[i]||[]).map(c=>String(c).trim().toLowerCase());
+    let score=0;
+    Object.values(aliasGroups).forEach(aliases=>{if(aliases.some(a=>row.includes(a.toLowerCase())))score++;});
+    if(score>bestScore){bestScore=score;best=i;}
+  }
+  return bestScore>=2?best:-1;
+}
+function mapCols(headerRow,aliasGroups){
+  const H=headerRow.map(x=>String(x).trim().toLowerCase()),ci={};
+  Object.keys(aliasGroups).forEach(field=>{
+    const aliases=aliasGroups[field].map(a=>a.toLowerCase());
+    ci[field]=H.findIndex(h=>aliases.includes(h));
+  });
+  return ci;
+}
+function uploadDataset(e,kind){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const group=(kind==='itemMaster')?LINK_ALIASES.itemMaster:(kind==='partyMaster')?LINK_ALIASES.partyMaster:LINK_ALIASES.sale;
+      const h=findHeaderRow(aoa,group);
+      if(h<0){alert('Could not find a recognizable header row in this file. Expected columns like: '+Object.values(group).map(a=>a[0]).join(', '));return;}
+      const ci=mapCols(aoa[h],group);
+      const num=v=>+(String(v==null?'':v).replace(/,/g,''))||0;
+      const rows=[];
+      for(let i=h+1;i<aoa.length;i++){
+        const r=aoa[i];if(!r||!r.length)continue;
+        const row={};
+        Object.keys(ci).forEach(field=>{
+          const idx=ci[field];if(idx<0)return;
+          const v=r[idx];
+          row[field]=(field==='qty'||field==='value'||field==='mrp')?num(v):String(v==null?'':v).trim();
+        });
+        const anyKey=row.name||row.party||row.code;
+        if(!anyKey||String(anyKey).toLowerCase()==='total')continue;
+        rows.push(row);
+      }
+      if(!rows.length){alert('No data rows found under the detected header.');return;}
+      LINK[kind]=rows;saveLink();renderLinkPanel();renderCompare();
+    }catch(err){alert('Import failed: '+err.message);}
+  };
+  rd.readAsArrayBuffer(f);
+}
+function aggBy(rows,field){
+  const m={};
+  (rows||[]).forEach(r=>{
+    const k=r[field]||'—';
+    (m[k]=m[k]||{key:k,qty:0,value:0});
+    m[k].qty+=+r.qty||0;m[k].value+=+r.value||0;
+  });
+  return m;
+}
+function yoyRows(field){
+  const cur=aggBy(LINK.saleCur,field),prev=aggBy(LINK.salePrev,field);
+  const keys=[...new Set([...Object.keys(cur),...Object.keys(prev)])];
+  return keys.map(k=>{
+    const c=cur[k]||{qty:0,value:0},p=prev[k]||{qty:0,value:0};
+    const grow=p.value?((c.value-p.value)/p.value*100):(c.value?100:0);
+    return {label:k,curQty:c.qty,curVal:c.value,prevQty:p.qty,prevVal:p.value,grow};
+  }).sort((a,b)=>b.curVal-a.curVal);
+}
+function renderYoY(elId,noteId,rows,label){
+  const el=$(elId);if(!el)return;
+  if(!LINK.saleCur.length||!LINK.salePrev.length){
+    el.innerHTML='';
+    $(noteId).textContent='Upload Party Sale Data for both current & previous FY (via 🔗 Link & Configure) to see this.';
+    return;
+  }
+  $(noteId).textContent=rows.length+' '+label;
+  const growPill=g=>`<span class="pill" style="${g>=0?'background:#dcfce7;color:#15803d':'background:#fee2e2;color:#b91c1c'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}%</span>`;
+  el.innerHTML='<thead><tr><th>'+label+'</th><th style="text-align:right">This FY Qty</th><th style="text-align:right">This FY Value</th><th style="text-align:right">Last FY Qty</th><th style="text-align:right">Last FY Value</th><th>Growth</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${r.label}</td><td style="text-align:right">${fmtN(r.curQty)}</td><td style="text-align:right">${fmtN(r.curVal)}</td><td style="text-align:right">${fmtN(r.prevQty)}</td><td style="text-align:right">${fmtN(r.prevVal)}</td><td>${growPill(r.grow)}</td></tr>`).join('')+'</tbody>';
+}
+function renderCompare(){
+  renderYoY('#partyYoY','#partyYoYNote',yoyRows('party'),'parties');
+  renderYoY('#articleYoY','#articleYoYNote',yoyRows('article'),'articles');
+}
+function renderPushSale(){
+  fillPushFilters();renderPushKpi();renderPushPivots();renderPushSide();renderSalespersonBreakdown();renderCompare();renderLinkPanel();
+}
+
 // ── PERSISTENCE ──
 const DATA_KEY='STARKIDZ_PROD_DATA_V2';
 // Cloud-sync state for the whole production dataset (article/machine/packing plans,
@@ -5914,6 +6410,7 @@ function refresh(){
     else if(vid==='rm-allot')renderAllotView();
     else if(vid==='my-queue')renderMyQueue();
     else if(vid==='pendency')renderPendencyLog();
+    else if(vid==='sales-push')renderPushSale();
   }
 }
 function updateQueueBadges(){
@@ -6080,6 +6577,9 @@ function seedInventifyOrders(){
   renderBell();
   importSharedOrders();
   Store.onChange(SHARED_KEY,()=>{if(importSharedOrders()){refresh();importSawNewOrder?toast('New order from Sales','📥','Allot dept.'):toast('Billing update','🧾','')}});
+  if(window.Store)Store.register(LINK_KEY);
+  loadLink();
+  if(window.Store)Store.onChange(LINK_KEY,()=>{loadLink();if($('#view-sales-push').classList.contains('active'))renderPushSale();});
   setInterval(()=>{if(importSharedOrders())refresh()},4000);
   setInterval(pushProductionStatus,5000);
   checkLink();setInterval(checkLink,3000);

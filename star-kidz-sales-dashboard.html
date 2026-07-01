@@ -7,6 +7,12 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- xlsx import engine (to load full Busy Consolidated_report until live API is wired) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Cloud sync (shared with Production/Dispatch) — LOCAL mode automatically if not configured -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="store.js"></script>
 <style>
   :root{--ink:#0c1733;--brand:#1b3187;--accent:#5b8cff;--red:#e11d2b}
   *{box-sizing:border-box}
@@ -50,6 +56,7 @@
         <option value="Star Ride">Star Ride</option>
       </select>
       <span id="syncBadge" class="pill" style="background:#fde68a;color:#78350f">⏳ Busy API: awaiting key — showing imported data</span>
+      <button id="linkBtn" class="inp" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700" onclick="toggleLinkPanel()">🔗 Link &amp; Configure</button>
     </div>
   </div>
   <!-- Module dropdowns I / II -->
@@ -59,6 +66,63 @@
     <div id="tabOrders" class="tab-btn tab-off" onclick="setModule('orders')">III — Pending Orders by Sales</div>
   </div>
 </header>
+
+<!-- ===== LINK & CONFIGURE MODAL ===== -->
+<div id="linkModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+  <div class="card" style="max-width:760px;width:100%;padding:22px;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-weight:800;font-size:17px">🔗 Link &amp; Configure — Sales Dashboard Sync</div>
+      <span onclick="toggleLinkPanel()" style="cursor:pointer;font-size:20px;color:#94a3b8">✕</span>
+    </div>
+
+    <div class="card" style="padding:12px 14px;margin-bottom:14px;background:#f8fafc">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:11px;color:#64748b;font-weight:700">SYNC API KEY</div>
+          <div id="apiKeyText" style="font-family:monospace;font-size:15px;font-weight:800;color:var(--brand)"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="inp" style="cursor:pointer" onclick="copyApiKey()">📋 Copy</button>
+          <button class="inp" style="cursor:pointer" onclick="regenApiKey()">♻️ Regenerate</button>
+        </div>
+      </div>
+      <div id="linkSyncStatus" style="font-size:11px;color:#94a3b8;margin-top:8px"></div>
+    </div>
+
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px">Upload each master/report once — the dashboard remembers them and (when Firebase is configured) syncs across every linked device using the same key above.</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:4px">📦 Item Master</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Article/Item code, name, category</div>
+        <label class="inp" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'itemMaster')"></label>
+        <div id="stat-itemMaster" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:4px">🏬 Party Master</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Party/customer code, name, city, state</div>
+        <label class="inp" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'partyMaster')"></label>
+        <div id="stat-partyMaster" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:4px">🧾 Party Sale Data — Current FY</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Party, article, qty, value (this year)</div>
+        <label class="inp" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'saleCur')"></label>
+        <div id="stat-saleCur" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:4px">📜 Party Sale Data — Previous FY</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Same shape, for last year's comparison</div>
+        <label class="inp" style="cursor:pointer;display:inline-block">Choose file
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'salePrev')"></label>
+        <div id="stat-salePrev" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ===== PRODUCTION TRACKER (pinned at top) ===== -->
 <div style="max-width:1480px;margin:14px auto 0;padding:0 20px">
@@ -113,6 +177,22 @@
       <div><div style="font-size:12px;font-weight:700;color:var(--brand);margin-bottom:6px">23-Jun-2026 (current)</div><div class="scrollbox"><table class="tbl" id="cmpCur"></table></div></div>
       <div><div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px">01-May → 31-May-2026 (previous)</div><div class="scrollbox"><table class="tbl" id="cmpPrev"></table></div></div>
     </div>
+  </div>
+
+  <!-- Party / Article YoY — driven by uploaded master + sale data (Link & Configure) -->
+  <div class="card" style="padding:14px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:800">🔗 Party Sale — Year-over-Year (Linked Data)</div>
+      <span id="partyYoYNote" style="font-size:11px;color:#94a3b8"></span>
+    </div>
+    <div class="scrollbox"><table class="tbl" id="partyYoY"></table></div>
+  </div>
+  <div class="card" style="padding:14px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:800">🔗 Article Sale — Year-over-Year (Linked Data)</div>
+      <span id="articleYoYNote" style="font-size:11px;color:#94a3b8"></span>
+    </div>
+    <div class="scrollbox"><table class="tbl" id="articleYoY"></table></div>
   </div>
 
   <!-- Top articles + Stock + Monthly + Low billing -->
@@ -453,6 +533,147 @@ function importConsolidated(e){
   rd.readAsArrayBuffer(f);
 }
 
+/* ============== LINK & CONFIGURE — sync API key + master/sale data uploads ============== */
+const LINK_KEY='STARKIDZ_SALES_LINK';
+let LINK={apiKey:'',itemMaster:[],partyMaster:[],saleCur:[],salePrev:[],updated:0};
+
+function genApiKey(){const seg=()=>Math.random().toString(36).slice(2,8).toUpperCase();return 'SKZ-'+seg()+'-'+seg();}
+function loadLink(){
+  try{
+    const raw=(window.Store?Store.getItem(LINK_KEY):localStorage.getItem(LINK_KEY));
+    if(raw)LINK=Object.assign(LINK,JSON.parse(raw));
+  }catch(e){}
+  if(!LINK.apiKey){LINK.apiKey=genApiKey();saveLink();}
+}
+function saveLink(){
+  LINK.updated=Date.now();
+  const s=JSON.stringify(LINK);
+  if(window.Store)Store.setItem(LINK_KEY,s);else try{localStorage.setItem(LINK_KEY,s)}catch(e){}
+}
+function toggleLinkPanel(){
+  const m=$('#linkModal');
+  const open=m.style.display==='none'||!m.style.display;
+  m.style.display=open?'flex':'none';
+  if(open)renderLinkPanel();
+}
+function copyApiKey(){
+  if(navigator.clipboard)navigator.clipboard.writeText(LINK.apiKey).catch(()=>{});
+  const el=$('#apiKeyText');el.textContent='✅ Copied!';setTimeout(()=>el.textContent=LINK.apiKey,900);
+}
+function regenApiKey(){
+  if(!confirm('Regenerate the sync key? Any other device still on the old key will need the new one to stay linked to this data.'))return;
+  LINK.apiKey=genApiKey();saveLink();renderLinkPanel();
+}
+function renderLinkPanel(){
+  $('#apiKeyText').textContent=LINK.apiKey;
+  const cloud=window.Store&&Store.mode()==='firebase';
+  $('#linkSyncStatus').innerHTML=cloud
+    ?'🟢 Cloud sync active — uploads here appear on every device using this key.'
+    :'🟡 Local only (this browser) — Firebase isn\'t configured, so this stays on this device.';
+  const stat=(k,rows,label)=>{
+    const el=$('#stat-'+k);if(!el)return;
+    el.textContent=(rows&&rows.length)?('✅ '+rows.length.toLocaleString('en-IN')+' '+label+' loaded'):'No file uploaded';
+    el.style.color=(rows&&rows.length)?'#166534':'#64748b';
+  };
+  stat('itemMaster',LINK.itemMaster,'items');
+  stat('partyMaster',LINK.partyMaster,'parties');
+  stat('saleCur',LINK.saleCur,'sale rows');
+  stat('salePrev',LINK.salePrev,'sale rows');
+}
+
+/* flexible header detection — matches whatever column names the uploaded export uses */
+const ALIASES={
+  itemMaster:{code:['Item Code','Article Code','SKU','Code'],name:['Item Name','Article Name','Article','Mould','Item'],category:['Category','Machine','Group','Segment'],mrp:['MRP','Rate','Price']},
+  partyMaster:{code:['Party Code','Customer Code','Account Code','Code'],name:['Party Name','Customer Name','Party','Customer','Name'],city:['City'],state:['State'],type:['Type','Party Type','Category']},
+  sale:{party:['Party Name','Customer Name','Party','Customer'],article:['Article','Item Name','Item','Mould','Product'],qty:['Qty','Quantity','Qty.'],value:['Taxless Value','Taxlessvalue','Taxpaidvalue','Taxpaid Value','Value','Amount','Sale Value'],date:['Date','Bill Date','Invoice Date']}
+};
+function findHeaderRow(aoa,aliasGroups){
+  let best=-1,bestScore=0;
+  for(let i=0;i<Math.min(20,aoa.length);i++){
+    const row=(aoa[i]||[]).map(c=>String(c).trim().toLowerCase());
+    let score=0;
+    Object.values(aliasGroups).forEach(aliases=>{if(aliases.some(a=>row.includes(a.toLowerCase())))score++;});
+    if(score>bestScore){bestScore=score;best=i;}
+  }
+  return bestScore>=2?best:-1;
+}
+function mapCols(headerRow,aliasGroups){
+  const H=headerRow.map(x=>String(x).trim().toLowerCase()),ci={};
+  Object.keys(aliasGroups).forEach(field=>{
+    const aliases=aliasGroups[field].map(a=>a.toLowerCase());
+    ci[field]=H.findIndex(h=>aliases.includes(h));
+  });
+  return ci;
+}
+function uploadDataset(e,kind){
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const group=(kind==='itemMaster')?ALIASES.itemMaster:(kind==='partyMaster')?ALIASES.partyMaster:ALIASES.sale;
+      const h=findHeaderRow(aoa,group);
+      if(h<0){alert('Could not find a recognizable header row in this file. Expected columns like: '+Object.values(group).map(a=>a[0]).join(', '));return;}
+      const ci=mapCols(aoa[h],group);
+      const num=v=>+(String(v==null?'':v).replace(/,/g,''))||0;
+      const rows=[];
+      for(let i=h+1;i<aoa.length;i++){
+        const r=aoa[i];if(!r||!r.length)continue;
+        const row={};
+        Object.keys(ci).forEach(field=>{
+          const idx=ci[field];if(idx<0)return;
+          const v=r[idx];
+          row[field]=(field==='qty'||field==='value'||field==='mrp')?num(v):String(v==null?'':v).trim();
+        });
+        const anyKey=row.name||row.party||row.code;
+        if(!anyKey||String(anyKey).toLowerCase()==='total')continue;
+        rows.push(row);
+      }
+      if(!rows.length){alert('No data rows found under the detected header.');return;}
+      LINK[kind]=rows;saveLink();renderLinkPanel();renderCompare();
+    }catch(err){alert('Import failed: '+err.message);}
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+/* ---- Party / Article YoY comparison, driven by uploaded sale data ---- */
+function aggBy(rows,field){
+  const m={};
+  (rows||[]).forEach(r=>{
+    const k=r[field]||'—';
+    (m[k]=m[k]||{key:k,qty:0,value:0});
+    m[k].qty+=+r.qty||0;m[k].value+=+r.value||0;
+  });
+  return m;
+}
+function yoyRows(field){
+  const cur=aggBy(LINK.saleCur,field),prev=aggBy(LINK.salePrev,field);
+  const keys=[...new Set([...Object.keys(cur),...Object.keys(prev)])];
+  return keys.map(k=>{
+    const c=cur[k]||{qty:0,value:0},p=prev[k]||{qty:0,value:0};
+    const grow=p.value?((c.value-p.value)/p.value*100):(c.value?100:0);
+    return {label:k,curQty:c.qty,curVal:c.value,prevQty:p.qty,prevVal:p.value,grow};
+  }).sort((a,b)=>b.curVal-a.curVal);
+}
+function renderYoY(elId,noteId,rows,label){
+  const el=$(elId);
+  if(!LINK.saleCur.length||!LINK.salePrev.length){
+    el.innerHTML='';
+    $(noteId).textContent='Upload Party Sale Data for both current & previous FY (via 🔗 Link & Configure) to see this.';
+    return;
+  }
+  $(noteId).textContent=rows.length+' '+label;
+  const growPill=g=>`<span class="pill" style="${g>=0?'background:#bbf7d0;color:#166534':'background:#fee2e2;color:#b91c1c'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}%</span>`;
+  el.innerHTML='<thead><tr><th>'+label+'</th><th class="num">This FY Qty</th><th class="num">This FY Value</th><th class="num">Last FY Qty</th><th class="num">Last FY Value</th><th>Growth</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td>${r.label}</td><td class="num">${fmtN(r.curQty)}</td><td class="num">${fmtN(r.curVal)}</td><td class="num">${fmtN(r.prevQty)}</td><td class="num">${fmtN(r.prevVal)}</td><td>${growPill(r.grow)}</td></tr>`).join('')+'</tbody>';
+}
+function renderCompare(){
+  renderYoY('#partyYoY','#partyYoYNote',yoyRows('party'),'parties');
+  renderYoY('#articleYoY','#articleYoYNote',yoyRows('article'),'articles');
+}
+
 /* ---- Pull Sale ---- */
 let pullTab='dist';
 function setPull(t){pullTab=t;['sd','sm','sp'].forEach(id=>{$('#'+id).className='tab-btn sub-off';$('#'+id).style.padding='7px 16px'});
@@ -510,7 +731,10 @@ function setModule(m){
 function renderAll(){renderKpi();renderPivots();renderSide()}
 
 /* init */
-fillFilters();renderProd();renderAll();renderPull();
+if(window.Store)Store.register(LINK_KEY);
+loadLink();
+if(window.Store)Store.onChange(LINK_KEY,()=>{loadLink();renderLinkPanel();renderCompare();});
+fillFilters();renderProd();renderAll();renderPull();renderCompare();
 </script>
 </body>
 </html>
