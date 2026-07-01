@@ -1295,7 +1295,28 @@ function renderAll(){ renderSales(); renderProduction(); renderBilling(); render
 
 // ===== APP LINK: push Sales orders to shared storage for the Production System =====
 const SHARED_KEY = 'STARKIDZ_SALES_ORDERS';
+// Orders entered directly in Production System's "📝 Enter Order" screen are tagged source:'production-system'.
+// syncShared() below does a full overwrite of the shared key from local ORDERS, so we must pull those in first
+// or they'd be wiped out on this app's next 5s heartbeat.
+function mergeFromProductionSystem(){
+  let changed=false;
+  try{
+    const raw=Store.getItem(SHARED_KEY); if(!raw)return false;
+    const list=(JSON.parse(raw).orders)||[];
+    list.forEach(s=>{
+      if(s.source!=='production-system')return;
+      if(ORDERS.some(o=>o.order_id===s.order_id))return;   // already known locally
+      const sp=USERS.find(u=>u.name===s.salesperson);
+      const o=mkOrder(s.order_id, s.party_name, s.article_no, '-', +s.quantity||0, s.order_date, sp?sp.user_id:'SALES_003', 'Pending','Pending','Awaiting Clearance',null,null,'Pending', s.colour||null);
+      o.category = ARTICLE_CATEGORY[o.article_no] || s.category || CATEGORY_UNSET;
+      o.created_by = s.created_by || (sp?sp.name:'Sales'); o.created_stamp = s.created_stamp || null;
+      ORDERS.unshift(o); changed=true;
+    });
+  }catch(e){}
+  return changed;
+}
 function syncShared(){
+  if(mergeFromProductionSystem()){ renderSales(); renderProduction(); }   // reflect the new order immediately (avoid re-entering syncShared via renderAll)
   try {
     const payload = ORDERS.map(o=>{
       const sp = USERS.find(u=>u.user_id===o.salesperson_id);

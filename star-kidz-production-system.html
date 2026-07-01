@@ -197,6 +197,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div class="sb-sub" style="max-height:200px">
       <div class="sb-item" data-view="sales-push" onclick="go('sales-push')">📤 Push Sale</div>
       <div class="sb-item" data-view="sales-pull" onclick="go('sales-pull')">📥 Pull Sale</div>
+      <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Enter Order</div>
     </div>
   </div>
 
@@ -667,6 +668,28 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   <div style="overflow:auto"><table class="tbl" id="leadTbl"></table></div>
 </section>
 
+<!-- ===== ENTER ORDER (Sales) — same pending-order pipeline as ojas-dispatch-tracker.html ===== -->
+<section id="view-sales-order-entry" class="view">
+  <h2 style="font-size:20px;font-weight:800;color:#0f172a">📝 Enter Order</h2>
+  <p style="font-size:12px;color:#64748b;margin:2px 0 14px">Logs straight into the same Pending Orders queue GM sees — no separate app needed.</p>
+  <div class="card" style="max-width:640px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="grid-column:1/-1"><label class="lbl">Party / Distributor Name</label><input id="soParty" class="inp" placeholder="e.g. Sachdeva Enterprises - Subhash Nagar"></div>
+      <div><label class="lbl">Article</label><select id="soArticle" class="inp" onchange="soOnArticle()"><option value="">— select —</option></select></div>
+      <div><label class="lbl">Category</label><select id="soCategory" class="inp"><option>PU</option><option>PVC</option><option>STUCKON</option><option>EVA</option></select></div>
+      <div><label class="lbl">Size</label><select id="soSize" class="inp" disabled><option value="">— size —</option></select></div>
+      <div><label class="lbl">Colour</label><select id="soColour" class="inp" disabled><option value="">— colour —</option></select></div>
+      <div><label class="lbl">Qty (pairs)</label><input id="soQty" type="number" min="1" class="inp" placeholder="e.g. 120"></div>
+      <div><label class="lbl">Order Date</label><input id="soDate" type="date" class="inp"></div>
+    </div>
+    <button class="btn btn-brand" style="margin-top:16px" onclick="submitSalesOrder()">📥 Submit to Production</button>
+  </div>
+  <div class="card" style="max-width:640px">
+    <div style="font-weight:700;margin-bottom:8px">🕒 Orders you entered today</div>
+    <div id="soRecentList" style="font-size:13px;color:#475569"></div>
+  </div>
+</section>
+
 <!-- ===== PUSH SALE — sales analytics (full, linked) ===== -->
 <section id="view-sales-push" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
@@ -718,6 +741,20 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div style="overflow:auto"><table class="tbl" id="pSpTbl"></table></div>
   </div>
 
+  <!-- Payment Achieving — person-wise -->
+  <div class="card" style="margin-top:16px">
+    <div style="font-weight:800;margin-bottom:4px">💰 Payment Achieving — Person-wise</div>
+    <div id="paymentAchNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto"><table class="tbl" id="paymentAchTbl"></table></div>
+  </div>
+
+  <!-- Sales Rating — who grew, party-wise & month-wise vs last year -->
+  <div class="card" style="margin-top:16px">
+    <div style="font-weight:800;margin-bottom:4px">⭐ Sales Person Rating — Growth vs Previous Year</div>
+    <div id="salesRatingNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto"><table class="tbl" id="salesRatingTbl"></table></div>
+  </div>
+
   <!-- Period comparison -->
   <div class="card" style="margin-top:16px">
     <div style="font-weight:800;margin-bottom:10px">📅 Current Period vs Previous Period — Customer comparison</div>
@@ -763,6 +800,17 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
   </div>
 </section>
+
+<!-- ===== LOW-BILLING DISTRIBUTOR DRILL-DOWN MODAL ===== -->
+<div id="lowBillModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+  <div class="card" style="max-width:700px;width:100%;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-weight:800;font-size:17px" id="lowBillTitle">📊 Party Drill-down</div>
+      <span onclick="document.getElementById('lowBillModal').style.display='none'" style="cursor:pointer;font-size:20px;color:#94a3b8">✕</span>
+    </div>
+    <div id="lowBillBody"></div>
+  </div>
+</div>
 
 <!-- ===== LINK & CONFIGURE MODAL — Push Sale data sync ===== -->
 <div id="linkModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
@@ -1955,13 +2003,15 @@ function pOnArticle(){
 // Coordinators (RENU, SHUBHAMI: states===null) are still SALES role — blocked from Production too — but see ALL states in Push Sale, like MASTER.
 function isRestrictedSales(){return !IS_MASTER && currentUser.role==='SALES'}
 function hasStateLock(){return isRestrictedSales() && Array.isArray(currentUser.states)}
+function isRestrictedProduction(){return !IS_MASTER && currentUser.role!=='SALES'}
 const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
-function renderBlocked(view){
+const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry'];
+function renderBlocked(view,reason){
   const el=$('#view-'+view);if(!el)return;
   el.innerHTML=`<div class="card" style="text-align:center;padding:60px 20px">
     <div style="font-size:42px;margin-bottom:12px">🚫</div>
     <div style="font-size:18px;font-weight:800;color:#b91c1c;margin-bottom:6px">Access Restricted</div>
-    <div style="color:#64748b">You are not allowed to see this. Production data is only visible to Production &amp; Management roles.</div>
+    <div style="color:#64748b">You are not allowed to see this. ${reason||'Production data is only visible to Production &amp; Management roles.'}</div>
   </div>`;
 }
 function go(view){
@@ -1971,6 +2021,7 @@ function go(view){
   document.querySelector('.sidebar').classList.remove('open');
   window.scrollTo({top:0,behavior:'smooth'});
   if(isRestrictedSales()&&SALES_BLOCKED_VIEWS.includes(view)){renderBlocked(view);return;}
+  if(isRestrictedProduction()&&PRODUCTION_BLOCKED_FROM_SALES.includes(view)){renderBlocked(view,'Sales data is only visible to Sales &amp; Management roles.');return;}
   if(view==='dash')renderDash();
   else if(view==='orders')renderOrders();
   else if(view==='pending')renderPending();
@@ -1988,6 +2039,7 @@ function go(view){
   else if(view==='packing-plan')renderPackingPlan();
   else if(view==='sales-pull')setPull(pullTab);
   else if(view==='sales-push')renderPushSale();
+  else if(view==='sales-order-entry')renderOrderEntry();
   else if(view==='settings')loadSettings();
   else if(view==='upper-issuance'){renderUpperIssuanceView();}
   else if(view==='cutting-dept'){renderUpperIssuanceView();}
@@ -5914,12 +5966,107 @@ function importLeadsCSV(e){
 }
 
 // ── SALESPERSON MASTER (ids for the 5 field sales reps in login.html) ──
-const SALESPERSONS=[
-  {id:'SP01',name:'RENU'},{id:'SP02',name:'SANJEEV'},{id:'SP03',name:'DHEERAJ'},
-  {id:'SP04',name:'SHAMSHAD'},{id:'SP05',name:'SHUBHAMI'}
-];
+const SALESPERSONS=USERS.filter(u=>u.role==='SALES').map(u=>({id:u.empId,name:u.name,states:u.states}));
 function spMatch(name){return SALESPERSONS.find(s=>s.name.toUpperCase()===String(name||'').trim().toUpperCase());}
 function spBadge(name){const s=spMatch(name);return s?`<span class="pill pill-blue" style="margin-left:6px">${s.id}</span>`:'';}
+// Real party → salesperson master (June-26 sale target sheet) — lets Push Sale attribute customer-level
+// figures (receivables, billing, YoY) to a salesperson even though Busy exports don't carry that column yet.
+const PARTY_SP_MASTER=[
+  {sp:'ASHRAF',state:'ASSAM',firm:'DHANANI SHOES PRIVATE LIMITED -GUWAHATI'},{sp:'ASHRAF',state:'BIHAR',firm:'MYGRAND SHOE STORE PVT LTD - KATIHAR'},
+  {sp:'ASHRAF',state:'BIHAR',firm:'NICE SHOE STORES- KISHANGANJ'},{sp:'ASHRAF',state:'BIHAR',firm:'PATLIPUTRA DISTRIBUTORS PVT LTD- PATNA'},
+  {sp:'ASHRAF',state:'BIHAR',firm:'PRINCE FOOTWEAR - MUZAFFARPUR'},{sp:'ASHRAF',state:'BIHAR',firm:'S N TRADERS - DARBHANGA'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'BIHAR SHOE CENTRE'},{sp:'ASHRAF',state:'JHARKHAND',firm:'GENERAL LEATHER - DHANBAD'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'HAPPY SHOES - GIRIDIH'},{sp:'ASHRAF',state:'JHARKHAND',firm:'LAL FOOTWEAR - RANCHI'},
+  {sp:'ASHRAF',state:'JHARKHAND',firm:'M.A. FOOTWEAR - CHAS'},{sp:'ASHRAF',state:'TRIPURA',firm:'SHIBA SALES AGENCY - AGARTALA'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'B. LEATHERS ELEGANCE PVT LTD'},{sp:'ASHRAF',state:'WEST BENGAL',firm:'CENTURY SALES CORPORATION - ASANSOL'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'ELEGENT ENTERPRISES - KOLKATA'},{sp:'ASHRAF',state:'WEST BENGAL',firm:'HALF & HALF SHOES PRIVATE LTD-KOLKATA'},
+  {sp:'ASHRAF',state:'WEST BENGAL',firm:'MILEAGE ACTIVEWEAR PRIVATE LTD.- KOLKATA'},{sp:'ASHRAF',state:'WEST BENGAL',firm:'RATNA FOOTWEAR-SILIGURI'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'D M TRADING COMPANY - SEELAMPUR'},{sp:'DHEERAJ',state:'DELHI',firm:'NOVA MARKETING'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'SACHDEVA ENTERPRISES- SUBHASH NAGAR'},{sp:'DHEERAJ',state:'DELHI',firm:'DEEPAK FOOTWEARS - NAJAFGARH'},
+  {sp:'DHEERAJ',state:'DELHI',firm:'TECHNOCART ENTERPRISES-NEW DELHI'},{sp:'DHEERAJ',state:'DELHI',firm:'VIKAS FOOT WEAR - SHAHDARA'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'AGGARWAL FOOTWEAR - JIND'},{sp:'DHEERAJ',state:'HARYANA',firm:'BANSAL FOOTWEARS - BALLABGARH'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'DEEPAK CHAPPAL STORE-KARNAL'},{sp:'DHEERAJ',state:'HARYANA',firm:'GAURAV AGENCIES -  GURUGRAM'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'GUPTA FOOTWEAR STORE - PANIPAT'},{sp:'DHEERAJ',state:'HARYANA',firm:'HARYANA SHOE COMPANY- BHIWANI'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'JYOTI SHOES & GENERAL MERCHANT - SIRSA'},{sp:'DHEERAJ',state:'HARYANA',firm:'KHALSA ENTERPRISES - AMBALA'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'NAGPAL SHOE CO.-CHANDIGARH'},{sp:'DHEERAJ',state:'HARYANA',firm:'RAJ FOOTWEAR - AMBALA CITY'},
+  {sp:'DHEERAJ',state:'HARYANA',firm:'S. K. TRADERS -TOHANA'},{sp:'DHEERAJ',state:'HARYANA',firm:'V.L.TRADING CO. - SONIPAT'},
+  {sp:'DHEERAJ',state:'HIMACHAL PRADESH',firm:'MOHAN LAL SONS - SOLAN'},{sp:'DHEERAJ',state:'JAMMU',firm:'R.S TRADERS - JAMMU'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'ANEJA FOOTWEARS (AGENCIES) - LUDHIANA'},{sp:'DHEERAJ',state:'PUNJAB',firm:'B S ENTERPRISES - HOSHIARPUR'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'DELHI BOOT HOUSE - BARNALA'},{sp:'DHEERAJ',state:'PUNJAB',firm:'DIWAN FOOTWEAR - ROPAR'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'FRIENDS ENTERPRISES - JALANDHAR'},{sp:'DHEERAJ',state:'PUNJAB',firm:'H.S.P FOOTWEAR - AMRITSAR'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'MUNJAL SHOE CO. - FAZILKA'},{sp:'DHEERAJ',state:'PUNJAB',firm:'PAWAN BOOT HOUSE - SANGRUR'},
+  {sp:'DHEERAJ',state:'PUNJAB',firm:'PRABHAT SHOE CO. - PATIALA'},{sp:'DHEERAJ',state:'PUNJAB',firm:'SHIRI ANAND FOOTWEAR- GURDASPUR'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'GANPATI FOOTWEARS-JAIPUR'},{sp:'DHEERAJ',state:'RAJASTHAN',firm:'GOYAL FOOTWEAR-HANUMANGARH'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'GURU JI FOOTWEAR - SRI GANGANAGAR'},{sp:'DHEERAJ',state:'RAJASTHAN',firm:'HIND SHOES - AJMER'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'JANTA TRADING COMPANY-KOTA'},{sp:'DHEERAJ',state:'RAJASTHAN',firm:'KESHRI MARKETING - BIKANER'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'OMKAR FOOTSTEP - JAIPUR'},{sp:'DHEERAJ',state:'RAJASTHAN',firm:'R R AGENCIES--JAIPUR'},
+  {sp:'DHEERAJ',state:'RAJASTHAN',firm:'SHUBH AGENCIES- JODHPUR'},{sp:'DHEERAJ',state:'RAJASTHAN',firm:'VIPUL ENTERPRISES - AJMER'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'BAJAJ FOOTWEAR- RAIPUR'},{sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'BOMBAY FOOTWEAR - DURG'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'LARI FOOTWEAR - KORBA'},{sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'NITIN FOOTWEAR- RAIPUR'},
+  {sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'ROYAL SHOES - RAIPUR'},{sp:'ROSHAN OJHA',state:'CHATISGARH',firm:'SHYAM BOOT HOUSE- SAKTI'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'ACTIVE AGENCIES - BHOPAL'},{sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'ALAM BOOT HOUSE - SAGAR'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'ASHISH ENTERPRISES - JABALPUR'},{sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'MANISH SHOE PLAZA - INDORE'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'NEW JHW FOOT WEAR - INDORE'},{sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'RAYAL SHOUES - KHANDWA'},
+  {sp:'ROSHAN OJHA',state:'MADHYA PRADESH',firm:'SHUBHAM FOOTWEAR - BHOPAL'},{sp:'ROSHAN OJHA',state:'ODISHA',firm:'AB ENTERPRISES - BHADRAK'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'AFNAAN BOOT HOUSE - FAKIRABAD'},{sp:'ROSHAN OJHA',state:'ODISHA',firm:'DAMANI FOOTWEAR- CUTTACK'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'DAMANI STORE - ANGUL'},{sp:'ROSHAN OJHA',state:'ODISHA',firm:'HELLO KIDS SHOES - KHORDHA'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'HI CHOICE FOOTWEAR - BERHAMPUR'},{sp:'ROSHAN OJHA',state:'ODISHA',firm:'KADAM FOOTWEAR - ROURKELA'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'NEW BHARAT BOOT HOUSE - KESINGA'},{sp:'ROSHAN OJHA',state:'ODISHA',firm:'NIKHIL ENTERPRISES - SAMBHALPUR'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'BALAJI SALES - BHUBANESWAR'},{sp:'ROSHAN OJHA',state:'ODISHA',firm:'RAJA FOOTWEAR - DASPALLA'},
+  {sp:'ROSHAN OJHA',state:'ODISHA',firm:'RAJPAL FOOTWEAR - CUTTACK'},{sp:'ROSHAN OJHA',state:'ODISHA',firm:'SHOE XPRESS-BHUBNESHWAR'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'KAMADHENU FOOTNEEDS - KURNOOL'},{sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'MAANYA FOOTWEAR-VIJAYWADA'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'NOBEL ASSOCIATES- HYDERABAD'},{sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'SNEHLATA ASSOCIATES - VIJAYWADA'},
+  {sp:'PAWAN TIWARI',state:'ANDHRA PRADESH',firm:'VENUS ENTERPRISES - VIJAYAWADA'},{sp:'PAWAN TIWARI',state:'GOA',firm:'VINAYAK TRADING - MARGOA'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'KALA SHOE CENTRE - DAVANGERE'},{sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'RAJ TRADING CO. - MANGALORE'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'SANJAY MARKETING - HUBLI'},{sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'SHRI PADMAVATI DRESSES - HULAKOTI'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'T. STANES & COMPANY LIMITED - BANGALORE'},{sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'T. STANES & COMPANY LIMITED - MANGALORE'},
+  {sp:'PAWAN TIWARI',state:'KARNATAKA',firm:'UDAYAA MARKETING-BENGALORE'},{sp:'PAWAN TIWARI',state:'KERALA',firm:'BROOKS FOOTWEAR GROUPS - THIRUVANANTHAPU'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'COLOURS TRADERS - KOTTAYAM'},{sp:'PAWAN TIWARI',state:'KERALA',firm:'FALCON AGENCIES PVT. LTD. - ERNAKULAM'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'FOOTWEAR AGENCIES - ERNAKULAM'},{sp:'PAWAN TIWARI',state:'KERALA',firm:'M.M. VENTURES - KARUNAGAPPALLY'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'MERINO FOOTWEAR TRADERS - ERNAKULAM'},{sp:'PAWAN TIWARI',state:'KERALA',firm:'S M ENTERPRISES - THIRUVANATHAPURAM'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'SPLASH MARKETING - ERNAKULAM'},{sp:'PAWAN TIWARI',state:'KERALA',firm:'SWAPNA AGENCIES - THRISSUR'},
+  {sp:'PAWAN TIWARI',state:'KERALA',firm:'Y&K POLYMERS - CALICUT'},{sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'BARUN FOOT TEX - THANJAVAUR'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'BEAUTY BAGS - PUDUCHEERY'},{sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'BHALAJI TRADERS - DINDIGUL'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'ELITE ENTERPRISES - SALEM'},{sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'MADRAS SHOE MART - CHENNAI'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'MORFIK MARKETING - CHENNAI'},{sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'SAFIYA FOOTWEAR - KANNIYAKUMARI'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'SARAVANA STORES (TEX)'},{sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'THE LEGEND NEW SARAVANA STORES- 129'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'THE LEGEND NEW SARAVANA STORES- 15'},{sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'THE MADRAS SILKS INDIA PVT LTD - CHENNAI'},
+  {sp:'PAWAN TIWARI',state:'TAMIL NADU',firm:'VIJAY TRADERS - CHENNAI'},{sp:'SANJEEV',state:'GUJARAT',firm:'BOSS ENTERPRISES - NAVAGAM'},
+  {sp:'SANJEEV',state:'GUJARAT',firm:'MANISH INTERNATIONAL MF PVT LTDAHMEDABAD'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'ARADHANA SHOES - ULAHASNAGAR'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'ASHA AGENCIES - PIMPRI'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'CHANDAN ENTERPRISES-AHMADNAGAR'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'G S MARKETING - AURANGABAD'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'GAURI AGENCIES - PIMPRI'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'KABIR ENTERPRISES-KOLHAPUR'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'KAPIL ENTERPRISES -  TURBHE'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'KAPIL SHOES- NAGPUR NEW'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'KARTIK ENTERPRISES - MUMBAI'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'MAHALAXMI AGENCY - KOLHAPUR'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'NAMRATA FOOTWEAR- AMRAVATI'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'NEW MADNE SHOES CENTRE- NANDED'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'NEW SAINATH SHOE PALACE-AHMADNAGAR'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'PATEL FOOTWEAR PRIVATE LIMITED - LATUR'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'PATEL TRADELINK - PRABHANI'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'PRAKASH ENTERPRISES-BHIWANDI'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'RAVIRAJ FOOT WEAR- KOLHAPUR'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'SANCHI ENTERPRISES - PIMPRI'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'SOHAM SALES-AMALNER'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'STAR AGENCIES - BARSHI'},{sp:'SANJEEV',state:'MAHARASHTRA',firm:'SWASTIK ENTERPRISES - AKOLA'},
+  {sp:'SANJEEV',state:'MAHARASHTRA',firm:'WANASKAR SALES - SOLAPUR'},{sp:'SHAMSHAD',state:'NEPAL',firm:'H.N. TRADERS - (BIKASHPATH - NEPAL)'},
+  {sp:'SHAMSHAD',state:'NEPAL',firm:'NEPAL FOOTWARE -BUTWAL- NEPAL'},{sp:'SHAMSHAD',state:'NEPAL',firm:'R.R.TRADING-KAPILAVASTU-NEPAL'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'ANANYA TRADERS - JHANSI'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'B.K. TRADERS - AMROHA'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BAJAJ SHOE CO. - SAHARANPUR'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BALKESHWAR NATH ENTERPRISES - AGRA'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BANSAL TRADERS - MEERUT'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'BROTHERS SHOE COMPANY -MUZAFFARNAGAR'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'CHARAN SHOBHA - MAHARAJGANJ'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'CLASSIC FOOTWEAR AGENCY - LUCKNOW'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'EAGLE FOOTWEARS - LUCKNOW'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'FANCY SHOE COLLECTION - SHAHGANJ'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'GROVER TRADER - CHANDAUSI'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'GUPTA TRADERS - KANPUR'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'PRABHAT SHOE CO - ALIGARH'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'QUALITY BOOT HOUSE - GORAKHPUR'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHAMSI TRADERS - BAREILLY'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHIVAY ENTERPRISES- VARANASI'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHREE RADHEY ENTERPRISES - PRAYAGRAJ'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SHRI BALAJI SALES - GHAZIABAD'},
+  {sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'SUPER SHOES - VARANASI'},{sp:'SHAMSHAD',state:'UTTAR PRADESH',firm:'WINTEX FOOTWEAR - VARANASI'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'AGARWAL & COMPANY - RAMNAGAR'},{sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'BAJAJ SHOE COMPANY - DEHRADUN'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'DURGA ENTERPRISES - RISHIKESH'},{sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'HIND SHOE AGENCIES - KASHIPUR'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'JOSHI AGENCIES - KOTDWAR'},{sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'MAGIC TRADING CO -HALDWANI'},
+  {sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'RAB AGENCIES - KASHIPUR'},{sp:'SHAMSHAD',state:'UTTARAKHAND',firm:'SIDHBALI TRADING COMPANY - KOTDWAR'}
+];
+// Fuzzy-match a Busy/seed customer string (e.g. "Asha Agencies - Pimpri") against the real party master.
+function attributeSP(customerName){
+  const n=String(customerName||'').toUpperCase().trim();
+  if(!n)return null;
+  const hit=PARTY_SP_MASTER.find(p=>n.includes(p.firm.toUpperCase())||p.firm.toUpperCase().includes(n));
+  return hit?hit.sp:null;
+}
 function renderSalespersonBreakdown(){
   const el=$('#pSpTbl');if(!el)return;
   const m={};
@@ -6079,7 +6226,116 @@ function renderPushSide(){
     pushMonthRows.map(r=>`<tr><td>${r.m}</td><td style="text-align:right">${fmtCr(r.taxpaid)}</td><td style="text-align:right">${fmtN(r.qty)}</td></tr>`).join('')+
     `<tr style="font-weight:800;background:#f1f5f9"><td>FY 25-26</td><td style="text-align:right">${fmtCr(309810747)}</td><td style="text-align:right">55,478</td></tr></tbody>`;
   $('#pLowBill').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Receivable</th><th>Flag</th></tr></thead><tbody>'+
-    pushReceivables.filter(r=>r.amt<2200000).map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtCr(r.amt)}</td><td><span class="pill pill-red">watch</span></td></tr>`).join('')+'</tbody>';
+    pushReceivables.filter(r=>r.amt<2200000).map(r=>`<tr style="cursor:pointer" onclick="openLowBillModal('${r.customer.replace(/'/g,"\\'")}')"><td>${r.customer}</td><td style="text-align:right">${fmtCr(r.amt)}</td><td><span class="pill pill-red">watch</span></td></tr>`).join('')+'</tbody>';
+}
+function renderPaymentAchieving(){
+  const el=$('#paymentAchTbl');if(!el)return;
+  const sps=SALESPERSONS.filter(s=>Array.isArray(s.states));   // exclude coordinators (no fixed party book)
+  const rows=sps.map(sp=>{
+    const billed=pushCustRows.filter(r=>attributeSP(r.customer)===sp.name).reduce((s,r)=>s+r.taxless,0);
+    const outstanding=pushReceivables.filter(r=>attributeSP(r.customer)===sp.name).reduce((s,r)=>s+r.amt,0);
+    const achieved=billed?((billed-outstanding)/billed*100):null;
+    return {sp,billed,outstanding,achieved};
+  }).sort((a,b)=>b.billed-a.billed);
+  $('#paymentAchNote').textContent='Attributed via the real party↔salesperson master; billed/outstanding will sharpen once Busy carries salesperson per bill.';
+  el.innerHTML='<thead><tr><th>Salesperson</th><th style="text-align:right">Billed</th><th style="text-align:right">Outstanding</th><th style="text-align:right">Achieved %</th><th>Flag</th></tr></thead><tbody>'+
+    rows.map(r=>{
+      const pct=r.achieved==null?'—':r.achieved.toFixed(1)+'%';
+      const flag=r.achieved==null?'':r.achieved>=80?'<span class="pill pill-green">On track</span>':r.achieved>=50?'<span class="pill pill-amber">Watch</span>':'<span class="pill pill-red">Behind</span>';
+      return `<tr><td><b>${r.sp.id}</b> ${r.sp.name}</td><td style="text-align:right">${fmtN(r.billed)}</td><td style="text-align:right">${fmtN(r.outstanding)}</td><td style="text-align:right">${pct}</td><td>${flag}</td></tr>`;
+    }).join('')+'</tbody>';
+}
+function spYoY(spName){
+  const cur=(LINK.saleCur||[]).filter(r=>attributeSP(r.party)===spName);
+  const prev=(LINK.salePrev||[]).filter(r=>attributeSP(r.party)===spName);
+  const curVal=cur.reduce((s,r)=>s+(+r.value||0),0), prevVal=prev.reduce((s,r)=>s+(+r.value||0),0);
+  return {curVal,prevVal,curRows:cur,prevRows:prev};
+}
+function renderSalesRating(){
+  const el=$('#salesRatingTbl');if(!el)return;
+  const sps=SALESPERSONS.filter(s=>Array.isArray(s.states));
+  const haveLinkData=(LINK.saleCur||[]).length&&(LINK.salePrev||[]).length;
+  $('#salesRatingNote').textContent=haveLinkData
+    ?'Click a salesperson to see their party-wise & month-wise breakdown.'
+    :'Upload Party Sale Data for both current & previous FY (🔗 Link & Configure) to see real growth here.';
+  if(!haveLinkData){el.innerHTML='';return;}
+  const rows=sps.map(sp=>{
+    const {curVal,prevVal}=spYoY(sp.name);
+    const growth=prevVal?((curVal-prevVal)/prevVal*100):(curVal?100:0);
+    return {sp,curVal,prevVal,growth};
+  }).sort((a,b)=>b.growth-a.growth);
+  const growPill=g=>`<span class="pill" style="${g>=0?'background:#dcfce7;color:#15803d':'background:#fee2e2;color:#b91c1c'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}%</span>`;
+  el.innerHTML='<thead><tr><th>Salesperson</th><th style="text-align:right">This Year</th><th style="text-align:right">Last Year</th><th>Growth</th><th></th></tr></thead><tbody>'+
+    rows.map(r=>`<tr style="cursor:pointer" onclick="openSalesRatingDetail('${r.sp.name.replace(/'/g,"\\'")}')"><td><b>${r.sp.id}</b> ${r.sp.name}</td><td style="text-align:right">${fmtN(r.curVal)}</td><td style="text-align:right">${fmtN(r.prevVal)}</td><td>${growPill(r.growth)}</td><td style="color:#94a3b8;font-size:11px">view parties ↗</td></tr>`).join('')+'</tbody>';
+}
+function openSalesRatingDetail(spName){
+  const {curRows,prevRows}=spYoY(spName);
+  const curByParty=aggBy(curRows,'party'), prevByParty=aggBy(prevRows,'party');
+  const parties=[...new Set([...Object.keys(curByParty),...Object.keys(prevByParty)])];
+  const rows=parties.map(p=>{
+    const c=curByParty[p]||{qty:0,value:0},pv=prevByParty[p]||{qty:0,value:0};
+    const g=pv.value?((c.value-pv.value)/pv.value*100):(c.value?100:0);
+    return {party:p,curVal:c.value,prevVal:pv.value,g};
+  }).sort((a,b)=>b.curVal-a.curVal);
+  const curByMonth={},prevByMonth={};
+  curRows.forEach(r=>{if(!r.date)return;const d=new Date(r.date);if(isNaN(d))return;const k=d.toLocaleString('en-IN',{month:'short',year:'2-digit'});(curByMonth[k]=curByMonth[k]||0);curByMonth[k]+=+r.value||0;});
+  prevRows.forEach(r=>{if(!r.date)return;const d=new Date(r.date);if(isNaN(d))return;const k=d.toLocaleString('en-IN',{month:'short',year:'2-digit'});(prevByMonth[k]=prevByMonth[k]||0);prevByMonth[k]+=+r.value||0;});
+  const months=[...new Set([...Object.keys(curByMonth),...Object.keys(prevByMonth)])];
+  const growPill=g=>`<span class="pill" style="${g>=0?'background:#dcfce7;color:#15803d':'background:#fee2e2;color:#b91c1c'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}%</span>`;
+  $('#lowBillTitle').textContent='⭐ '+spName+' — Party & Month Detail';
+  $('#lowBillBody').innerHTML=`
+    <div style="font-weight:800;margin-bottom:8px">Party-wise (this year vs last year)</div>
+    <div style="overflow:auto;max-height:220px;margin-bottom:16px"><table class="tbl"><thead><tr><th>Party</th><th style="text-align:right">This Year</th><th style="text-align:right">Last Year</th><th>Growth</th></tr></thead><tbody>${
+      rows.length?rows.map(r=>`<tr><td>${r.party}</td><td style="text-align:right">${fmtN(r.curVal)}</td><td style="text-align:right">${fmtN(r.prevVal)}</td><td>${growPill(r.g)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px">No parties attributed to this salesperson yet.</td></tr>'
+    }</tbody></table></div>
+    <div style="font-weight:800;margin-bottom:8px">Month-wise (needs dated sale rows)</div>
+    <div style="overflow:auto;max-height:200px"><table class="tbl"><thead><tr><th>Month</th><th style="text-align:right">This Year</th><th style="text-align:right">Last Year</th></tr></thead><tbody>${
+      months.length?months.map(m=>`<tr><td>${m}</td><td style="text-align:right">${fmtN(curByMonth[m]||0)}</td><td style="text-align:right">${fmtN(prevByMonth[m]||0)}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:14px">No dated rows yet — upload sale data with a Date column to see this.</td></tr>'
+    }</tbody></table></div>`;
+  $('#lowBillModal').style.display='flex';
+}
+function openLowBillModal(customerName){
+  const cur=pushCustRows.find(r=>r.customer===customerName);
+  const prev=pushCustPrev.find(r=>r.customer===customerName);
+  const recv=pushReceivables.find(r=>r.customer===customerName);
+  const curVal=cur?cur.taxless:0, prevVal=prev?prev.taxless:0;
+  const ratio=prevVal?((curVal-prevVal)/prevVal*100):(curVal?100:0);
+  const growPill=g=>`<span class="pill" style="${g>=0?'background:#dcfce7;color:#15803d':'background:#fee2e2;color:#b91c1c'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}%</span>`;
+
+  // month-wise, only available once real dated sale rows exist for this party (via Link & Configure upload)
+  const myRows=(LINK.saleCur||[]).filter(r=>(r.party||'').toLowerCase()===customerName.toLowerCase()&&r.date);
+  const byMonth={};
+  myRows.forEach(r=>{
+    const d=new Date(r.date);if(isNaN(d))return;
+    const key=d.toLocaleString('en-IN',{month:'short',year:'2-digit'});
+    (byMonth[key]=byMonth[key]||{qty:0,value:0});byMonth[key].qty+=+r.qty||0;byMonth[key].value+=+r.value||0;
+  });
+  const monthRows=Object.entries(byMonth).map(([m,v])=>({m,...v}));
+
+  $('#lowBillTitle').textContent='📊 '+customerName;
+  $('#lowBillBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div class="card" style="padding:12px 14px;border-left:4px solid #7c3aed">
+        <div style="font-size:11px;color:#64748b;font-weight:600">Previous Year Billing</div>
+        <div style="font-size:20px;font-weight:800">${fmtN(prevVal)}</div>
+      </div>
+      <div class="card" style="padding:12px 14px;border-left:4px solid #5b8cff">
+        <div style="font-size:11px;color:#64748b;font-weight:600">Current Period Billing</div>
+        <div style="font-size:20px;font-weight:800">${fmtN(curVal)} ${growPill(ratio)}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:16px;border-left:4px solid #dc2626">
+      <div style="font-size:11px;color:#64748b;font-weight:600">Outstanding Receivable</div>
+      <div style="font-size:20px;font-weight:800;color:#b91c1c">${recv?fmtCr(recv.amt):'—'}</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px">Full 0-30/31-60/61-90/90+ day aging buckets need real bill-date data from Busy — upload via 🔗 Link &amp; Configure once available.</div>
+    </div>
+    <div style="font-weight:800;margin-bottom:8px">📅 Month-wise Billing</div>
+    <div style="overflow:auto;max-height:260px">
+      ${monthRows.length?`<table class="tbl"><thead><tr><th>Month</th><th style="text-align:right">Qty</th><th style="text-align:right">Value</th></tr></thead><tbody>${
+        monthRows.map(r=>`<tr><td>${r.m}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.value)}</td></tr>`).join('')
+      }</tbody></table>`:`<div class="card" style="text-align:center;color:#94a3b8;padding:24px">No dated sale rows yet for this party. Upload Party Sale Data (with a date column) via 🔗 Link &amp; Configure to see real month-wise billing here.</div>`}
+    </div>`;
+  $('#lowBillModal').style.display='flex';
 }
 function fillPushFilters(){
   const src=PUSH_FACT.length?PUSH_FACT:null;
@@ -6269,13 +6525,60 @@ function renderCompare(){
   renderYoY('#articleYoY','#articleYoYNote',yoyRows('article'),'articles');
 }
 function renderPushSale(){
-  fillPushFilters();renderPushKpi();renderPushPivots();renderPushSide();renderSalespersonBreakdown();renderCompare();renderLinkPanel();
+  fillPushFilters();renderPushKpi();renderPushPivots();renderPushSide();renderSalespersonBreakdown();renderCompare();renderLinkPanel();renderPaymentAchieving();renderSalesRating();
   const note=$('#pushScopeNote');
   if(note)note.textContent=hasStateLock()
     ?'🔒 Locked to your state'+(currentUser.states.length>1?'s':'')+': '+(currentUser.states.join(', ')||'— none assigned, contact MASTER —')
     :(isRestrictedSales()?'👁️ Coordinator — full visibility across all states.':'');
   const linkBtn=document.querySelector('#view-sales-push button[onclick="toggleLinkPanel()"]');
   if(linkBtn)linkBtn.style.display=isRestrictedSales()?'none':'';
+}
+
+// ── ENTER ORDER (Sales) — writes into the same STARKIDZ_SALES_ORDERS key ojas-dispatch-tracker.html uses ──
+function soOnArticle(){
+  const code=$('#soArticle').value,sizeSel=$('#soSize'),colSel=$('#soColour');
+  const sizes=P_SIZES[code]||[];
+  sizeSel.innerHTML='<option value="">— size —</option>'+sizes.map(s=>`<option value="${s}">${s}</option>`).join('');
+  sizeSel.disabled=!sizes.length;
+  colSel.innerHTML='<option value="">— colour —</option>';colSel.disabled=true;
+  sizeSel.onchange=function(){
+    const cols=P_COLS[code+'|'+sizeSel.value]||[];
+    colSel.innerHTML='<option value="">— colour —</option>'+cols.map(k=>`<option value="${k}">${k}</option>`).join('');
+    colSel.disabled=!cols.length;
+  };
+}
+function renderOrderEntry(){
+  buildArticleSelect($('#soArticle'));
+  if(!$('#soDate').value)$('#soDate').value=todayISO();
+  const today=todayISO();
+  const mine=(SALES_ENTERED_TODAY||[]).filter(o=>o.order_date===today&&o.salesperson===currentUser.name);
+  $('#soRecentList').innerHTML=mine.length?mine.map(o=>`<div style="padding:6px 0;border-bottom:1px solid #f1f5f9">${o.party_name} — ${o.article_no} × ${o.quantity} <span style="color:#94a3b8;font-size:11px">#${o.order_id}</span></div>`).join('')
+    :'<div style="color:#94a3b8">No orders entered yet today.</div>';
+}
+let SALES_ENTERED_TODAY=[];
+function submitSalesOrder(){
+  if(!(currentUser.role==='SALES'||IS_MASTER)){toast('Only Sales can enter orders','⚠️','');return}
+  const party=$('#soParty').value.trim();
+  const article=$('#soArticle').value;
+  const qty=+$('#soQty').value||0;
+  if(!party){toast('Enter party name','⚠️','');return}
+  if(!article){toast('Select an article','⚠️','');return}
+  if(!qty||qty<1){toast('Enter a valid quantity','⚠️','');return}
+  const orderId='PS'+uid().toUpperCase();
+  const newOrder={
+    order_id:orderId, party_name:party, article_no:article, colour:$('#soColour').value||null,
+    quantity:qty, order_date:$('#soDate').value||todayISO(), category:$('#soCategory').value||'PU',
+    production_status:'Pending', dispatch_status:'Awaiting Clearance',
+    salesperson:currentUser.name, created_by:currentUser.name, created_stamp:nowFull(), source:'production-system'
+  };
+  let list=[];
+  try{const raw=Store.getItem(SHARED_KEY);if(raw)list=(JSON.parse(raw).orders)||[];}catch(e){}
+  list.push(newOrder);
+  Store.setItem(SHARED_KEY, JSON.stringify({updated:Date.now(), orders:list}));
+  SALES_ENTERED_TODAY.push(newOrder);
+  toast('Order submitted','📥',party+' — '+qty+' pairs → Production');
+  $('#soParty').value='';$('#soQty').value='';$('#soColour').value='';
+  if(importSharedOrders())refresh(); else renderOrderEntry();
 }
 
 // ── PERSISTENCE ──
@@ -6525,6 +6828,7 @@ function refresh(){
     else if(vid==='my-queue')renderMyQueue();
     else if(vid==='pendency')renderPendencyLog();
     else if(vid==='sales-push')renderPushSale();
+    else if(vid==='sales-order-entry')renderOrderEntry();
   }
 }
 function updateQueueBadges(){
