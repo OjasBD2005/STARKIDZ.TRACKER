@@ -709,11 +709,14 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
   <!-- Filters + Busy import -->
   <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-    <div><label class="lbl">State</label><select id="pfState" class="inp" style="width:auto" onchange="renderPushPivots()"></select></div>
-    <div><label class="lbl">Salesperson</label><select id="pfSP" class="inp" style="width:auto" onchange="renderPushPivots()"><option value="all">All</option></select></div>
-    <div><label class="lbl">Machine / Mould</label><select id="pfMachine" class="inp" style="width:auto" onchange="renderPushPivots()"></select></div>
-    <div style="flex:1;min-width:160px"><label class="lbl">Customer</label><input id="pfCust" class="inp" placeholder="type to filter…" oninput="renderPushPivots()"></div>
-    <label class="btn btn-outline" style="cursor:pointer">📥 Import Busy Consolidated_report
+    <div id="pfFYWrap"><label class="lbl">Financial Year</label><select id="pfFY" class="inp" style="width:auto" onchange="onFYChange()"></select></div>
+    <div><label class="lbl">From</label><input id="pfFrom" type="date" class="inp" style="width:auto" onchange="$('#pfFY').value='custom';renderPushSale()"></div>
+    <div><label class="lbl">To</label><input id="pfTo" type="date" class="inp" style="width:auto" onchange="$('#pfFY').value='custom';renderPushSale()"></div>
+    <div id="pfStateWrap"><label class="lbl">State</label><select id="pfState" class="inp" style="width:auto" onchange="renderPushSale()"></select></div>
+    <div id="pfSPWrap"><label class="lbl">Salesperson</label><select id="pfSP" class="inp" style="width:auto" onchange="renderPushSale()"><option value="all">All</option></select></div>
+    <div><label class="lbl">Machine / Mould</label><select id="pfMachine" class="inp" style="width:auto" onchange="renderPushSale()"></select></div>
+    <div id="pfCustWrap" style="flex:1;min-width:160px"><label class="lbl">Customer</label><input id="pfCust" class="inp" placeholder="type to filter…" oninput="renderPushPivots()"></div>
+    <label id="pfImportWrap" class="btn btn-outline" style="cursor:pointer">📥 Import Busy Consolidated_report
       <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importConsolidated(event)"></label>
   </div>
 
@@ -743,14 +746,14 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
   </div>
 
-  <!-- Salesperson breakdown — live from real Production Orders -->
-  <div class="card">
+  <!-- Salesperson breakdown — live from real Production Orders (MASTER + coordinators only) -->
+  <div class="card" id="pSpCard">
     <div style="font-weight:800;margin-bottom:10px">🧑‍💼 Orders by Salesperson <span style="font-weight:500;font-size:11px;color:#94a3b8">— live from Production Orders</span></div>
     <div style="overflow:auto"><table class="tbl" id="pSpTbl"></table></div>
   </div>
 
   <!-- Payment Achieving — person-wise -->
-  <div class="card" style="margin-top:16px">
+  <div class="card" id="pPaymentCard" style="margin-top:16px">
     <div style="font-weight:800;margin-bottom:4px">💰 Payment Achieving — Person-wise</div>
     <div id="paymentAchNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
     <div style="overflow:auto"><table class="tbl" id="paymentAchTbl"></table></div>
@@ -808,6 +811,21 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
   </div>
 </section>
+
+<!-- ===== ARTICLE-WISE STOCK MODAL ===== -->
+<div id="stockModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+  <div class="card" style="max-width:860px;width:100%;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-weight:800;font-size:17px">📦 Finished Goods Stock — Article-wise</div>
+      <span onclick="document.getElementById('stockModal').style.display='none'" style="cursor:pointer;font-size:20px;color:#94a3b8">✕</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input id="stockSearch" class="inp" style="flex:1;min-width:200px" placeholder="🔍 search article / mould / colour / size…" oninput="renderStockModal()">
+      <span id="stockModalTotal" style="font-size:12px;color:#64748b;font-weight:700"></span>
+    </div>
+    <div style="overflow:auto;max-height:60vh"><table class="tbl" id="stockModalTbl"></table></div>
+  </div>
+</div>
 
 <!-- ===== PIVOT CHART MODAL (Pie / Bar) ===== -->
 <div id="chartModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
@@ -6177,11 +6195,10 @@ const PUSH_DIMS=['Customer Name','Billno','State','Salesperson','Machine','Mould
 const PUSH_DIMFIELD={'Customer Name':'customer','Billno':'billno','State':'state','Salesperson':'salesperson','Machine':'machine','Mould':'mould','Open Close':'openClose','City':'city'};
 const pushSortState={A:{col:'qty',dir:-1},B:{col:'taxpaid',dir:-1}};
 function pushFactFiltered(){
-  let r=PUSH_FACT;
-  if(hasStateLock())r=r.filter(x=>currentUser.states.includes(x.state));   // hard restriction, independent of the (disabled) dropdown
-  const st=$('#pfState').value,sp=$('#pfSP').value,mc=$('#pfMachine').value,cu=$('#pfCust').value.trim().toLowerCase();
-  if(st&&st!=='all')r=r.filter(x=>x.state===st);
-  if(sp&&sp!=='all')r=r.filter(x=>x.salesperson===sp);
+  let r=PUSH_FACT.filter(x=>stateAllowed(x.state)&&inDateRange(x.date));
+  const sp=isMasterOrCoord()&&$('#pfSP')?$('#pfSP').value:'all';
+  const mc=$('#pfMachine').value,cu=(isMasterOrCoord()&&$('#pfCust'))?$('#pfCust').value.trim().toLowerCase():'';
+  if(sp&&sp!=='all')r=r.filter(x=>x.salesperson===sp || attributeSP(x.customer)===sp);
   if(mc&&mc!=='all')r=r.filter(x=>x.machine===mc);
   if(cu)r=r.filter(x=>(x.customer||'').toLowerCase().includes(cu));
   return r;
@@ -6195,10 +6212,10 @@ function pushAggFact(dim){
   return rows;
 }
 function pushFilteredCust(){
-  let r=pushCustRows.slice();
-  if(hasStateLock())r=r.filter(x=>currentUser.states.includes(x.state));
-  const st=$('#pfState').value,cu=$('#pfCust').value.trim().toLowerCase();
-  if(st&&st!=='all')r=r.filter(x=>x.state===st);
+  let r=pushCustRows.filter(x=>stateAllowed(x.state));
+  const sp=isMasterOrCoord()&&$('#pfSP')?$('#pfSP').value:'all';
+  const cu=(isMasterOrCoord()&&$('#pfCust'))?$('#pfCust').value.trim().toLowerCase():'';
+  if(sp&&sp!=='all')r=r.filter(x=>attributeSP(x.customer)===sp);
   if(cu)r=r.filter(x=>x.customer.toLowerCase().includes(cu));
   return r;
 }
@@ -6267,26 +6284,78 @@ function downloadChartPNG(){
   const a=document.createElement('a');a.href=pivotChart.toBase64Image();a.download='push-sale-chart-'+todayISO()+'.png';a.click();
 }
 function renderPushKpi(){
-  $('#pushKpiStrip').innerHTML=PUSH_KPI.map(k=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${k.c}">
-    <div style="font-size:11px;color:#64748b;font-weight:600">${k.l}</div>
-    <div style="font-size:22px;font-weight:800;color:#0f172a">${k.v}</div>
-    <div style="font-size:11px;color:#94a3b8">${k.s}</div></div>`).join('');
+  const stockQty=pushStockRows.reduce((s,r)=>s+r.qty,0);
+  $('#pushKpiStrip').innerHTML=PUSH_KPI.map(k=>{
+    let v=k.v,s=k.s,click='';
+    if(k.l==='Stock'){                               // qty always; ₹ value only for MASTER (point 9)
+      v=fmtN(stockQty);
+      s=IS_MASTER?fmtCr(29876360):'pairs · click to view';
+      click=' style="padding:12px 14px;border-left:4px solid '+k.c+';cursor:pointer" onclick="openStockModal()"';
+    }
+    if((k.l==='Receivable'||k.l==='Payable')&&!IS_MASTER){v='—';s='MASTER only';}   // financials → master only
+    return `<div class="card"${click||` style="padding:12px 14px;border-left:4px solid ${k.c}"`}>
+      <div style="font-size:11px;color:#64748b;font-weight:600">${k.l}</div>
+      <div style="font-size:22px;font-weight:800;color:#0f172a">${v}</div>
+      <div style="font-size:11px;color:#94a3b8">${s}</div></div>`;
+  }).join('');
 }
+// ── Article-wise finished-goods stock modal (point 4) ──
+function cartonsOf(pairs){return Math.round((+pairs||0)/12);}   // ~12 pairs/carton default
+function openStockModal(){$('#stockModal').style.display='flex';renderStockModal();}
+function renderStockModal(){
+  const q=($('#stockSearch').value||'').trim().toLowerCase();
+  const fin=INVENTORY.filter(i=>i.type==='finished');
+  let rows=fin.map(i=>{
+    const art=i.articleCode||i.name||'—';
+    const sizes=(P_SIZES[art]||[]).join(', ');
+    const colours=[...new Set(Object.keys(P_COLS).filter(k=>k.startsWith(art+'|')).flatMap(k=>P_COLS[k]))].join(', ');
+    return {article:art, mould:i.category||'—', stock:+i.stock||0, cartons:cartonsOf(i.stock), colours, sizes};
+  });
+  if(q)rows=rows.filter(r=>(r.article+r.mould+r.colours+r.sizes).toLowerCase().includes(q));
+  rows.sort((a,b)=>b.stock-a.stock);
+  const totQty=rows.reduce((s,r)=>s+r.stock,0);
+  $('#stockModalTotal').textContent=rows.length+' articles · '+fmtN(totQty)+' pairs ('+fmtN(cartonsOf(totQty))+' cartons)';
+  $('#stockModalTbl').innerHTML='<thead><tr><th>Article</th><th>Mould / Dept</th><th style="text-align:right">Qty (pairs)</th><th style="text-align:right">Cartons</th><th>Colours</th><th>Sizes</th></tr></thead><tbody>'+
+    (rows.length?rows.map(r=>`<tr><td><b>${r.article}</b></td><td>${r.mould}</td><td style="text-align:right">${fmtN(r.stock)}</td><td style="text-align:right">${fmtN(r.cartons)}</td><td style="font-size:11px;color:#64748b">${r.colours||'—'}</td><td style="font-size:11px;color:#64748b">${r.sizes||'—'}</td></tr>`).join('')
+      :'<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:18px">No matching stock.</td></tr>')+'</tbody>';
+}
+// helper: state of a customer, resolved from party master (uppercase) or seed row
+function stateOfCustomer(name){
+  const hit=PARTY_SP_MASTER.find(p=>String(name||'').toUpperCase().includes(p.firm.toUpperCase())||p.firm.toUpperCase().includes(String(name||'').toUpperCase()));
+  if(hit)return hit.state;
+  const seed=pushCustRows.find(r=>r.customer===name)||pushCustPrev.find(r=>r.customer===name);
+  return seed?String(seed.state||'').toUpperCase():'—';
+}
+function custInScope(name){return stateAllowed(stateOfCustomer(name)) && (!isMasterOrCoord()||!$('#pfSP')||$('#pfSP').value==='all'||attributeSP(name)===$('#pfSP').value);}
 function renderPushSide(){
+  const cur=pushCustRows.filter(r=>custInScope(r.customer));
+  const prev=pushCustPrev.filter(r=>custInScope(r.customer));
   $('#pCmpCur').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Qty</th><th style="text-align:right">Taxless</th><th style="text-align:right">ASP</th></tr></thead><tbody>'+
-    pushCustRows.map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.taxless)}</td><td style="text-align:right">${fmtN(Math.round(r.taxless/r.qty))}</td></tr>`).join('')+'</tbody>';
+    (cur.length?cur.map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.taxless)}</td><td style="text-align:right">${fmtN(Math.round(r.taxless/r.qty))}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px">No customers in scope.</td></tr>')+'</tbody>';
   $('#pCmpPrev').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Taxless</th><th style="text-align:right">ASP</th><th style="text-align:right">Contr</th></tr></thead><tbody>'+
-    pushCustPrev.map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtN(r.taxless)}</td><td style="text-align:right">${fmtN(r.asp)}</td><td style="text-align:right">${r.contr}</td></tr>`).join('')+'</tbody>';
-  $('#pTopArt').innerHTML='<thead><tr><th>Mould</th><th>Machine</th><th style="text-align:right">Sales Qty</th><th style="text-align:right">Taxpaid</th><th style="text-align:right">ASP</th></tr></thead><tbody>'+
-    pushTopArticles.slice().sort((a,b)=>b.qty-a.qty).map((r,i)=>`<tr><td>${i<3?'🏅 ':''}${r.mould}</td><td>${r.machine}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.taxpaid)}</td><td style="text-align:right">${fmtN(Math.round(r.taxpaid/r.qty))}</td></tr>`).join('')+'</tbody>';
-  $('#pStockTbl').innerHTML='<thead><tr><th>Machine</th><th style="text-align:right">Stock Qty</th><th style="text-align:right">Value</th></tr></thead><tbody>'+
-    pushStockRows.map(r=>`<tr><td>${r.machine}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtCr(r.taxpaid)}</td></tr>`).join('')+
-    `<tr style="font-weight:800;background:#f1f5f9"><td>Total</td><td style="text-align:right">17,063</td><td style="text-align:right">${fmtCr(29876360)}</td></tr></tbody>`;
-  $('#pMonthTbl').innerHTML='<thead><tr><th>Month</th><th style="text-align:right">Sales</th><th style="text-align:right">Qty</th></tr></thead><tbody>'+
-    pushMonthRows.map(r=>`<tr><td>${r.m}</td><td style="text-align:right">${fmtCr(r.taxpaid)}</td><td style="text-align:right">${fmtN(r.qty)}</td></tr>`).join('')+
-    `<tr style="font-weight:800;background:#f1f5f9"><td>FY 25-26</td><td style="text-align:right">${fmtCr(309810747)}</td><td style="text-align:right">55,478</td></tr></tbody>`;
-  $('#pLowBill').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Receivable</th><th>Flag</th></tr></thead><tbody>'+
-    pushReceivables.filter(r=>r.amt<2200000).map(r=>`<tr style="cursor:pointer" onclick="openLowBillModal('${r.customer.replace(/'/g,"\\'")}')"><td>${r.customer}</td><td style="text-align:right">${fmtCr(r.amt)}</td><td><span class="pill pill-red">watch</span></td></tr>`).join('')+'</tbody>';
+    (prev.length?prev.map(r=>`<tr><td>${r.customer}</td><td style="text-align:right">${fmtN(r.taxless)}</td><td style="text-align:right">${fmtN(r.asp)}</td><td style="text-align:right">${r.contr}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px">No customers in scope.</td></tr>')+'</tbody>';
+  // Top-selling articles — shown to everyone (point 8), machine filter respected
+  let arts=pushTopArticles.slice();const mf=$('#pfMachine').value;if(mf&&mf!=='all')arts=arts.filter(a=>a.machine===mf);
+  $('#pTopArt').innerHTML='<thead><tr><th>Article (Mould)</th><th>Machine</th><th style="text-align:right">Sales Qty</th><th style="text-align:right">Value</th><th style="text-align:right">ASP</th></tr></thead><tbody>'+
+    arts.sort((a,b)=>b.qty-a.qty).map((r,i)=>`<tr><td>${i<3?'🏅 ':''}${r.mould}</td><td>${r.machine}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${fmtN(r.taxpaid)}</td><td style="text-align:right">${fmtN(Math.round(r.taxpaid/r.qty))}</td></tr>`).join('')+'</tbody>';
+  // Stock by machine — qty for all, value only for MASTER (point 9)
+  const totQty=pushStockRows.reduce((s,r)=>s+r.qty,0);
+  $('#pStockTbl').innerHTML='<thead><tr><th>Machine</th><th style="text-align:right">Stock Qty</th>'+(IS_MASTER?'<th style="text-align:right">Value</th>':'')+'</tr></thead><tbody>'+
+    pushStockRows.map(r=>`<tr><td>${r.machine}</td><td style="text-align:right">${fmtN(r.qty)}</td>${IS_MASTER?`<td style="text-align:right">${fmtCr(r.taxpaid)}</td>`:''}</tr>`).join('')+
+    `<tr style="font-weight:800;background:#f1f5f9"><td>Total</td><td style="text-align:right">${fmtN(totQty)}</td>${IS_MASTER?`<td style="text-align:right">${fmtCr(29876360)}</td>`:''}</tr></tbody>`;
+  // Monthly sales — for MASTER, add a person-wise total column (point 10)
+  $('#pMonthTbl').innerHTML='<thead><tr><th>Month</th><th style="text-align:right">Total Sales</th><th style="text-align:right">Qty</th></tr></thead><tbody>'+
+    pushMonthRows.map(r=>`<tr><td>${r.m}</td><td style="text-align:right">${IS_MASTER?fmtCr(r.taxpaid):fmtN(r.qty)+' prs'}</td><td style="text-align:right">${fmtN(r.qty)}</td></tr>`).join('')+
+    `<tr style="font-weight:800;background:#f1f5f9"><td>FY 25-26</td><td style="text-align:right">${IS_MASTER?fmtCr(309810747):'55,478 prs'}</td><td style="text-align:right">55,478</td></tr></tbody>`;
+  // Low-Billing Distributors — Customer | Prev-Yr (curr month) | Curr Month | State (point 13)
+  const nowMonKey=new Date().toLocaleString('en-IN',{month:'short'});
+  const lowRows=pushReceivables.filter(r=>r.amt<2200000&&custInScope(r.customer)).map(r=>{
+    const prevYr=(LINK.salePrev||[]).filter(x=>(x.party||'').toUpperCase().includes(r.customer.split(' - ')[0].toUpperCase())&&x.date&&new Date(x.date).toLocaleString('en-IN',{month:'short'})===nowMonKey).reduce((s,x)=>s+(+x.value||0),0);
+    const curMon=(LINK.saleCur||[]).filter(x=>(x.party||'').toUpperCase().includes(r.customer.split(' - ')[0].toUpperCase())&&x.date&&new Date(x.date).toLocaleString('en-IN',{month:'short'})===nowMonKey).reduce((s,x)=>s+(+x.value||0),0);
+    return {customer:r.customer,state:stateOfCustomer(r.customer),prevYr,curMon};
+  });
+  $('#pLowBill').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Prev-Yr (this month)</th><th style="text-align:right">This Month</th><th>State</th></tr></thead><tbody>'+
+    (lowRows.length?lowRows.map(r=>`<tr style="cursor:pointer" onclick="openLowBillModal('${r.customer.replace(/'/g,"\\'")}')"><td>${r.customer}</td><td style="text-align:right">${r.prevYr?fmtN(r.prevYr):'—'}</td><td style="text-align:right">${r.curMon?fmtN(r.curMon):'—'}</td><td style="font-size:11px">${r.state}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px">No low-billing distributors in scope.</td></tr>')+'</tbody>';
 }
 function renderPaymentAchieving(){
   const el=$('#paymentAchTbl');if(!el)return;
@@ -6399,23 +6468,73 @@ function openLowBillModal(customerName){
     </div>`;
   $('#lowBillModal').style.display='flex';
 }
+// ── Role & filter helpers ──────────────────────────────────────────────
+function isMasterOrCoord(){return IS_MASTER || (currentUser.role==='SALES' && !Array.isArray(currentUser.states));}
+const stateEq=(a,b)=>String(a||'').trim().toUpperCase()===String(b||'').trim().toUpperCase();
+function stateAllowed(state){                       // does this row's state pass the current scope + dropdown?
+  if(hasStateLock()){                                // rep: only their assigned states
+    if(!(currentUser.states||[]).some(s=>stateEq(s,state)))return false;
+  }
+  const sel=$('#pfState')?$('#pfState').value:'all';  // master/coord may also narrow to one state
+  if(sel && sel!=='all' && !stateEq(sel,state))return false;
+  return true;
+}
+function fyRange(fy){                                // "2025" => 1 Apr 2025 .. 31 Mar 2026
+  if(!fy||fy==='all'||fy==='custom')return null;
+  const y=+fy;return {from:new Date(y,3,1), to:new Date(y+1,2,31,23,59,59)};
+}
+function activeDateRange(){
+  const fromV=$('#pfFrom')?$('#pfFrom').value:'', toV=$('#pfTo')?$('#pfTo').value:'';
+  const from=fromV?new Date(fromV):null, to=toV?new Date(toV+'T23:59:59'):null;
+  return {from,to};
+}
+function inDateRange(dateStr){
+  const {from,to}=activeDateRange();
+  if(!from&&!to)return true;
+  if(!dateStr)return false;                          // a date filter is set but this row has no date → excluded
+  const d=new Date(dateStr);if(isNaN(d))return false;
+  if(from&&d<from)return false;
+  if(to&&d>to)return false;
+  return true;
+}
+const localISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function onFYChange(){
+  const fy=$('#pfFY').value, r=fyRange(fy);
+  if(r){$('#pfFrom').value=localISO(r.from);$('#pfTo').value=localISO(r.to);}
+  else if(fy==='all'){$('#pfFrom').value='';$('#pfTo').value='';}
+  renderPushSale();
+}
 function fillPushFilters(){
   const src=PUSH_FACT.length?PUSH_FACT:null;
   const states=src?[...new Set(src.map(r=>r.state))].filter(Boolean).sort():[...new Set(pushCustRows.map(r=>r.state))].sort();
   if(hasStateLock()){
     const mine=currentUser.states||[];
-    $('#pfState').innerHTML=mine.map(s=>`<option>${s}</option>`).join('')||'<option value="all">— no state assigned —</option>';
-    $('#pfState').disabled=true;
+    $('#pfState').innerHTML='<option value="all">My States (all)</option>'+mine.map(s=>`<option>${s}</option>`).join('');
+    $('#pfState').disabled=false;                    // rep may narrow within their own states (point 15)
   }else{
     $('#pfState').disabled=false;
     $('#pfState').innerHTML='<option value="all">All States</option>'+states.map(s=>`<option>${s}</option>`).join('');
   }
   const mach=src?[...new Set(src.map(r=>r.machine))].filter(Boolean).sort():[...new Set(pushStockRows.map(r=>r.machine))];
   $('#pfMachine').innerHTML='<option value="all">All Machines</option>'+mach.map(s=>`<option>${s}</option>`).join('');
-  const spNames=[...new Set(SALESPERSONS.map(s=>s.name).concat(src?src.map(r=>r.salesperson):[]))].filter(s=>s&&s!=='—');
-  $('#pfSP').innerHTML='<option value="all">All</option>'+spNames.map(s=>`<option>${s}</option>`).join('');
+  const spNames=SALESPERSONS.filter(s=>Array.isArray(s.states)).map(s=>s.name);
+  $('#pfSP').innerHTML='<option value="all">All Salespersons</option>'+spNames.map(s=>`<option>${s}</option>`).join('');
+  // Financial year list (last 5 FYs) — only build once
+  if($('#pfFY') && !$('#pfFY').options.length){
+    const yNow=new Date().getMonth()>=3?new Date().getFullYear():new Date().getFullYear()-1;
+    let opt='<option value="all">All dates</option>';
+    for(let y=yNow;y>=yNow-4;y--)opt+=`<option value="${y}">FY ${y}-${String(y+1).slice(2)}</option>`;
+    opt+='<option value="custom">Custom range…</option>';
+    $('#pfFY').innerHTML=opt;
+  }
   $('#pGrpA').innerHTML=PUSH_DIMS.map(d=>`<option ${d==='Billno'?'selected':''}>${d}</option>`).join('');
   $('#pGrpB').innerHTML=PUSH_DIMS.map(d=>`<option ${d==='Customer Name'?'selected':''}>${d}</option>`).join('');
+  // Role-based control visibility
+  const mc=isMasterOrCoord();
+  const setDisp=(id,show)=>{const el=$(id);if(el)el.style.display=show?'':'none';};
+  setDisp('#pfSPWrap',mc);          // salesperson selector — master/coordinators only
+  setDisp('#pfCustWrap',mc);        // free-text customer filter — master/coordinators only
+  setDisp('#pfImportWrap',mc);      // Busy import — master/coordinators only
 }
 function importConsolidated(e){
   const f=e.target.files[0];if(!f)return;
@@ -6586,12 +6705,21 @@ function renderCompare(){
   renderYoY('#partyYoY','#partyYoYNote',yoyRows('party'),'parties');
   renderYoY('#articleYoY','#articleYoYNote',yoyRows('article'),'articles');
 }
+let _pushFiltersBuilt=false;
 function renderPushSale(){
-  fillPushFilters();renderPushKpi();renderPushPivots();renderPushSide();renderSalespersonBreakdown();renderCompare();renderLinkPanel();renderPaymentAchieving();renderSalesRating();
+  if(!_pushFiltersBuilt){fillPushFilters();_pushFiltersBuilt=true;}   // build dropdowns once; re-render on filter change keeps selections
+  else{ // still refresh role-based visibility each render
+    const mc=isMasterOrCoord();const setDisp=(id,show)=>{const el=$(id);if(el)el.style.display=show?'':'none';};
+    setDisp('#pfSPWrap',mc);setDisp('#pfCustWrap',mc);setDisp('#pfImportWrap',mc);
+  }
+  renderPushKpi();renderPushPivots();renderPushSide();renderSalespersonBreakdown();renderCompare();renderLinkPanel();renderPaymentAchieving();renderSalesRating();
+  // Orders-by-Salesperson + Payment Achieving cards → MASTER + coordinators only (point 5)
+  const mc=isMasterOrCoord();
+  if($('#pSpCard'))$('#pSpCard').style.display=mc?'':'none';
   const note=$('#pushScopeNote');
   if(note)note.textContent=hasStateLock()
-    ?'🔒 Locked to your state'+(currentUser.states.length>1?'s':'')+': '+(currentUser.states.join(', ')||'— none assigned, contact MASTER —')
-    :(isRestrictedSales()?'👁️ Coordinator — full visibility across all states.':'');
+    ?'🔒 Locked to your state'+(currentUser.states.length>1?'s':'')+': '+(currentUser.states.join(', ')||'— none assigned, contact MASTER —')+'. Use the State filter to narrow within your region.'
+    :(isRestrictedSales()?'👁️ Coordinator — full visibility across all states & salespersons.':'👁️ MASTER — full visibility. Use State + Salesperson filters to drill down.');
   const linkBtn=document.querySelector('#view-sales-push button[onclick="toggleLinkPanel()"]');
   if(linkBtn)linkBtn.style.display=isRestrictedSales()?'none':'';
 }
@@ -6872,6 +7000,7 @@ const PROD_LOGIN_MAP={'KOMAL JAIN':'U_GM','SUSHIL':'U_PL1','DISPATCH 1':'U_PL1',
   'RENU':'U_SL1','SANJEEV':'U_SL2','DHEERAJ':'U_SL3','SHAMSHAD':'U_SL4','SHUBHAMI':'U_SL5','ROSHAN':'U_SL6','PAWAN TIWARI':'U_SL7','ASHRAF':'U_SL8'};
 function onUserChange(){
   currentUser=USERS.find(u=>u.id===$('#userSelect').value)||USERS[0];
+  _pushFiltersBuilt=false;   // rebuild Push Sale filters for the newly-selected role
   toast('Logged in','👤',currentUser.name+' · '+currentUser.title);refresh();
 }
 function logout(){try{localStorage.removeItem('STARKIDZ_USER')}catch(_){}window.location.href='login.html'}
