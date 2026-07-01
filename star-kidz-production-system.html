@@ -720,16 +720,24 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   <!-- Dual pivots -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0">
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
         <select id="pGrpA" class="inp" style="width:auto" onchange="renderPushPivots()"></select>
-        <span style="font-size:11px;color:#94a3b8">click a column to sort</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="downloadPivotCSV('A')" title="Download CSV">⬇️ CSV</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="openPivotChart('A','pie')" title="Pie chart">🥧</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="openPivotChart('A','bar')" title="Bar chart">📊</button>
+        </div>
       </div>
       <div style="overflow:auto;max-height:340px"><table class="tbl" id="pPivA"></table></div>
     </div>
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
         <select id="pGrpB" class="inp" style="width:auto" onchange="renderPushPivots()"></select>
-        <span style="font-size:11px;color:#94a3b8">click a column to sort</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="downloadPivotCSV('B')" title="Download CSV">⬇️ CSV</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="openPivotChart('B','pie')" title="Pie chart">🥧</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="openPivotChart('B','bar')" title="Bar chart">📊</button>
+        </div>
       </div>
       <div style="overflow:auto;max-height:340px"><table class="tbl" id="pPivB"></table></div>
     </div>
@@ -800,6 +808,20 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
   </div>
 </section>
+
+<!-- ===== PIVOT CHART MODAL (Pie / Bar) ===== -->
+<div id="chartModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+  <div class="card" style="max-width:640px;width:100%;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-weight:800;font-size:17px" id="chartModalTitle">Chart</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-outline" style="font-size:11px" onclick="downloadChartPNG()">⬇️ PNG</button>
+        <span onclick="document.getElementById('chartModal').style.display='none'" style="cursor:pointer;font-size:20px;color:#94a3b8">✕</span>
+      </div>
+    </div>
+    <canvas id="pivotChartCanvas" style="max-width:100%"></canvas>
+  </div>
+</div>
 
 <!-- ===== LOW-BILLING DISTRIBUTOR DRILL-DOWN MODAL ===== -->
 <div id="lowBillModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
@@ -1283,6 +1305,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <!-- Excel engine for professional, bordered, logo'd exports (graceful CSV fallback if offline) -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 
 <script>
 /* ================================================================
@@ -6206,6 +6229,43 @@ function pushPivotTable(elId,dim,panel){
 }
 function pushSortPiv(panel,col){const st=pushSortState[panel];if(st.col===col)st.dir*=-1;else{st.col=col;st.dir=-1}renderPushPivots()}
 function renderPushPivots(){pushPivotTable('#pPivA',$('#pGrpA').value,'A');pushPivotTable('#pPivB',$('#pGrpB').value,'B')}
+
+// ── Party-wise export / visualization (CSV, Pie, Bar) for either pivot panel ──
+function panelDimRows(panel){
+  const dim=$('#pGrp'+panel).value;
+  const rows=pushAggregate(dim),st=pushSortState[panel];
+  rows.sort((a,b)=>(a[st.col]>b[st.col]?1:-1)*st.dir);
+  return {dim,rows};
+}
+function downloadPivotCSV(panel){
+  const {dim,rows}=panelDimRows(panel);
+  if(!rows.length){toast('Nothing to export','⚠️','');return}
+  const head=[dim,'Qty','Taxpaid','Taxless','ASP Taxless','ASP Taxpaid','Contr %'];
+  const lines=[head.join(',')].concat(rows.map(r=>[r.label,r.qty,r.taxpaid,r.taxless,r.asp_taxless,r.asp_taxpaid,r.contr].map(csvEscape).join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='push-sale-'+dim.replace(/\s+/g,'-').toLowerCase()+'-'+todayISO()+'.csv';a.click();
+  toast('Exported','⬇️',rows.length+' rows');
+}
+let pivotChart=null;
+function openPivotChart(panel,type){
+  const {dim,rows}=panelDimRows(panel);
+  if(!rows.length){toast('Nothing to chart','⚠️','');return}
+  const top=rows.slice(0,10);   // keep pie/bar readable
+  $('#chartModalTitle').textContent=(type==='pie'?'🥧 ':'📊 ')+dim+' — by Taxpaid'+(rows.length>10?' (top 10)':'');
+  if(pivotChart){pivotChart.destroy();pivotChart=null;}
+  document.getElementById('chartModal').style.display='flex';   // must be visible (non-zero size) before Chart.js measures the canvas
+  const ctx=document.getElementById('pivotChartCanvas').getContext('2d');
+  const palette=['#1b3187','#5b8cff','#7c3aed','#d97706','#059669','#dc2626','#0891b2','#db2777','#65a30d','#7c2d12'];
+  pivotChart=new Chart(ctx,{
+    type:type==='pie'?'pie':'bar',
+    data:{labels:top.map(r=>r.label),datasets:[{label:'Taxpaid',data:top.map(r=>r.taxpaid),backgroundColor:palette}]},
+    options:{responsive:true,plugins:{legend:{position:type==='pie'?'right':'top'}}}
+  });
+}
+function downloadChartPNG(){
+  if(!pivotChart)return;
+  const a=document.createElement('a');a.href=pivotChart.toBase64Image();a.download='push-sale-chart-'+todayISO()+'.png';a.click();
+}
 function renderPushKpi(){
   $('#pushKpiStrip').innerHTML=PUSH_KPI.map(k=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${k.c}">
     <div style="font-size:11px;color:#64748b;font-weight:600">${k.l}</div>
@@ -6230,7 +6290,8 @@ function renderPushSide(){
 }
 function renderPaymentAchieving(){
   const el=$('#paymentAchTbl');if(!el)return;
-  const sps=SALESPERSONS.filter(s=>Array.isArray(s.states));   // exclude coordinators (no fixed party book)
+  let sps=SALESPERSONS.filter(s=>Array.isArray(s.states));   // exclude coordinators (no fixed party book)
+  if(hasStateLock())sps=sps.filter(s=>s.name===currentUser.name);   // a state-locked rep only ever sees their own row
   const rows=sps.map(sp=>{
     const billed=pushCustRows.filter(r=>attributeSP(r.customer)===sp.name).reduce((s,r)=>s+r.taxless,0);
     const outstanding=pushReceivables.filter(r=>attributeSP(r.customer)===sp.name).reduce((s,r)=>s+r.amt,0);
@@ -6253,7 +6314,8 @@ function spYoY(spName){
 }
 function renderSalesRating(){
   const el=$('#salesRatingTbl');if(!el)return;
-  const sps=SALESPERSONS.filter(s=>Array.isArray(s.states));
+  let sps=SALESPERSONS.filter(s=>Array.isArray(s.states));
+  if(hasStateLock())sps=sps.filter(s=>s.name===currentUser.name);   // a state-locked rep only ever sees their own row
   const haveLinkData=(LINK.saleCur||[]).length&&(LINK.salePrev||[]).length;
   $('#salesRatingNote').textContent=haveLinkData
     ?'Click a salesperson to see their party-wise & month-wise breakdown.'

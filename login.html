@@ -345,10 +345,12 @@ const USERS = {
 
 // route each person to the dashboard they own
 function destFor(u){
-  const sales=['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI','ROSHAN','PAWAN TIWARI','ASHRAF','DISPATCH2'];  // Sales + Billing/Dispatch
+  const salesReps=['RENU','SANJEEV','DHEERAJ','SHAMSHAD','SHUBHAMI','ROSHAN','PAWAN TIWARI','ASHRAF'];  // field sales — land straight on Push Sale (state-restricted), not the old dispatch tracker
+  const billing=['DISPATCH2'];                          // Billing/Dispatch person — stays on the order/dispatch pipeline tool
   const prod =['KOMAL JAIN','SUPERVISOR 1','SUPERVISOR 2','SUPERVISOR:3','SUPERVISOR-4','SUPERVISOR :5','SUPERVISOR 6','SUPERVISOR 7','SUSHIL','DISPATCH 1'];
   if(u==='MASTER') return 'index.html';                 // master = global control
-  if(sales.includes(u)) return 'ojas-dispatch-tracker.html';
+  if(salesReps.includes(u)) return 'star-kidz-production-system.html';
+  if(billing.includes(u)) return 'ojas-dispatch-tracker.html';
   if(prod.includes(u))  return 'star-kidz-production-system.html';
   return 'index.html';
 }
