@@ -740,8 +740,8 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importConsolidated(event)"></label>
   </div>
 
-  <!-- Dual pivots -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0">
+  <!-- Single pivot -->
+  <div style="display:grid;grid-template-columns:1fr;gap:16px;margin:16px 0">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
         <select id="pGrpA" class="inp" style="width:auto" onchange="renderPushPivots()"></select>
@@ -753,23 +753,23 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       </div>
       <div style="overflow:auto;max-height:340px"><table class="tbl" id="pPivA"></table></div>
     </div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-        <select id="pGrpB" class="inp" style="width:auto" onchange="renderPushPivots()"></select>
-        <div style="display:flex;gap:4px;align-items:center">
-          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="downloadPivotCSV('B')" title="Download CSV">⬇️ CSV</button>
-          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="openPivotChart('B','pie')" title="Pie chart">🥧</button>
-          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="openPivotChart('B','bar')" title="Bar chart">📊</button>
-        </div>
-      </div>
-      <div style="overflow:auto;max-height:340px"><table class="tbl" id="pPivB"></table></div>
-    </div>
   </div>
 
-  <!-- Salesperson breakdown — live from real Production Orders (MASTER + coordinators only) -->
+  <!-- Salesperson breakdown — daily carton-wise orders vs targets (MASTER + coordinators only) -->
   <div class="card" id="pSpCard">
-    <div style="font-weight:800;margin-bottom:10px">🧑‍💼 Orders by Salesperson <span style="font-weight:500;font-size:11px;color:#94a3b8">— live from Production Orders</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+      <div>
+        <div style="font-weight:800">🧑‍💼 Orders by Salesperson — Daily Carton Targets</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">Cartons from sales-entered orders (~12 pairs/carton) · Busy live sync pending — refreshes from Busy import &amp; Production Orders · targets set by RENU / SHUBHAMI</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+        <div><label class="lbl">Track date</label><input id="spTgtDate" type="date" class="inp" style="width:auto" onchange="renderSalespersonBreakdown()"></div>
+        <button class="btn btn-outline" style="font-size:11px;padding:6px 10px" onclick="$('#spTgtDate').value=todayISO();renderSalespersonBreakdown()">📅 Today</button>
+      </div>
+    </div>
+    <div id="spTgtSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:10px 0"></div>
     <div style="overflow:auto"><table class="tbl" id="pSpTbl"></table></div>
+    <div id="spTgtFoot" style="font-size:11px;color:#94a3b8;margin-top:8px"></div>
   </div>
 
   <!-- Payment Achieving — person-wise -->
@@ -826,7 +826,11 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <div style="overflow:auto;max-height:340px"><table class="tbl" id="pMonthTbl"></table></div>
     </div>
     <div class="card">
-      <div style="font-weight:800;margin-bottom:8px;color:#b91c1c">🔻 Low-Billing Distributors</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <div style="font-weight:800;color:#b91c1c">🔻 Low-Billing Distributors</div>
+        <select id="pLowBillState" class="inp" style="width:auto;font-size:11px;padding:4px 8px" onchange="renderLowBilling()"></select>
+      </div>
+      <div id="pLowBillNote" style="font-size:11px;color:#94a3b8;margin-bottom:8px"></div>
       <div style="overflow:auto;max-height:340px"><table class="tbl" id="pLowBill"></table></div>
     </div>
   </div>
@@ -6139,17 +6143,112 @@ function myPartyMaster(){
   else if(isRestrictedSales()){/* coordinator: all */}
   return rows;
 }
+// ── Daily / Monthly carton targets — updated only by RENU & SHUBHAMI (coordinators) ──
+const SP_TGT_KEY='STARKIDZ_SP_TARGETS';
+let SP_TARGETS={daily:{},monthly:{},updated:0,updatedBy:''};
+function loadSpTargets(){
+  try{
+    const raw=window.Store?Store.getItem(SP_TGT_KEY):localStorage.getItem(SP_TGT_KEY);
+    if(raw)SP_TARGETS=Object.assign(SP_TARGETS,JSON.parse(raw));
+  }catch(e){}
+  SP_TARGETS.daily=SP_TARGETS.daily||{};SP_TARGETS.monthly=SP_TARGETS.monthly||{};
+}
+function saveSpTargets(){
+  SP_TARGETS.updated=Date.now();SP_TARGETS.updatedBy=currentUser.name;
+  const s=JSON.stringify(SP_TARGETS);
+  if(window.Store)Store.setItem(SP_TGT_KEY,s);else try{localStorage.setItem(SP_TGT_KEY,s)}catch(e){}
+}
+function canSetSpTargets(){return IS_MASTER||currentUser.role==='GM'||currentUser.name==='RENU'||currentUser.name==='SHUBHAMI'}
+function setSpTarget(kind,key,name,val){
+  if(!canSetSpTargets()){toast('Access denied','🚫','Only RENU / SHUBHAMI (Sales Coordinators) can update targets.');renderSalespersonBreakdown();return}
+  const m=SP_TARGETS[kind][key]=SP_TARGETS[kind][key]||{};
+  const n=Math.max(0,Math.round(+val||0));
+  if(n)m[name]=n;else delete m[name];
+  saveSpTargets();renderSalespersonBreakdown();
+  toast('Target saved','🎯',name+' · '+(kind==='daily'?key:'month '+key)+' → '+(n||'cleared'));
+}
+function spTgtPill(done,tgt){
+  if(!tgt)return '<span class="pill" style="background:#f1f5f9;color:#94a3b8">— no target</span>';
+  const pct=Math.round(done/tgt*100);
+  if(done>tgt)return `<span class="pill pill-violet">🚀 Over Target +${fmtN(done-tgt)} (${pct}%)</span>`;
+  if(done===tgt)return `<span class="pill pill-green">✅ Reached (100%)</span>`;
+  return `<span class="pill" style="background:#fee2e2;color:#b91c1c">🔴 Not Reached (${pct}%)</span>`;
+}
 function renderSalespersonBreakdown(){
   const el=$('#pSpTbl');if(!el)return;
+  const dEl=$('#spTgtDate');if(dEl&&!dEl.value)dEl.value=todayISO();
+  const day=(dEl&&dEl.value)?dEl.value:todayISO();
+  const monthKey=day.slice(0,7);
+  const monthLabel=new Date(day+'T00:00:00').toLocaleDateString('en-IN',{month:'short',year:'numeric'});
+  const canEdit=canSetSpTargets();
+  // sales-entered production orders, carton-wise (~12 pairs/carton); Busy import keeps figures in step until the live API lands
   const m={};
   ORDERS.filter(o=>o.fromSales).forEach(o=>{
-    const name=o.salesPerson||o.enteredBy||'Unassigned';
-    (m[name]=m[name]||{name,orders:0,qty:0,planned:0});
-    m[name].orders++;m[name].qty+=+o.qty||0;if(o.plan&&o.plan.planned)m[name].planned++;
+    const name=String(o.salesPerson||o.enteredBy||'Unassigned').trim().toUpperCase();
+    (m[name]=m[name]||{name,orders:0,qty:0,cartons:0,dayOrders:0,dayCartons:0,monthCartons:0});
+    const r=m[name],cart=cartonsOf(o.qty);
+    r.orders++;r.qty+=+o.qty||0;r.cartons+=cart;
+    const od=String(o.order_date||'').slice(0,10);
+    if(od===day){r.dayOrders++;r.dayCartons+=cart}
+    if(od.slice(0,7)===monthKey)r.monthCartons+=cart;
   });
-  const rows=Object.values(m).sort((a,b)=>b.orders-a.orders);
-  el.innerHTML='<thead><tr><th>ID</th><th>Salesperson</th><th style="text-align:right">Orders</th><th style="text-align:right">Qty (pairs)</th><th style="text-align:right">Planned</th></tr></thead><tbody>'+
-    (rows.length?rows.map(r=>{const s=spMatch(r.name);return `<tr><td><b>${s?s.id:'—'}</b></td><td>${r.name}</td><td style="text-align:right">${r.orders}</td><td style="text-align:right">${fmtN(r.qty)}</td><td style="text-align:right">${r.planned}</td></tr>`}).join(''):'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:18px">No sales-entered orders yet.</td></tr>')+'</tbody>';
+  // every RM appears, even with zero orders, so targets can be set up-front
+  SALESPERSONS.forEach(s=>{const k=s.name.toUpperCase();m[k]=m[k]||{name:s.name,orders:0,qty:0,cartons:0,dayOrders:0,dayCartons:0,monthCartons:0}});
+  const dTg=SP_TARGETS.daily[day]||{},mTg=SP_TARGETS.monthly[monthKey]||{};
+  const rows=Object.values(m).sort((a,b)=>b.dayCartons-a.dayCartons||b.monthCartons-a.monthCartons||b.orders-a.orders);
+  const tgtCell=(kind,key,name,val)=>canEdit
+    ?`<input type="number" min="0" value="${val||''}" placeholder="—" class="inp" style="width:72px;padding:4px 6px;text-align:right" onchange="setSpTarget('${kind}','${key}','${name}',this.value)">`
+    :`<span style="font-weight:700">${val?fmtN(val):'—'}</span>`;
+  const tot={dayOrders:0,dayCartons:0,dayTgt:0,monthCartons:0,monthTgt:0,cartons:0,hit:0,over:0,miss:0};
+  const body=rows.map(r=>{
+    const s=spMatch(r.name),dT=+dTg[r.name]||0,mT=+mTg[r.name]||0;
+    tot.dayOrders+=r.dayOrders;tot.dayCartons+=r.dayCartons;tot.dayTgt+=dT;
+    tot.monthCartons+=r.monthCartons;tot.monthTgt+=mT;tot.cartons+=r.cartons;
+    if(dT){if(r.dayCartons>dT)tot.over++;else if(r.dayCartons>=dT)tot.hit++;else tot.miss++}
+    return `<tr>
+      <td><b>${s?s.id:'—'}</b></td><td>${r.name}</td>
+      <td style="text-align:right">${r.dayOrders||'—'}</td>
+      <td style="text-align:right;font-weight:700">${fmtN(r.dayCartons)}</td>
+      <td style="text-align:right">${tgtCell('daily',day,r.name,dT)}</td>
+      <td>${spTgtPill(r.dayCartons,dT)}</td>
+      <td style="text-align:right;font-weight:700">${fmtN(r.monthCartons)}</td>
+      <td style="text-align:right">${tgtCell('monthly',monthKey,r.name,mT)}</td>
+      <td>${spTgtPill(r.monthCartons,mT)}</td>
+      <td style="text-align:right">${fmtN(r.cartons)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<thead><tr>
+      <th>ID</th><th>Salesperson (RM)</th>
+      <th style="text-align:right">Orders (${fmt(day)})</th>
+      <th style="text-align:right">Cartons (${fmt(day)})</th>
+      <th style="text-align:right">Daily Target</th><th>Daily Status</th>
+      <th style="text-align:right">Cartons (${monthLabel})</th>
+      <th style="text-align:right">Month Target</th><th>Month Status</th>
+      <th style="text-align:right">Total Cartons</th>
+    </tr></thead><tbody>`+
+    (rows.length?body:'<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:18px">No salespersons / sales-entered orders yet.</td></tr>')+
+    `<tr style="font-weight:800;background:#f1f5f9"><td></td><td>Total</td>
+      <td style="text-align:right">${fmtN(tot.dayOrders)}</td><td style="text-align:right">${fmtN(tot.dayCartons)}</td>
+      <td style="text-align:right">${fmtN(tot.dayTgt)}</td><td>${spTgtPill(tot.dayCartons,tot.dayTgt)}</td>
+      <td style="text-align:right">${fmtN(tot.monthCartons)}</td><td style="text-align:right">${fmtN(tot.monthTgt)}</td>
+      <td>${spTgtPill(tot.monthCartons,tot.monthTgt)}</td><td style="text-align:right">${fmtN(tot.cartons)}</td></tr></tbody>`;
+  // summary chips — today's order-vs-target status + month-to-date picture
+  const chip=(l,v,s,c)=>`<div class="card" style="padding:10px 12px;border-left:4px solid ${c}">
+      <div style="font-size:11px;color:#64748b;font-weight:600">${l}</div>
+      <div style="font-size:20px;font-weight:800;color:#0f172a">${v}</div>
+      <div style="font-size:11px;color:#94a3b8">${s}</div></div>`;
+  const sm=$('#spTgtSummary');
+  if(sm)sm.innerHTML=
+    chip('Cartons Ordered · '+fmt(day),fmtN(tot.dayCartons),tot.dayOrders+' orders','#1b3187')+
+    chip('Daily Target · '+fmt(day),fmtN(tot.dayTgt),tot.dayTgt?Math.round(tot.dayCartons/tot.dayTgt*100)+'% achieved':'not set','#d97706')+
+    chip('Target Status',`✅ ${tot.hit+tot.over} · 🔴 ${tot.miss}`,tot.over+' over target','#059669')+
+    chip('Cartons · '+monthLabel,fmtN(tot.monthCartons),'month-to-date','#5b8cff')+
+    chip('Month Target · '+monthLabel,fmtN(tot.monthTgt),tot.monthTgt?Math.round(tot.monthCartons/tot.monthTgt*100)+'% achieved':'not set','#7c3aed');
+  const ft=$('#spTgtFoot');
+  if(ft)ft.innerHTML=(canEdit
+      ?'✏️ You can edit Daily / Month targets — they save per date ('+fmt(day)+') and per month ('+monthLabel+').'
+      :'🔒 Targets are read-only — updated by RENU / SHUBHAMI (Sales Coordinators).')+
+    (SP_TARGETS.updated?' · Last target update: '+new Date(SP_TARGETS.updated).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+' by '+(SP_TARGETS.updatedBy||'—'):'');
 }
 
 // ── PUSH SALE — sales analytics (ported from old Sales Dashboard, real Busy-export seed data) ──
@@ -6224,7 +6323,7 @@ const pushReceivables=[
 let PUSH_FACT=[]; // populated by real Busy Consolidated_report import (line-item grain)
 const PUSH_DIMS=['Customer Name','Billno','State','Salesperson','Machine','Mould','Open Close','City'];
 const PUSH_DIMFIELD={'Customer Name':'customer','Billno':'billno','State':'state','Salesperson':'salesperson','Machine':'machine','Mould':'mould','Open Close':'openClose','City':'city'};
-const pushSortState={A:{col:'qty',dir:-1},B:{col:'taxpaid',dir:-1}};
+const pushSortState={A:{col:'qty',dir:-1}};
 function pushFactFiltered(){
   let r=PUSH_FACT.filter(x=>stateAllowed(x.state)&&inDateRange(x.date));
   const sp=isMasterOrCoord()&&$('#pfSP')?$('#pfSP').value:'all';
@@ -6276,7 +6375,7 @@ function pushPivotTable(elId,dim,panel){
   $(elId).innerHTML=head+body;
 }
 function pushSortPiv(panel,col){const st=pushSortState[panel];if(st.col===col)st.dir*=-1;else{st.col=col;st.dir=-1}renderPushPivots()}
-function renderPushPivots(){pushPivotTable('#pPivA',$('#pGrpA').value,'A');pushPivotTable('#pPivB',$('#pGrpB').value,'B')}
+function renderPushPivots(){pushPivotTable('#pPivA',$('#pGrpA').value,'A')}
 
 // ── Party-wise export / visualization (CSV, Pie, Bar) for either pivot panel ──
 function panelDimRows(panel){
@@ -6378,15 +6477,35 @@ function renderPushSide(){
   $('#pMonthTbl').innerHTML='<thead><tr><th>Month</th><th style="text-align:right">Total Sales</th><th style="text-align:right">Qty</th></tr></thead><tbody>'+
     pushMonthRows.map(r=>`<tr><td>${r.m}</td><td style="text-align:right">${IS_MASTER?fmtCr(r.taxpaid):fmtN(r.qty)+' prs'}</td><td style="text-align:right">${fmtN(r.qty)}</td></tr>`).join('')+
     `<tr style="font-weight:800;background:#f1f5f9"><td>FY 25-26</td><td style="text-align:right">${IS_MASTER?fmtCr(309810747):'55,478 prs'}</td><td style="text-align:right">55,478</td></tr></tbody>`;
-  // Low-Billing Distributors — Customer | Prev-Yr (curr month) | Curr Month | State (point 13)
+  renderLowBilling();
+}
+// ── Low-Billing Distributors — Customer | Prev-Yr (curr month) | Curr Month | State (point 13) ──
+// Card-level state filter: MASTER/coordinators pick any state; a state-locked rep only sees their own assigned states.
+function renderLowBilling(){
+  const tbl=$('#pLowBill'),sel=$('#pLowBillState');if(!tbl)return;
+  const locked=hasStateLock();
+  const states=locked
+    ?(currentUser.states||[]).slice().sort()
+    :[...new Set(pushReceivables.map(r=>stateOfCustomer(r.customer)))].filter(s=>s&&s!=='—').sort();
+  if(sel){
+    const cur=sel.value||'all';
+    sel.innerHTML='<option value="all">'+(locked?'My States (all)':'All States')+'</option>'+states.map(s=>`<option>${s}</option>`).join('');
+    if([...sel.options].some(o=>o.value===cur))sel.value=cur;
+  }
+  const pick=sel?sel.value:'all';
+  const note=$('#pLowBillNote');
+  if(note)note.textContent=locked
+    ?'🔒 Your states only: '+states.join(', ')+' · figures sync from Busy uploads'
+    :'🌐 All states · pick one to drill in — figures sync from Busy uploads (🔗 Link & Configure)';
   const nowMonKey=new Date().toLocaleString('en-IN',{month:'short'});
-  const lowRows=pushReceivables.filter(r=>r.amt<2200000&&custInScope(r.customer)).map(r=>{
+  let lowRows=pushReceivables.filter(r=>r.amt<2200000&&custInScope(r.customer)).map(r=>{
     const prevYr=(LINK.salePrev||[]).filter(x=>(x.party||'').toUpperCase().includes(r.customer.split(' - ')[0].toUpperCase())&&x.date&&new Date(x.date).toLocaleString('en-IN',{month:'short'})===nowMonKey).reduce((s,x)=>s+(+x.value||0),0);
     const curMon=(LINK.saleCur||[]).filter(x=>(x.party||'').toUpperCase().includes(r.customer.split(' - ')[0].toUpperCase())&&x.date&&new Date(x.date).toLocaleString('en-IN',{month:'short'})===nowMonKey).reduce((s,x)=>s+(+x.value||0),0);
     return {customer:r.customer,state:stateOfCustomer(r.customer),prevYr,curMon};
   });
-  $('#pLowBill').innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Prev-Yr (this month)</th><th style="text-align:right">This Month</th><th>State</th></tr></thead><tbody>'+
-    (lowRows.length?lowRows.map(r=>`<tr style="cursor:pointer" onclick="openLowBillModal('${r.customer.replace(/'/g,"\\'")}')"><td>${r.customer}</td><td style="text-align:right">${r.prevYr?fmtN(r.prevYr):'—'}</td><td style="text-align:right">${r.curMon?fmtN(r.curMon):'—'}</td><td style="font-size:11px">${r.state}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px">No low-billing distributors in scope.</td></tr>')+'</tbody>';
+  if(pick!=='all')lowRows=lowRows.filter(r=>stateEq(r.state,pick));
+  tbl.innerHTML='<thead><tr><th>Customer</th><th style="text-align:right">Prev-Yr (this month)</th><th style="text-align:right">This Month</th><th>State</th></tr></thead><tbody>'+
+    (lowRows.length?lowRows.map(r=>`<tr style="cursor:pointer" onclick="openLowBillModal('${r.customer.replace(/'/g,"\\'")}')"><td>${r.customer}</td><td style="text-align:right">${r.prevYr?fmtN(r.prevYr):'—'}</td><td style="text-align:right">${r.curMon?fmtN(r.curMon):'—'}</td><td style="font-size:11px">${r.state}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px">No low-billing distributors'+(pick!=='all'?' in '+pick:' in scope')+'.</td></tr>')+'</tbody>';
 }
 function renderPaymentAchieving(){
   const el=$('#paymentAchTbl');if(!el)return;
@@ -6559,7 +6678,6 @@ function fillPushFilters(){
     $('#pfFY').innerHTML=opt;
   }
   $('#pGrpA').innerHTML=PUSH_DIMS.map(d=>`<option ${d==='Billno'?'selected':''}>${d}</option>`).join('');
-  $('#pGrpB').innerHTML=PUSH_DIMS.map(d=>`<option ${d==='Customer Name'?'selected':''}>${d}</option>`).join('');
   // Role-based control visibility
   const mc=isMasterOrCoord();
   const setDisp=(id,show)=>{const el=$(id);if(el)el.style.display=show?'':'none';};
@@ -7271,6 +7389,9 @@ function seedInventifyOrders(){
   if(window.Store)Store.register(LINK_KEY);
   loadLink();
   if(window.Store)Store.onChange(LINK_KEY,()=>{loadLink();if($('#view-sales-push').classList.contains('active'))renderPushSale();});
+  if(window.Store)Store.register(SP_TGT_KEY);
+  loadSpTargets();
+  if(window.Store)Store.onChange(SP_TGT_KEY,()=>{loadSpTargets();if($('#view-sales-push').classList.contains('active'))renderSalespersonBreakdown();});
   setInterval(()=>{if(importSharedOrders())refresh()},4000);
   setInterval(pushProductionStatus,5000);
   checkLink();setInterval(checkLink,3000);
