@@ -118,8 +118,18 @@
         <div id="stat-partyMaster" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
       </div>
       <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:4px">📊 Import Exported Data</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Upload your Busy/Inventify CSV exports</div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:#64748b">Inventory CSV</label>
+          <input type="file" id="inventoryFile" accept=".csv" style="width:100%;margin-bottom:6px;padding:6px;border:1px solid #cbd5e1;border-radius:6px">
+          <button class="inp" style="cursor:pointer;background:#059669;color:#fff;font-weight:700;width:100%;margin-top:6px" onclick="importInventoryCSV()">📥 Import Inventory Data</button>
+          <div id="importStatus" style="font-size:11px;color:#64748b;margin-top:6px">Ready to import</div>
+        </div>
+      </div>
+    <div class="card" style="padding:12px">
         <div style="font-weight:700;margin-bottom:4px">🔗 Busy ERP Integration</div>
-        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Connect your Busy account for live data sync</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Connect your Busy account for live data sync (coming soon with API key)</div>
         <div style="margin-bottom:8px">
           <label style="font-size:11px;color:#64748b">Busy Organization ID</label>
           <input id="busyOrgId" class="inp" placeholder="e.g., 12345" style="width:100%;margin-bottom:6px">
@@ -1721,6 +1731,62 @@ function invDownloadCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='inventory_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 function invLinkBusyAPI(){alert('🔗 Busy API integration coming soon. Until then, use Import XLSX to load your Inventify/Busy stock export regularly.');}
+
+function importInventoryCSV(){
+  const inp=document.getElementById('inventoryFile');
+  if(!inp||!inp.files||!inp.files[0]){alert('Please select a CSV file');return;}
+  const f=inp.files[0];
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const csv=e.target.result;
+      const lines=csv.trim().split('\n');
+      if(lines.length<2){alert('CSV is empty');return;}
+
+      // Skip header row, aggregate SKU data by article code
+      const articles={};
+      for(let i=1;i<lines.length;i++){
+        const parts=lines[i].split(',').map(p=>p.trim());
+        if(parts.length<5)continue;
+        const skuCode=parts[1];
+        const qty=parseInt(parts[4])||0;
+
+        // Extract article code from SKU (first part before first hyphen)
+        const articleMatch=skuCode.match(/^([A-Z0-9]+)-/);
+        if(!articleMatch)continue;
+        const article=articleMatch[1];
+
+        // Aggregate quantities
+        if(!articles[article]){
+          articles[article]={
+            article:article,
+            category:'',
+            machine:'',
+            series:article,
+            stock_ctns:0,
+            stock_pairs:0,
+            last_update:new Date().toLocaleDateString('en-IN')
+          };
+        }
+        // Assume 12 pairs per carton
+        articles[article].stock_ctns+=Math.floor(qty/12);
+        articles[article].stock_pairs+=qty%12;
+      }
+
+      INVENTORY_DATA=Object.values(articles).sort((a,b)=>a.article.localeCompare(b.article));
+      localStorage.setItem('starkidz_inventory',JSON.stringify(INVENTORY_DATA));
+      $('#invLastUpdate').textContent=new Date().toLocaleString('en-IN');
+      $('#importStatus').textContent='✅ Imported '+INVENTORY_DATA.length+' articles from CSV';
+      renderInventory();
+      renderFinishedGoods();
+      inp.value=''; // Reset file input
+    }catch(ex){
+      alert('Error parsing CSV: '+ex.message);
+      $('#importStatus').textContent='❌ Error: '+ex.message;
+    }
+  };
+  reader.readAsText(f);
+}
 
 /* ======== PIPELINE FUNCTIONS ======== */
 let PIPELINE_DATA=JSON.parse(localStorage.getItem('starkidz_pipeline')||'{}');
