@@ -291,7 +291,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
 <!-- ===== DASHBOARD ===== -->
 <section id="view-dash" class="view active">
-  <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:16px">📊 Production & Inventory Dashboard</h2>
+  <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:16px">📊 Production Dashboard</h2>
   <div id="dashKpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px"></div>
   <!-- Dashboard tab dropdown bar -->
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
@@ -2069,6 +2069,7 @@ function pOnArticle(){
 function isRestrictedSales(){return !IS_MASTER && currentUser.role==='SALES'}
 function hasStateLock(){return isRestrictedSales() && Array.isArray(currentUser.states)}
 function isRestrictedProduction(){return !IS_MASTER && currentUser.role!=='SALES'}
+function canAccessProductionDashboard(){return IS_MASTER || currentUser.role==='PLANNING' || currentUser.role==='GM' || ['UPPER','PU','PVC','STUCKON','EVA','RMSTORE','RMDISP','CUTTING'].includes(currentUser.role)}
 const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
 const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties'];
 function renderBlocked(view,reason){
@@ -2087,6 +2088,7 @@ function go(view){
   window.scrollTo({top:0,behavior:'smooth'});
   if(isRestrictedSales()&&SALES_BLOCKED_VIEWS.includes(view)){renderBlocked(view);return;}
   if(isRestrictedProduction()&&PRODUCTION_BLOCKED_FROM_SALES.includes(view)){renderBlocked(view,'Sales data is only visible to Sales &amp; Management roles.');return;}
+  if(view==='dash'&&!canAccessProductionDashboard()){renderBlocked(view,'Only Master, Sushil (Planning), and Production team members can access the Production Dashboard.');return;}
   if(view==='dash')renderDash();
   else if(view==='orders')renderOrders();
   else if(view==='pending')renderPending();
