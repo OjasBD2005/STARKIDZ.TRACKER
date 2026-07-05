@@ -194,11 +194,12 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
   <div class="sb-section">
     <div class="sb-title" onclick="toggleSub(this)">📈 Sales Dashboard <span class="sb-chevron open">▶</span></div>
-    <div class="sb-sub" style="max-height:200px">
+    <div class="sb-sub" style="max-height:260px">
       <div class="sb-item" data-view="sales-push" onclick="go('sales-push')">📤 Push Sale</div>
       <div class="sb-item" data-view="sales-pull" onclick="go('sales-pull')">📥 Pull Sale</div>
       <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Enter Order</div>
+      <div class="sb-item" onclick="window.open('star-kidz-sales-dashboard.html','_blank')">📦 Inventory &amp; Funnel ↗</div>
     </div>
   </div>
 
@@ -947,6 +948,42 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
 <!-- ===== INVENTORY ===== -->
 <section id="view-inventory" class="view">
+  <!-- ===== FINISHED GOODS STOCK SECTION ===== -->
+  <div id="finishedGoodsSection" style="margin-bottom:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📦 Finished Goods Stock — Raw Articles</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="filterFGStock('all')" id="fgFilterAll" style="font-size:12px">All</button>
+        <button class="btn btn-outline" onclick="filterFGStock('Summer')" id="fgFilterSummer" style="font-size:12px">Summer</button>
+        <button class="btn btn-outline" onclick="filterFGStock('Winter')" id="fgFilterWinter" style="font-size:12px">Winter</button>
+        <button class="btn btn-brand" onclick="downloadFGStock()" style="font-size:12px">⬇️ Download</button>
+        <button class="btn btn-outline" onclick="toggleEl('fgImportForm')" style="font-size:12px">📤 Import</button>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 16px;overflow:auto">
+      <table class="tbl" style="min-width:1000px">
+        <thead>
+          <tr>
+            <th>Article</th>
+            <th>Category</th>
+            <th>Machine</th>
+            <th>Series</th>
+            <th class="num">Stock (ctns)</th>
+            <th class="num">Stock (pairs)</th>
+            <th>Last Update</th>
+          </tr>
+        </thead>
+        <tbody id="fgStockTable"></tbody>
+      </table>
+    </div>
+    <!-- Import Form -->
+    <div id="fgImportForm" style="display:none;margin-top:14px" class="card" style="padding:14px 16px">
+      <div style="font-weight:700;margin-bottom:10px">📤 Import Finished Goods Stock</div>
+      <input type="file" accept=".xlsx,.xls,.csv" id="fgImportFile" style="margin-bottom:8px">
+      <button class="btn btn-brand" onclick="uploadFGStock()" style="font-size:12px">Upload File</button>
+    </div>
+  </div>
+
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <h2 style="font-size:20px;font-weight:800;color:#0f172a">📊 Inventory — Live Stock List</h2>
     <div style="display:flex;gap:8px">
@@ -1534,6 +1571,20 @@ ORDERS.forEach(o=>{
   }
 });
 
+// ── DATA: FINISHED GOODS STOCK (Raw Articles) ──
+let FINISHED_GOODS_STOCK=[
+  {article:'CRYSTA-13',category:'LADIES BELLY',machine:'Vertical',series:'Crysta',stockCtns:35,stockPairs:420,lastUpdate:'2026-07-04',season:'Summer'},
+  {article:'DIYA-02',category:'LADIES SPORTS',machine:'Stuckon',series:'Diya',stockCtns:18,stockPairs:216,lastUpdate:'2026-07-04',season:'Summer'},
+  {article:'STAR',category:'SCHOOL SHOE',machine:'Vertical',series:'Star',stockCtns:5,stockPairs:60,lastUpdate:'2026-07-04',season:'Summer'},
+  {article:'FIRE',category:'LIGHT SHOES',machine:'Rotary',series:'Fire',stockCtns:60,stockPairs:720,lastUpdate:'2026-07-04',season:'Summer'},
+  {article:'AIR-2002',category:'SCUBA',machine:'AIR',series:'Air',stockCtns:12,stockPairs:144,lastUpdate:'2026-07-04',season:'Summer'},
+  {article:'ALIA-01',category:'SK',machine:'Vertical',series:'Alia',stockCtns:22,stockPairs:264,lastUpdate:'2026-07-04',season:'Summer'},
+  {article:'CANDY-21',category:'LADIES BELLY',machine:'Vertical',series:'Candy',stockCtns:45,stockPairs:540,lastUpdate:'2026-07-03',season:'Summer'},
+  {article:'BEAR-101',category:'11X1 2X5 PVC',machine:'Vertical',series:'Bear',stockCtns:41,stockPairs:492,lastUpdate:'2026-07-03',season:'Summer'},
+  {article:'GSD-250',category:'GIRLS SANDAL',machine:'PU',series:'GSD',stockCtns:40,stockPairs:480,lastUpdate:'2026-07-02',season:'Winter'},
+  {article:'KVS-171',category:'SK',machine:'PU',series:'KVS',stockCtns:32,stockPairs:384,lastUpdate:'2026-07-01',season:'Winter'},
+];
+
 // ── DATA: INVENTORY ──
 let INVENTORY=[
   {id:'INV001',name:'AIR-2002 Finished Shoe',sku:'FP-AIR2002',type:'finished',category:'PU',unit:'pairs',stock:120,minLevel:50,location:'Finished Goods Store',articleCode:'AIR-2002',dateAdded:'2026-05-01'},
@@ -2070,6 +2121,7 @@ function isRestrictedSales(){return !IS_MASTER && currentUser.role==='SALES'}
 function hasStateLock(){return isRestrictedSales() && Array.isArray(currentUser.states)}
 function isRestrictedProduction(){return !IS_MASTER && currentUser.role!=='SALES'}
 function canAccessProductionDashboard(){return IS_MASTER || currentUser.role==='PLANNING' || currentUser.role==='GM' || ['UPPER','PU','PVC','STUCKON','EVA','RMSTORE','RMDISP','CUTTING'].includes(currentUser.role)}
+function canAccessFinishedGoodsStock(){return IS_MASTER || currentUser.role==='SALES' || currentUser.role==='PLANNING' || currentUser.role==='GM' || currentUser.name==='RENU' || currentUser.name==='SHUBHAMI' || currentUser.name==='KOMAL JAIN' || currentUser.name==='SUSHIL'}
 const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
 const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties'];
 function renderBlocked(view,reason){
@@ -2093,7 +2145,7 @@ function go(view){
   else if(view==='orders')renderOrders();
   else if(view==='pending')renderPending();
   else if(view==='gm')renderGM();
-  else if(view==='inventory')renderInventory();
+  else if(view==='inventory'){renderFGStock();renderInventory();}
   else if(view==='stock-log')renderStockLog();
   else if(view==='my-queue')renderMyQueue();
   else if(view==='pendency')renderPendencyLog();
@@ -4370,6 +4422,53 @@ function populateInvLocationSelect(){
   const cur=sel.value;
   sel.innerHTML='<option value="all">All Locations</option>'+locs.map(l=>`<option value="${l}"${l===cur?' selected':''}>${l}</option>`).join('');
 }
+
+// ── FINISHED GOODS STOCK FUNCTIONS ──
+let fgFilterSeason='all';
+function renderFGStock(){
+  if(!canAccessFinishedGoodsStock()){$('#finishedGoodsSection').style.display='none';return}
+  const filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK:FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
+  const html=filtered.map(s=>`
+    <tr>
+      <td><b>${s.article}</b></td>
+      <td>${s.category}</td>
+      <td>${s.machine}</td>
+      <td>${s.series}</td>
+      <td class="num" style="font-weight:700">${s.stockCtns}</td>
+      <td class="num" style="font-weight:700">${s.stockPairs}</td>
+      <td style="font-size:12px;color:#64748b">${s.lastUpdate}</td>
+    </tr>
+  `).join('');
+  const tbl=$('#fgStockTable');if(tbl)tbl.innerHTML=html;
+  $$('[id^="fgFilter"]').forEach(b=>b.classList.remove('btn-brand')||b.classList.add('btn-outline'));
+  const activeBtn=$(`#fgFilter${fgFilterSeason==='all'?'All':fgFilterSeason}`);if(activeBtn){activeBtn.classList.remove('btn-outline');activeBtn.classList.add('btn-brand');}
+}
+function filterFGStock(season){fgFilterSeason=season;renderFGStock()}
+function downloadFGStock(){
+  if(!canAccessFinishedGoodsStock()){alert('Access denied: Only Sales, Coordinators, GM, Planning, and Master can download stock.');return}
+  const filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK:FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
+  const headers=['Article','Category','Machine','Series','Stock (ctns)','Stock (pairs)','Last Update'];
+  const rows=filtered.map(s=>[s.article,s.category,s.machine,s.series,s.stockCtns,s.stockPairs,s.lastUpdate]);
+  const csv=[headers,...rows].map(r=>`"${r.join('","')}"`).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Finished-Goods-Stock-${new Date().toISOString().split('T')[0]}.csv`;link.click();
+  toast('Downloaded','✅','Stock data exported successfully.')
+}
+function uploadFGStock(){
+  if(!canAccessFinishedGoodsStock()){alert('Access denied: Only authorized users can upload stock.');return}
+  const input=$('#fgImportFile');if(!input||!input.files[0]){alert('Please select a file first');return}
+  const reader=new FileReader();reader.onload=(e)=>{
+    try{
+      const data=new Uint8Array(e.target.result);const workbook=XLSX.read(data,{type:'array'});const sheet=workbook.Sheets[workbook.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(sheet);rows.forEach(r=>{
+        const existing=FINISHED_GOODS_STOCK.find(s=>s.article===r.Article);if(existing){
+          existing.stockCtns=parseInt(r['Stock (ctns)'])||0;existing.stockPairs=parseInt(r['Stock (pairs)'])||0;existing.lastUpdate=new Date().toISOString().split('T')[0];
+        }
+      });renderFGStock();input.value='';toggleEl('fgImportForm');toast('Uploaded','✅','Finished goods stock updated successfully.');
+    }catch(err){alert('Error reading file: '+err.message);}
+  };reader.readAsArrayBuffer(input.files[0]);
+}
+
 function renderInventory(){
   populateInvLocationSelect();
   const search=($('#invSearch')||{value:''}).value.toLowerCase();
