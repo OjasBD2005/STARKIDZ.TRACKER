@@ -1900,6 +1900,8 @@ if(window.Store){
   Store.onChange(CRM_KEY,()=>{loadCrm();renderPull();});
 }
 fillFilters();renderProd();renderAll();renderPull();renderCompare();
+// Deep-link support: #pull-agent jumps straight to Pull Sale > Lead-Gen AI Agent tab
+if(location.hash==='#pull-agent'){setModule('pull');setPull('agent');}
 </script>
 </body>
 </html>

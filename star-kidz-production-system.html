@@ -199,7 +199,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <div class="sb-item" data-view="sales-pull" onclick="go('sales-pull')">📥 Pull Sale</div>
       <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Enter Order</div>
-      <div class="sb-item" onclick="window.open('star-kidz-sales-dashboard.html','_blank')">📦 Inventory &amp; Funnel ↗</div>
+      <div class="sb-item" data-view="fg-stock" onclick="go('fg-stock')">📦 Finished Goods Stock</div>
     </div>
   </div>
 
@@ -663,6 +663,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <button id="sm" class="btn btn-outline" onclick="setPull('mbo')">MBO Chains</button>
     <button id="sx" class="btn btn-outline" onclick="setPull('exp')">🌍 Exporters</button>
     <button id="sp" class="btn btn-outline" onclick="setPull('plat')">Sourcing Platforms</button>
+    <button class="btn btn-outline" style="background:#f3e8ff;color:#7c3aed;font-weight:700" onclick="window.open('star-kidz-sales-dashboard.html#pull-agent','_blank')">🤖 Lead-Gen AI Agent ↗</button>
     <input id="pullSearch" oninput="renderSalesPull()" placeholder="🔍 Search" class="inp" style="max-width:200px">
     <select id="pullCat" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All categories</option><option>New Party</option><option>Working Party</option></select>
     <select id="pullStatus" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All status</option><option>Prospect</option><option>Pending</option><option>Approved</option></select>
@@ -946,44 +947,48 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   <div id="pendingList"></div>
 </section>
 
-<!-- ===== INVENTORY ===== -->
-<section id="view-inventory" class="view">
-  <!-- ===== FINISHED GOODS STOCK SECTION ===== -->
-  <div id="finishedGoodsSection" style="margin-bottom:24px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📦 Finished Goods Stock — Raw Articles</h2>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-outline" onclick="filterFGStock('all')" id="fgFilterAll" style="font-size:12px">All</button>
-        <button class="btn btn-outline" onclick="filterFGStock('Summer')" id="fgFilterSummer" style="font-size:12px">Summer</button>
-        <button class="btn btn-outline" onclick="filterFGStock('Winter')" id="fgFilterWinter" style="font-size:12px">Winter</button>
-        <button class="btn btn-brand" onclick="downloadFGStock()" style="font-size:12px">⬇️ Download</button>
-        <button class="btn btn-outline" onclick="toggleEl('fgImportForm')" style="font-size:12px">📤 Import</button>
-      </div>
+<!-- ===== FINISHED GOODS STOCK (standalone — Sales-facing, shoe stock only) ===== -->
+<section id="view-fg-stock" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📦 Finished Goods Stock — Shoes</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Live article-wise stock of finished shoes ready to sell/dispatch.</p>
     </div>
-    <div class="card" style="padding:14px 16px;overflow:auto">
-      <table class="tbl" style="min-width:1000px">
-        <thead>
-          <tr>
-            <th>Article</th>
-            <th>Category</th>
-            <th>Machine</th>
-            <th>Series</th>
-            <th class="num">Stock (ctns)</th>
-            <th class="num">Stock (pairs)</th>
-            <th>Last Update</th>
-          </tr>
-        </thead>
-        <tbody id="fgStockTable"></tbody>
-      </table>
-    </div>
-    <!-- Import Form -->
-    <div id="fgImportForm" style="display:none;margin-top:14px" class="card" style="padding:14px 16px">
-      <div style="font-weight:700;margin-bottom:10px">📤 Import Finished Goods Stock</div>
-      <input type="file" accept=".xlsx,.xls,.csv" id="fgImportFile" style="margin-bottom:8px">
-      <button class="btn btn-brand" onclick="uploadFGStock()" style="font-size:12px">Upload File</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-outline" onclick="filterFGStock('all')" id="fgFilterAll" style="font-size:12px">All</button>
+      <button class="btn btn-outline" onclick="filterFGStock('Summer')" id="fgFilterSummer" style="font-size:12px">Summer</button>
+      <button class="btn btn-outline" onclick="filterFGStock('Winter')" id="fgFilterWinter" style="font-size:12px">Winter</button>
+      <button class="btn btn-brand" onclick="downloadFGStock()" style="font-size:12px">⬇️ Download</button>
+      <button class="btn btn-outline" onclick="toggleEl('fgImportForm')" style="font-size:12px">📤 Upload Stock</button>
     </div>
   </div>
+  <div class="card" style="padding:14px 16px;overflow:auto">
+    <table class="tbl" style="min-width:1000px">
+      <thead>
+        <tr>
+          <th>Article</th>
+          <th>Category</th>
+          <th>Machine</th>
+          <th>Series</th>
+          <th class="num">Stock (ctns)</th>
+          <th class="num">Stock (pairs)</th>
+          <th>Last Update</th>
+        </tr>
+      </thead>
+      <tbody id="fgStockTable"></tbody>
+    </table>
+  </div>
+  <!-- Import Form -->
+  <div id="fgImportForm" style="display:none;margin-top:14px" class="card">
+    <div style="font-weight:700;margin-bottom:10px">📤 Upload / Configure Finished Goods Stock</div>
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Upload an .xlsx/.csv with columns: Article, Stock (ctns), Stock (pairs) — matching articles will have stock &amp; last-update refreshed.</p>
+    <input type="file" accept=".xlsx,.xls,.csv" id="fgImportFile" style="margin-bottom:8px">
+    <button class="btn btn-brand" onclick="uploadFGStock()" style="font-size:12px">Upload File</button>
+  </div>
+</section>
 
+<!-- ===== INVENTORY ===== -->
+<section id="view-inventory" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <h2 style="font-size:20px;font-weight:800;color:#0f172a">📊 Inventory — Live Stock List</h2>
     <div style="display:flex;gap:8px">
@@ -2145,7 +2150,11 @@ function go(view){
   else if(view==='orders')renderOrders();
   else if(view==='pending')renderPending();
   else if(view==='gm')renderGM();
-  else if(view==='inventory'){renderFGStock();renderInventory();}
+  else if(view==='inventory')renderInventory();
+  else if(view==='fg-stock'){
+    if(!canAccessFinishedGoodsStock()){renderBlocked(view,'Only Sales, RENU/SHUBHAMI, Komal Jain, Sushil, and Master can view Finished Goods Stock.');return;}
+    renderFGStock();
+  }
   else if(view==='stock-log')renderStockLog();
   else if(view==='my-queue')renderMyQueue();
   else if(view==='pendency')renderPendencyLog();
@@ -4426,7 +4435,6 @@ function populateInvLocationSelect(){
 // ── FINISHED GOODS STOCK FUNCTIONS ──
 let fgFilterSeason='all';
 function renderFGStock(){
-  if(!canAccessFinishedGoodsStock()){$('#finishedGoodsSection').style.display='none';return}
   const filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK:FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
   const html=filtered.map(s=>`
     <tr>
