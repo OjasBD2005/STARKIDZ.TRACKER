@@ -48,7 +48,16 @@
       <div style="font-size:19px;font-weight:800;line-height:1">STAR <span style="color:var(--accent)">Kidz</span> · Sales Funnel</div>
       <div style="font-size:11px;opacity:.7">Ojas Footwear India Pvt. Ltd. — Push &amp; Pull Sales · Busy-linked</div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <label style="font-size:11px;opacity:.8">Role</label>
+      <select id="roleSel" class="inp" style="color:#0f172a" onchange="changeRole()">
+        <option value="komal">Komal Jain (GM)</option>
+        <option value="sushil">Sushil (Planning)</option>
+        <option value="supervisor_upper">Supervisor (Upper Making)</option>
+        <option value="supervisor_mould">Supervisor (Moulding)</option>
+        <option value="supervisor_pack">Supervisor (Packing)</option>
+        <option value="sales">Sales Team</option>
+      </select>
       <label style="font-size:11px;opacity:.8">Brand</label>
       <select id="brandSel" class="inp" style="color:#0f172a" onchange="renderAll()">
         <option value="all">All Brands</option>
@@ -59,11 +68,13 @@
       <button id="linkBtn" class="inp" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700" onclick="toggleLinkPanel()">🔗 Link &amp; Configure</button>
     </div>
   </div>
-  <!-- Module dropdowns I / II -->
-  <div style="max-width:1480px;margin:auto;padding:0 20px 12px;display:flex;gap:10px">
+  <!-- Module dropdowns I / II / III / IV / V -->
+  <div style="max-width:1480px;margin:auto;padding:0 20px 12px;display:flex;gap:10px;flex-wrap:wrap">
     <div id="tabPush" class="tab-btn tab-on" onclick="setModule('push')">I — Push Sale</div>
     <div id="tabPull" class="tab-btn tab-off" onclick="setModule('pull')">II — Pull Sale</div>
-    <div id="tabOrders" class="tab-btn tab-off" onclick="setModule('orders')">III — Pending Orders by Sales</div>
+    <div id="tabOrders" class="tab-btn tab-off" onclick="setModule('orders')">III — Pending Orders</div>
+    <div id="tabInv" class="tab-btn tab-off" onclick="setModule('inventory')">IV — 📦 Inventory</div>
+    <div id="tabPipeline" class="tab-btn tab-off" onclick="setModule('pipeline')">V — 🏭 Production Pipeline</div>
   </div>
 </header>
 
@@ -105,6 +116,19 @@
         <label class="inp" style="cursor:pointer;display:inline-block">Choose file
           <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDataset(event,'partyMaster')"></label>
         <div id="stat-partyMaster" style="font-size:11px;color:#64748b;margin-top:6px">No file uploaded</div>
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-weight:700;margin-bottom:4px">🔗 Busy ERP Integration</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Connect your Busy account for live data sync</div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:#64748b">Busy Organization ID</label>
+          <input id="busyOrgId" class="inp" placeholder="e.g., 12345" style="width:100%;margin-bottom:6px">
+          <label style="font-size:11px;color:#64748b">Busy API Key</label>
+          <input id="busyApiKey" class="inp" placeholder="Your Busy API key" style="width:100%;margin-bottom:6px" type="password">
+          <button class="inp" style="cursor:pointer;background:#1b3187;color:#fff;font-weight:700;width:100%" onclick="saveBusyConfig()">🔗 Connect Busy ERP</button>
+          <button class="inp" style="cursor:pointer;background:#059669;color:#fff;font-weight:700;width:100%;margin-top:6px" onclick="syncFromBusy()">↻ Sync Now</button>
+        </div>
+        <div id="busySyncStatus" style="font-size:11px;color:#64748b;margin-top:6px">Not connected</div>
       </div>
       <div class="card" style="padding:12px">
         <div style="font-weight:700;margin-bottom:4px">🧾 Party Sale Data — Current FY</div>
@@ -214,6 +238,20 @@
       <div class="scrollbox"><table class="tbl" id="lowBill"></table></div>
     </div>
   </div>
+
+  <!-- ===== FINISHED GOODS STOCK ===== -->
+  <div class="card" style="padding:14px;margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:800">📦 Finished Goods Stock — Raw Articles</div>
+      <div style="display:flex;gap:8px">
+        <button class="inp" style="font-size:11px;padding:4px 10px;cursor:pointer" onclick="invImportFile()">📥 Import</button>
+        <button class="inp" style="font-size:11px;padding:4px 10px;cursor:pointer" onclick="filterFinishedGoods('summer')">Summer</button>
+        <button class="inp" style="font-size:11px;padding:4px 10px;cursor:pointer" onclick="filterFinishedGoods('winter')">Winter</button>
+        <button class="inp" style="font-size:11px;padding:4px 10px;cursor:pointer" onclick="filterFinishedGoods('all')">All</button>
+      </div>
+    </div>
+    <div class="scrollbox" style="max-height:none"><table class="tbl" id="finishedGoodsTable" style="font-size:12px"></table></div>
+  </div>
 </section>
 
 <!-- ================= PULL SALE ================= -->
@@ -223,7 +261,8 @@
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
     <div class="tab-btn sub-on" id="sd" onclick="setPull('dist')" style="padding:7px 16px">🏭 Distributors</div>
     <div class="tab-btn sub-off" id="sm" onclick="setPull('mbo')" style="padding:7px 16px">🛍️ MBOs &amp; Outlets</div>
-    <div class="tab-btn sub-off" id="sp" onclick="setPull('plat')" style="padding:7px 16px">🌐 B2B Platforms</div>
+    <div class="tab-btn sub-off" id="sp" onclick="setPull('plat')" style="padding:7px 16px">🌐 B2B / B2C Platforms</div>
+    <div class="tab-btn sub-off" id="sa" onclick="setPull('agent')" style="padding:7px 16px">🤖 Lead-Gen AI Agent</div>
     <input id="pullSearch" class="inp" style="margin-left:auto;min-width:220px" placeholder="🔎 search leads…" oninput="renderPull()">
     <select id="pullCat" class="inp" onchange="renderPull()">
       <option value="all">All categories</option><option value="New Party">New Party</option><option value="Working Party">Working Party</option>
@@ -233,10 +272,103 @@
     </select>
   </div>
 
-  <div class="card" style="padding:0;overflow:hidden">
+  <div class="card" id="pullListCard" style="padding:0;overflow:hidden">
     <div class="scrollbox" style="max-height:600px"><table class="tbl" id="leadTbl"></table></div>
   </div>
-  <div style="font-size:11px;color:#94a3b8;margin-top:10px">Auto-dedup: when a lead is moved to <b>Working</b> or appears in Busy as a billed party, it is removed from this prospect list automatically. Web-sourced contacts are official corporate / public-directory lines — re-verify before pitching.</div>
+  <div id="pullListNote" style="font-size:11px;color:#94a3b8;margin-top:10px">Auto-dedup: when a lead is moved to <b>Working</b> or appears in Busy as a billed party, it is removed from this prospect list automatically. Web-sourced contacts are official corporate / public-directory lines — re-verify before pitching.</div>
+
+  <!-- ===== 🤖 LEAD-GEN AI AGENT — approval-gated outreach CRM ===== -->
+  <div id="agentPanel" style="display:none">
+
+    <!-- Mission & rules bar -->
+    <div class="card" style="padding:14px 16px;margin-bottom:14px;border-left:5px solid #7c3aed">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-weight:800;font-size:16px">🤖 STAR Kidz Lead-Gen AI Agent</div>
+        <span id="agentClock" class="pill">…</span>
+        <span style="font-size:12px;color:#64748b">Mission: find &amp; onboard <b>new distributors + B2B retail outlets</b> for <b>Kids &amp; Ladies footwear</b>.</span>
+      </div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:#334155">
+        <span>✅ <b>Approval required</b> for every mail &amp; every call — nothing goes out on its own</span>
+        <span>📞 Interested calls forward to <b id="agFwdShow">92530 83246</b></span>
+        <span>🕙 AI calling window: <b>10:00 AM – 7:30 PM · Mon–Sat</b> (Sunday off)</span>
+        <span>🔍 Every lead auto-checked against the existing / closed Busy party list</span>
+      </div>
+    </div>
+
+    <div id="agentKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px"></div>
+
+    <!-- Add lead + settings -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card" style="padding:14px">
+        <div style="font-weight:800;margin-bottom:8px">➕ Add New Lead <span style="font-weight:500;color:#94a3b8;font-size:11px">(auto-checked against existing Busy parties)</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          <input id="agN" class="inp" placeholder="Firm / outlet name *" style="grid-column:span 2">
+          <select id="agT" class="inp"><option>Distributor</option><option>B2B Retail Outlet</option><option>MBO</option></select>
+          <select id="agSeg" class="inp"><option>Kids &amp; Ladies</option><option>Kids</option><option>Ladies</option></select>
+          <input id="agCity" class="inp" placeholder="City">
+          <input id="agState" class="inp" placeholder="State">
+          <input id="agP" class="inp" placeholder="Contact person">
+          <input id="agPh" class="inp" placeholder="Phone">
+          <input id="agEm" class="inp" placeholder="Email" style="grid-column:span 2">
+          <button class="inp" style="cursor:pointer;background:var(--brand);color:#fff;font-weight:700" onclick="agentAddManual()">Add to pipeline</button>
+          <button class="inp" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700" onclick="agentImportPull()">⬇ Import web leads</button>
+        </div>
+      </div>
+      <div class="card" style="padding:14px">
+        <div style="font-weight:800;margin-bottom:8px">⚙️ Agent Settings</div>
+        <div style="display:grid;gap:8px;font-size:12px">
+          <label>📞 Forward interested calls to<input id="agFwd" class="inp" style="width:100%" onchange="agentSaveSettings()"></label>
+          <label>📧 Approval / sender mailbox<input id="agSender" class="inp" style="width:100%" onchange="agentSaveSettings()"></label>
+          <label>🔗 n8n outreach webhook URL (approved mails/calls POST here for auto-send)<input id="agWebhook" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-leadgen" onchange="agentSaveSettings()"></label>
+          <label>🔍 n8n discovery webhook URL (returns fresh leads JSON)<input id="agDisc" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-discover" onchange="agentSaveSettings()"></label>
+          <div id="agWebhookStat" style="font-size:11px;color:#94a3b8"></div>
+          <div style="font-size:11px;color:#64748b">🕙 Calling window is fixed: <b>Mon–Sat, 10:00 AM – 7:30 PM</b>. Product line: <b>Kids &amp; Ladies footwear</b>.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Automated lead discovery -->
+    <div class="card" style="padding:14px;margin-bottom:16px;border-left:5px solid #059669">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <div style="font-weight:800">🔍 Automated Lead Discovery — All India + Worldwide</div>
+        <span id="agDiscStat" style="font-size:11px;color:#94a3b8"></span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="agRegion" class="inp"><option>All</option><option>India</option><option>Middle East</option><option>Africa</option><option>Europe</option><option>Americas</option></select>
+        <button class="inp" onclick="agentDiscover()" style="cursor:pointer;background:#059669;color:#fff;font-weight:700">⚡ Generate leads now</button>
+        <button class="inp" onclick="agentFetchRemote()" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700">🌐 Auto-fetch fresh leads (n8n / Apollo)</button>
+        <button class="inp" onclick="agentBulkDraft()" style="cursor:pointer;background:#fffbeb;color:#92400e;font-weight:700">📧 Draft mails for ALL new leads</button>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-top:8px">⚡ loads the built-in researched database — India B2B + exporters + Middle East / Africa / Europe / Americas importers — deduped against the pipeline and your existing Busy parties. 🌐 pulls unlimited fresh leads live from your n8n discovery workflow (<b>n8n-starkidz-discovery.json</b>, Apollo-powered). 📧 queues one personalised draft per lead with an email id — then press <b>✅ Approve ALL</b> in the queue and n8n sends every mail automatically from your mailbox.</div>
+    </div>
+
+    <!-- Approval queue -->
+    <div class="card" style="padding:14px;margin-bottom:16px;border-left:5px solid #d97706">
+      <div style="font-weight:800;margin-bottom:8px">🛡️ Approval Queue — nothing is mailed or called without your OK</div>
+      <div id="agentApprovals"></div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="card" style="padding:14px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div style="font-weight:800">📋 Lead Pipeline — New Distributors &amp; B2B Retail Outlets</div>
+        <button class="inp" style="cursor:pointer" onclick="agentExportCalls()">📥 Export approved call queue (CSV for AI caller)</button>
+      </div>
+      <div class="scrollbox" style="max-height:420px"><table class="tbl" id="agentTbl"></table></div>
+    </div>
+
+    <!-- Existing parties reference -->
+    <div class="card" style="padding:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <div style="font-weight:800">🏬 Existing Busy Parties — from your uploaded target sheet</div>
+        <span id="agExCount" style="font-size:11px;color:#94a3b8"></span>
+        <input id="agExSearch" class="inp" style="margin-left:auto;min-width:200px" placeholder="🔎 search party…" oninput="renderAgentEx()">
+        <select id="agExWc" class="inp" onchange="renderAgentEx()"><option value="all">All</option><option value="WORKING">Working</option><option value="CLOSED">Closed</option></select>
+      </div>
+      <div class="scrollbox" style="max-height:340px"><table class="tbl" id="agentExTbl"></table></div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:8px">⛔ WORKING parties are blocked from outreach automatically. ⚠️ CLOSED parties need your explicit confirmation before any re-engage mail/call.</div>
+    </div>
+  </div>
 </section>
 
 <!-- ================= PENDING ORDERS BY SALES (embedded Sales Tracker) ================= -->
@@ -249,6 +381,87 @@
   <div class="card" style="padding:0;overflow:hidden">
     <iframe id="ordersFrame" src="ojas-dispatch-tracker.html" title="Pending Orders by Sales"
       style="width:100%;height:calc(100vh - 230px);min-height:600px;border:0;display:block"></iframe>
+  </div>
+</section>
+
+
+<!-- ================= INVENTORY (FINISHED GOODS) - SIMPLE DATA FOCUSED ================= -->
+<section id="view-inventory" style="display:none">
+  <div style="margin-bottom:14px">
+    <button class="inp" style="cursor:pointer" onclick="invImportFile()">📥 Import XLSX</button>
+    <button class="inp" style="cursor:pointer;margin-left:6px" onclick="invDownloadCSV()">📥 Download CSV</button>
+    <button class="inp" style="cursor:pointer;margin-left:6px" onclick="invLinkBusyAPI()">🔗 Link Busy API</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="card" style="padding:12px 16px;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:end;font-size:12px">
+    <div><label style="font-size:10px;color:#64748b">Season</label><select id="invSeason" class="inp" onchange="renderInventory()"><option value="all">All</option><option value="summer">Summer</option><option value="winter">Winter</option></select></div>
+    <div><label style="font-size:10px;color:#64748b">Series</label><select id="invSeries" class="inp" onchange="renderInventory()"><option value="all">All</option></select></div>
+    <div><label style="font-size:10px;color:#64748b">Machine</label><select id="invMachine" class="inp" onchange="renderInventory()"><option value="all">All</option></select></div>
+    <div><label style="font-size:10px;color:#64748b">Status</label><select id="invStatus" class="inp" onchange="renderInventory()"><option value="all">All</option><option value="low">&lt;10</option><option value="medium">10-50</option><option value="high">&gt;50</option></select></div>
+    <input id="invSearch" class="inp" style="flex:1;min-width:140px" placeholder="Search…" oninput="renderInventory()">
+  </div>
+
+  <!-- Summary Stats -->
+  <div id="invStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px;font-size:12px"></div>
+
+  <!-- Inventory Table -->
+  <div class="card" style="padding:12px;margin-bottom:12px">
+    <div style="font-weight:700;margin-bottom:8px">Finished Stock — Article Wise</div>
+    <div class="scrollbox" style="max-height:none"><table class="tbl" id="invTable" style="font-size:12px"></table></div>
+  </div>
+
+  <!-- Series Summary -->
+  <div class="card" style="padding:12px;margin-bottom:12px">
+    <div style="font-weight:700;margin-bottom:8px">Stock by Series</div>
+    <div class="scrollbox"><table class="tbl" id="invSeriesTable" style="font-size:12px"></table></div>
+  </div>
+
+  <!-- Low Stock -->
+  <div id="invLowAlert" style="display:none" class="card" style="padding:12px;background:#fef2f2;border-left:3px solid #dc2626">
+    <div style="font-weight:700;color:#dc2626;margin-bottom:8px">⚠️ Low Stock (≤10 ctns)</div>
+    <div class="scrollbox"><table class="tbl" id="invLowTable" style="font-size:12px"></table></div>
+  </div>
+</section>
+
+<!-- ================= PRODUCTION PIPELINE (ROLE-GATED) - DATA FOCUSED ================= -->
+<section id="view-pipeline" style="display:none">
+  <div style="margin-bottom:12px;font-size:12px">
+    <button class="inp" style="padding:6px 12px" onclick="setPipelineView('all')">Overall Status</button>
+    <button class="inp" style="padding:6px 12px;margin-left:6px" onclick="setPipelineView('schedule')">Schedule</button>
+    <button class="inp" style="padding:6px 12px;margin-left:6px" onclick="setPipelineView('dept')">My Department</button>
+  </div>
+
+  <!-- Overall Status -->
+  <div id="pipeAll" style="display:none">
+    <div id="pipeKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:8px;margin-bottom:12px;font-size:11px"></div>
+    <div class="card" style="padding:12px">
+      <div style="font-weight:700;margin-bottom:8px">Pipeline Status — All Articles</div>
+      <div class="scrollbox"><table class="tbl" id="pipeTbl" style="font-size:12px"></table></div>
+    </div>
+  </div>
+
+  <!-- Schedule -->
+  <div id="pipeSched" style="display:none">
+    <div class="card" style="padding:12px">
+      <div style="font-weight:700;margin-bottom:8px">Production Schedule</div>
+      <div class="scrollbox"><table class="tbl" id="schedTbl" style="font-size:12px"></table></div>
+    </div>
+  </div>
+
+  <!-- Department View -->
+  <div id="pipeDept" style="display:none">
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px">Department:</label>
+      <select id="deptSel" class="inp" onchange="renderDeptPipeline()" style="margin-left:6px">
+        <option value="">Select…</option>
+        <option value="upper">Upper Making</option>
+        <option value="mould">Moulding</option>
+        <option value="pack">Packing</option>
+        <option value="dispatch">Dispatch</option>
+      </select>
+    </div>
+    <div id="deptWork" class="card" style="padding:12px"></div>
   </div>
 </section>
 
@@ -378,7 +591,28 @@ let LEADS=[
   {type:'Distributor',name:'GT Global Trading Co.',loc:'Madhavaram, Chennai',focus:'Kids footwear (South India)',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://www.exportersindia.com/chennai/kids-footwear.htm',source:'ExportersIndia',cat:'New Party',status:'Prospect'},
   {type:'MBO',name:"Khadim's (Khadim India Ltd.)",loc:'Kolkata',focus:'750+ outlets, 357 distributors (East); Hawai/PVC/EVA/PU/School',outlets:'750+',kids:'Yes',contact:'Franchise/vendor portal',email:'',web:'https://www.khadims.com/pages/franchisee-partnership',source:'Official site',cat:'New Party',status:'Prospect'},
   {type:'MBO',name:'Ajanta Shoes India Pvt. Ltd.',loc:'Kolkata',focus:'Men, women & kids footwear (multi-range)',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://ajantashoes.com/',source:'Official site',cat:'New Party',status:'Prospect'},
-  {type:'MBO',name:'VKC Group',loc:'Kozhikode, Kerala',focus:'Sandals/slippers/floaters/casual; mass value',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://dir.indiamart.com/impcat/vkc-footwears.html',source:'IndiaMART',cat:'New Party',status:'Prospect'}
+  {type:'MBO',name:'VKC Group',loc:'Kozhikode, Kerala',focus:'Sandals/slippers/floaters/casual; mass value',outlets:'',kids:'Yes',contact:'Via directory',email:'',web:'https://dir.indiamart.com/impcat/vkc-footwears.html',source:'IndiaMART',cat:'New Party',status:'Prospect'},
+  // ── AI-agent prospecting pass (Jul 2026) — B2B wholesalers · verify contacts before pitching ──
+  {type:'Distributor',name:'Unico Enterprises',loc:'Delhi',focus:'[B2B] Ladies footwear wholesale — top-rated supplier',outlets:'',kids:'Some',contact:'+91 8048202013',email:'',web:'https://dir.indiamart.com/impcat/ladies-fashion-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Karishma Foot Wear',loc:'Delhi',focus:'[B2B] Ladies footwear wholesale',outlets:'',kids:'Some',contact:'+91 7942804634',email:'',web:'https://dir.indiamart.com/impcat/ladies-fashion-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'D K Traders',loc:'India',focus:'[B2B] Ladies footwear wholesale (from ₹75/pair)',outlets:'',kids:'Some',contact:'+91 7949331007',email:'',web:'https://dir.indiamart.com/impcat/womens-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Dipak Leather Sales',loc:'India',focus:'[B2B] Ladies footwear wholesale (carton-wise)',outlets:'',kids:'Some',contact:'+91 7949330607',email:'',web:'https://dir.indiamart.com/impcat/womens-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Salim Footwear Industries',loc:'India',focus:'[B2B] Budget ladies footwear wholesale (from ₹65/pair)',outlets:'',kids:'Some',contact:'+91 8047683495',email:'',web:'https://dir.indiamart.com/impcat/womens-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Jai Shree Shyam Enterprises',loc:'India',focus:'[B2B] Ladies footwear wholesale/distribution',outlets:'',kids:'Some',contact:'Via IndiaMART',email:'',web:'https://dir.indiamart.com/impcat/ladies-fashion-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Ridhi Enterprises',loc:'India',focus:'[B2B] Ladies footwear wholesale/distribution',outlets:'',kids:'Some',contact:'Via IndiaMART',email:'',web:'https://dir.indiamart.com/impcat/ladies-fashion-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Gr8 Footwear',loc:'India',focus:'[B2B] Ladies footwear wholesale/distribution',outlets:'',kids:'Some',contact:'Via IndiaMART',email:'',web:'https://dir.indiamart.com/impcat/ladies-fashion-footwear.html?biz=30',source:'IndiaMART (Jul 2026)',cat:'New Party',status:'Prospect'},
+  // ── Merchant exporters / export houses — they SOURCE footwear from factories for Africa, Middle East, Gulf ──
+  {type:'Distributor',name:'Total Export Solutions',loc:'Agra, UP',focus:'[EXPORT] Sourcing & export house — ships Agra footwear worldwide; buys from factories',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://totalexportsolutions.com',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Indian Sourcing Agent (ISA)',loc:'India',focus:'[EXPORT] Sourcing agent — EVA & footwear from export-ready Indian manufacturers',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://indiansourcingagent.com/source-indian-products/footwear-eva-leather-products/',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Tirubala Group',loc:'Kanpur, UP',focus:'[EXPORT] Exporter — men/women/kids footwear to USA, UK & more',outlets:'',kids:'Yes',contact:'Via website',email:'',web:'https://www.google.com/search?q=Tirubala+Group+Kanpur+footwear+exporter',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Khukriwala Handicrafts',loc:'Agra, UP',focus:'[EXPORT] Among India’s top footwear exporters',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Khukriwala+Handicrafts+footwear+exporter',source:'Seair exporter list (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'A V Internationals',loc:'India',focus:'[EXPORT] Top-listed Indian footwear exporter',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=A+V+Internationals+footwear+exporter+India',source:'Seair exporter list (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'KS International',loc:'Agra, UP',focus:'[EXPORT] Agra footwear exporter',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=KS+International+Agra+footwear+exporter',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Winter & Summer Shoe Centre',loc:'Agra, UP',focus:'[EXPORT] Well-known Agra footwear exporter',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Winter+%26+Summer+Shoe+Centre+Agra',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Venus Steps',loc:'Agra, UP',focus:'[EXPORT] Agra footwear exporter',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Venus+Steps+Agra+footwear+exporter',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'A T Export',loc:'Agra, UP',focus:'[EXPORT] Agra footwear exporter',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=A+T+Export+Agra+footwear',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'B K Shoe Co.',loc:'Agra, UP',focus:'[EXPORT] Agra footwear exporter',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=B+K+Shoe+Co+Agra+exporter',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'},
+  {type:'Distributor',name:'Karam Udyog',loc:'Agra, UP',focus:'[EXPORT] Agra footwear exporter',outlets:'',kids:'Some',contact:'Via directory',email:'',web:'https://www.google.com/search?q=Karam+Udyog+Agra+footwear+exporter',source:'Web search (Jul 2026)',cat:'New Party',status:'Prospect'}
 ];
 /* B2B sourcing platforms (where to keep prospecting) */
 const PLATFORMS=[
@@ -390,7 +624,17 @@ const PLATFORMS=[
   {name:'LinkedIn Sales Nav',web:'https://www.linkedin.com',note:'Category buyers / sourcing heads at MBO chains'},
   {name:'GetDistributors',web:'https://www.getdistributors.com/kids-shoes-distributors.html',note:'Distributors actively seeking kids-footwear principals'},
   {name:'Sulekha (city-wise)',web:'https://www.sulekha.com/kids-footwear-shops/bangalore',note:'City-wise kids footwear shops & dealers'},
-  {name:'Dial4trade',web:'https://www.dial4trade.com/bangalore/shoes.htm',note:'Shoe wholesalers & suppliers by city'}
+  {name:'Dial4trade',web:'https://www.dial4trade.com/bangalore/shoes.htm',note:'Shoe wholesalers & suppliers by city'},
+  // ── B2C marketplaces (Jul 2026) — register as seller/brand to reach consumers directly ──
+  {name:'FirstCry Seller (B2C)',web:'https://seller.firstcry.com',note:'Kids-focused B2C — GST+PAN registration; 5–20% commission; strongest kids audience'},
+  {name:'Hopscotch (B2C)',web:'https://www.hopscotch.in',note:'Kids fashion marketplace — vendor onboarding for kids footwear'},
+  {name:'Myntra Partner (B2C)',web:'https://partners.myntra.com',note:'India’s top fashion/footwear B2C — brand-partner registration'},
+  {name:'AJIO Seller (B2C)',web:'https://seller.ajio.com',note:'Reliance fashion B2C — seller registration'},
+  {name:'Flipkart Seller Hub (B2C)',web:'https://seller.flipkart.com',note:'Mass B2C — kids & ladies footwear categories'},
+  {name:'Amazon.in Seller (B2C)',web:'https://sell.amazon.in',note:'Mass B2C marketplace — FBA available'},
+  {name:'Meesho Supplier (B2C)',web:'https://supplier.meesho.com',note:'Value B2C — strongest Tier 2-4 reach for budget footwear'},
+  {name:'GetDistributors — Kids Shoes',web:'https://www.getdistributors.com/distributors/apparel-fashion/children-shoes-distributors.html',note:'Distributors ACTIVELY LOOKING for kids-shoe principals — post STAR Kidz distributorship offer'},
+  {name:'GetDistributors — Ladies Footwear',web:'https://www.getdistributors.com/ladies-footwear-distributors.html',note:'Distributors actively seeking ladies-footwear distributorships (₹50K–₹5Cr budgets)'}
 ];
 
 /* ---- Production tracker strip (reads production app data if present) ---- */
@@ -676,16 +920,26 @@ function renderCompare(){
 
 /* ---- Pull Sale ---- */
 let pullTab='dist';
-function setPull(t){pullTab=t;['sd','sm','sp'].forEach(id=>{$('#'+id).className='tab-btn sub-off';$('#'+id).style.padding='7px 16px'});
-  $('#'+({dist:'sd',mbo:'sm',plat:'sp'}[t])).className='tab-btn sub-on';$('#'+({dist:'sd',mbo:'sm',plat:'sp'}[t])).style.padding='7px 16px';renderPull()}
+function setPull(t){pullTab=t;['sd','sm','sp','sa'].forEach(id=>{$('#'+id).className='tab-btn sub-off';$('#'+id).style.padding='7px 16px'});
+  const tid={dist:'sd',mbo:'sm',plat:'sp',agent:'sa'}[t];
+  $('#'+tid).className='tab-btn sub-on';$('#'+tid).style.padding='7px 16px';
+  const ag=t==='agent';
+  $('#pullListCard').style.display=ag?'none':'';
+  $('#pullListNote').style.display=ag?'none':'';
+  $('#agentPanel').style.display=ag?'':'none';
+  ['pullSearch','pullCat','pullStatus'].forEach(id=>$('#'+id).style.display=ag?'none':'');
+  renderPull()}
 function renderPullKpi(){
   const d=LEADS.filter(l=>l.type==='Distributor').length,m=LEADS.filter(l=>l.type==='MBO').length;
   const ap=LEADS.filter(l=>l.status==='Approved').length,pe=LEADS.filter(l=>l.status==='Pending').length,pr=LEADS.filter(l=>l.status==='Prospect').length;
-  const k=[['Total Leads',LEADS.length,'#1b3187'],['Distributors',d,'#7c3aed'],['MBOs / Outlets',m,'#5b8cff'],['Pending Approval',pe,'#d97706'],['Approved / Working',ap,'#059669']];
+  const k=[['Total Leads',LEADS.length,'#1b3187'],['Distributors',d,'#7c3aed'],['MBOs / Outlets',m,'#5b8cff'],['Pending Approval',pe,'#d97706'],['Approved / Working',ap,'#059669'],
+    ['🤖 Agent Pipeline',CRM.leads.length,'#7c3aed'],['🤖 Awaiting Approval',CRM.approvals.filter(a=>a.status==='Pending').length,'#b91c1c']];
+  $('#pullKpi').style.gridTemplateColumns='repeat(auto-fit,minmax(150px,1fr))';
   $('#pullKpi').innerHTML=k.map(x=>`<div class="card kpi" style="padding:12px 14px;border-left-color:${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
 }
 function renderPull(){
   renderPullKpi();
+  if(pullTab==='agent'){renderAgent();return;}
   if(pullTab==='plat'){
     $('#leadTbl').innerHTML='<thead><tr><th>Platform</th><th>Profile / Link</th><th>How to use</th></tr></thead><tbody>'+
       PLATFORMS.map(p=>`<tr><td><b>${p.name}</b></td><td><a class="lnk" href="${p.web}" target="_blank" rel="noopener">${p.web.replace('https://','')}</a></td><td>${p.note}</td></tr>`).join('')+'</tbody>';
@@ -698,8 +952,8 @@ function renderPull(){
   if(stf!=='all')rows=rows.filter(l=>l.status===stf);
   const stPill=s=>({Prospect:'background:#e2e8f0;color:#475569',Pending:'background:#fef3c7;color:#92400e',Approved:'background:#bbf7d0;color:#166534'}[s]);
   $('#leadTbl').innerHTML='<thead><tr><th>Company</th><th>Location</th><th>Brands / Focus</th><th>Outlets</th><th>Kids</th><th>Contact</th><th>Profile</th><th>Source</th><th>Category</th><th>Status</th><th>Action</th></tr></thead><tbody>'+
-    rows.map((l,i)=>{const idx=LEADS.indexOf(l);return `<tr>
-      <td><b>${l.name}</b></td><td>${l.loc}</td><td style="white-space:normal;max-width:280px">${l.focus}</td>
+    rows.map((l,i)=>{const idx=LEADS.indexOf(l);const ex=matchExisting(l.name);return `<tr>
+      <td><b>${l.name}</b>${ex?`<br><span class="pill" style="${ex.wc==='WORKING'?'background:#fee2e2;color:#b91c1c':'background:#fef3c7;color:#92400e'}">${ex.wc==='WORKING'?'⛔ existing party':'⚠️ closed party'}</span>`:''}</td><td>${l.loc}</td><td style="white-space:normal;max-width:280px">${l.focus}</td>
       <td>${l.outlets||'—'}</td><td>${l.kids||'—'}</td>
       <td style="white-space:normal">${l.contact||''}${l.email?'<br><a class="lnk" href="mailto:'+l.email+'">'+l.email+'</a>':''}</td>
       <td><a class="lnk" href="${l.web}" target="_blank" rel="noopener">visit ↗</a></td>
@@ -710,7 +964,7 @@ function renderPull(){
         <option ${l.status==='Prospect'?'selected':''}>Prospect</option>
         <option ${l.status==='Pending'?'selected':''}>Pending</option>
         <option ${l.status==='Approved'?'selected':''}>Approved</option>
-      </select></td></tr>`}).join('')+'</tbody>';
+      </select> <button class="inp" style="font-size:11px;padding:3px 6px;cursor:pointer;background:#f3e8ff;color:#7c3aed;font-weight:700" onclick="sendToAgent(${idx})" title="Send to Lead-Gen AI Agent pipeline">🤖</button></td></tr>`}).join('')+'</tbody>';
 }
 function moveLead(i,status){
   LEADS[i].status=status;
@@ -718,22 +972,867 @@ function moveLead(i,status){
   renderPull();
 }
 
+/* ============== 🤖 LEAD-GEN AI AGENT — approval-gated outreach CRM ==============
+   Existing party master imported from Busy "FINAL SALE TARGET JUN MONTH-2026"
+   sheet (working (2).xlsx) — salesperson / state / firm / Working-Closed.       */
+const EXISTING_PARTIES=[
+ // ASHRAF
+ ['ASHRAF','ASSAM','DHANANI SHOES PRIVATE LIMITED - GUWAHATI','W'],
+ ['ASHRAF','BIHAR','MYGRAND SHOE STORE PVT LTD - KATIHAR','W'],
+ ['ASHRAF','BIHAR','NICE SHOE STORES - KISHANGANJ','C'],
+ ['ASHRAF','BIHAR','PATLIPUTRA DISTRIBUTORS PVT LTD - PATNA','W'],
+ ['ASHRAF','BIHAR','PRINCE FOOTWEAR - MUZAFFARPUR','W'],
+ ['ASHRAF','BIHAR','S N TRADERS - DARBHANGA','C'],
+ ['ASHRAF','JHARKHAND','BIHAR SHOE CENTRE','C'],
+ ['ASHRAF','JHARKHAND','GENERAL LEATHER - DHANBAD','C'],
+ ['ASHRAF','JHARKHAND','HAPPY SHOES - GIRIDIH','C'],
+ ['ASHRAF','JHARKHAND','LAL FOOTWEAR - RANCHI','W'],
+ ['ASHRAF','JHARKHAND','M.A. FOOTWEAR - CHAS','W'],
+ ['ASHRAF','TRIPURA','SHIBA SALES AGENCY - AGARTALA','C'],
+ ['ASHRAF','WEST BENGAL','B. LEATHERS ELEGANCE PVT LTD','W'],
+ ['ASHRAF','WEST BENGAL','CENTURY SALES CORPORATION - ASANSOL','W'],
+ ['ASHRAF','WEST BENGAL','ELEGENT ENTERPRISES - KOLKATA','W'],
+ ['ASHRAF','WEST BENGAL','HALF & HALF SHOES PRIVATE LTD - KOLKATA','W'],
+ ['ASHRAF','WEST BENGAL','MILEAGE ACTIVEWEAR PRIVATE LTD. - KOLKATA','C'],
+ ['ASHRAF','WEST BENGAL','RATNA FOOTWEAR - SILIGURI','W'],
+ // DHEERAJ
+ ['DHEERAJ','DELHI','D M TRADING COMPANY - SEELAMPUR','C'],
+ ['DHEERAJ','DELHI','NOVA MARKETING','W'],
+ ['DHEERAJ','DELHI','SACHDEVA ENTERPRISES - SUBHASH NAGAR','W'],
+ ['DHEERAJ','DELHI','DEEPAK FOOTWEARS - NAJAFGARH','W'],
+ ['DHEERAJ','DELHI','TECHNOCART ENTERPRISES - NEW DELHI','W'],
+ ['DHEERAJ','DELHI','VIKAS FOOT WEAR - SHAHDARA','W'],
+ ['DHEERAJ','HARYANA','AGGARWAL FOOTWEAR - JIND','W'],
+ ['DHEERAJ','HARYANA','BANSAL FOOTWEARS - BALLABGARH','W'],
+ ['DHEERAJ','HARYANA','DEEPAK CHAPPAL STORE - KARNAL','W'],
+ ['DHEERAJ','HARYANA','GAURAV AGENCIES - GURUGRAM','W'],
+ ['DHEERAJ','HARYANA','GUPTA FOOTWEAR STORE - PANIPAT','C'],
+ ['DHEERAJ','HARYANA','HARYANA SHOE COMPANY - BHIWANI','W'],
+ ['DHEERAJ','HARYANA','JYOTI SHOES & GENERAL MERCHANT - SIRSA','W'],
+ ['DHEERAJ','HARYANA','KHALSA ENTERPRISES - AMBALA','W'],
+ ['DHEERAJ','HARYANA','NAGPAL SHOE CO. - CHANDIGARH','W'],
+ ['DHEERAJ','HARYANA','RAJ FOOTWEAR - AMBALA CITY','W'],
+ ['DHEERAJ','HARYANA','S. K. TRADERS - TOHANA','W'],
+ ['DHEERAJ','HARYANA','V.L.TRADING CO. - SONIPAT','W'],
+ ['DHEERAJ','HIMACHAL PRADESH','MOHAN LAL SONS - SOLAN','W'],
+ ['DHEERAJ','JAMMU','R.S TRADERS - JAMMU','W'],
+ ['DHEERAJ','PUNJAB','ANEJA FOOTWEARS (AGENCIES) - LUDHIANA','W'],
+ ['DHEERAJ','PUNJAB','B S ENTERPRISES - HOSHIARPUR','C'],
+ ['DHEERAJ','PUNJAB','DELHI BOOT HOUSE - BARNALA','W'],
+ ['DHEERAJ','PUNJAB','DIWAN FOOTWEAR - ROPAR','W'],
+ ['DHEERAJ','PUNJAB','FRIENDS ENTERPRISES - JALANDHAR','W'],
+ ['DHEERAJ','PUNJAB','H.S.P FOOTWEAR - AMRITSAR','W'],
+ ['DHEERAJ','PUNJAB','MUNJAL SHOE CO. - FAZILKA','W'],
+ ['DHEERAJ','PUNJAB','PAWAN BOOT HOUSE - SANGRUR','W'],
+ ['DHEERAJ','PUNJAB','PRABHAT SHOE CO. - PATIALA','W'],
+ ['DHEERAJ','PUNJAB','SHIRI ANAND FOOTWEAR - GURDASPUR','W'],
+ ['DHEERAJ','RAJASTHAN','GANPATI FOOTWEARS - JAIPUR','W'],
+ ['DHEERAJ','RAJASTHAN','GOYAL FOOTWEAR - HANUMANGARH','W'],
+ ['DHEERAJ','RAJASTHAN','GURU JI FOOTWEAR - SRI GANGANAGAR','W'],
+ ['DHEERAJ','RAJASTHAN','HIND SHOES - AJMER','C'],
+ ['DHEERAJ','RAJASTHAN','JANTA TRADING COMPANY - KOTA','C'],
+ ['DHEERAJ','RAJASTHAN','KESHRI MARKETING - BIKANER','W'],
+ ['DHEERAJ','RAJASTHAN','OMKAR FOOTSTEP - JAIPUR','W'],
+ ['DHEERAJ','RAJASTHAN','R R AGENCIES - JAIPUR','C'],
+ ['DHEERAJ','RAJASTHAN','SHUBH AGENCIES - JODHPUR','C'],
+ ['DHEERAJ','RAJASTHAN','VIPUL ENTERPRISES - AJMER','W'],
+ // ROSHAN OJHA
+ ['ROSHAN OJHA','CHATISGARH','BAJAJ FOOTWEAR - RAIPUR','W'],
+ ['ROSHAN OJHA','CHATISGARH','BOMBAY FOOTWEAR - DURG','C'],
+ ['ROSHAN OJHA','CHATISGARH','LARI FOOTWEAR - KORBA','W'],
+ ['ROSHAN OJHA','CHATISGARH','NITIN FOOTWEAR - RAIPUR','C'],
+ ['ROSHAN OJHA','CHATISGARH','ROYAL SHOES - RAIPUR','W'],
+ ['ROSHAN OJHA','CHATISGARH','SHYAM BOOT HOUSE - SAKTI','W'],
+ ['ROSHAN OJHA','MADHYA PRADESH','ACTIVE AGENCIES - BHOPAL','W'],
+ ['ROSHAN OJHA','MADHYA PRADESH','ALAM BOOT HOUSE - SAGAR','W'],
+ ['ROSHAN OJHA','MADHYA PRADESH','ASHISH ENTERPRISES - JABALPUR','W'],
+ ['ROSHAN OJHA','MADHYA PRADESH','MANISH SHOE PLAZA - INDORE','W'],
+ ['ROSHAN OJHA','MADHYA PRADESH','NEW JHW FOOT WEAR - INDORE','W'],
+ ['ROSHAN OJHA','MADHYA PRADESH','RAYAL SHOUES - KHANDWA','W'],
+ ['ROSHAN OJHA','MADHYA PRADESH','SHUBHAM FOOTWEAR - BHOPAL','C'],
+ ['ROSHAN OJHA','ODISHA','AB ENTERPRISES - BHADRAK','C'],
+ ['ROSHAN OJHA','ODISHA','AFNAAN BOOT HOUSE - FAKIRABAD','C'],
+ ['ROSHAN OJHA','ODISHA','DAMANI FOOTWEAR - CUTTACK','W'],
+ ['ROSHAN OJHA','ODISHA','DAMANI STORE - ANGUL','W'],
+ ['ROSHAN OJHA','ODISHA','HELLO KIDS SHOES - KHORDHA','C'],
+ ['ROSHAN OJHA','ODISHA','HI CHOICE FOOTWEAR - BERHAMPUR','W'],
+ ['ROSHAN OJHA','ODISHA','KADAM FOOTWEAR - ROURKELA','W'],
+ ['ROSHAN OJHA','ODISHA','NEW BHARAT BOOT HOUSE - KESINGA','W'],
+ ['ROSHAN OJHA','ODISHA','NIKHIL ENTERPRISES - SAMBHALPUR','W'],
+ ['ROSHAN OJHA','ODISHA','BALAJI SALES - BHUBANESWAR','W'],
+ ['ROSHAN OJHA','ODISHA','RAJA FOOTWEAR - DASPALLA','W'],
+ ['ROSHAN OJHA','ODISHA','RAJPAL FOOTWEAR - CUTTACK','W'],
+ ['ROSHAN OJHA','ODISHA','SHOE XPRESS - BHUBNESHWAR','W'],
+ // PAWAN
+ ['PAWAN','ANDHRA PRADESH','KAMADHENU FOOTNEEDS - KURNOOL','W'],
+ ['PAWAN','ANDHRA PRADESH','MAANYA FOOTWEAR - VIJAYWADA','W'],
+ ['PAWAN','ANDHRA PRADESH','NOBEL ASSOCIATES - HYDERABAD','W'],
+ ['PAWAN','ANDHRA PRADESH','SNEHLATA ASSOCIATES - VIJAYWADA','W'],
+ ['PAWAN','ANDHRA PRADESH','VENUS ENTERPRISES - VIJAYAWADA','W'],
+ ['PAWAN','GOA','VINAYAK TRADING - MARGOA','W'],
+ ['PAWAN','KARNATAKA','KALA SHOE CENTRE - DAVANGERE','C'],
+ ['PAWAN','KARNATAKA','RAJ TRADING CO. - MANGALORE','W'],
+ ['PAWAN','KARNATAKA','SANJAY MARKETING - HUBLI','W'],
+ ['PAWAN','KARNATAKA','SHRI PADMAVATI DRESSES - HULAKOTI','W'],
+ ['PAWAN','KARNATAKA','T. STANES & COMPANY LIMITED - BANGALORE','W'],
+ ['PAWAN','KARNATAKA','T. STANES & COMPANY LIMITED - MANGALORE','W'],
+ ['PAWAN','KARNATAKA','UDAYAA MARKETING - BENGALORE','W'],
+ ['PAWAN','KERALA','BROOKS FOOTWEAR GROUPS - THIRUVANANTHAPURAM','W'],
+ ['PAWAN','KERALA','COLOURS TRADERS - KOTTAYAM','W'],
+ ['PAWAN','KERALA','FALCON AGENCIES PVT. LTD. - ERNAKULAM','W'],
+ ['PAWAN','KERALA','FOOTWEAR AGENCIES - ERNAKULAM','W'],
+ ['PAWAN','KERALA','M.M. VENTURES - KARUNAGAPPALLY','W'],
+ ['PAWAN','KERALA','MERINO FOOTWEAR TRADERS - ERNAKULAM','W'],
+ ['PAWAN','KERALA','S M ENTERPRISES - THIRUVANATHAPURAM','C'],
+ ['PAWAN','KERALA','SPLASH MARKETING - ERNAKULAM','C'],
+ ['PAWAN','KERALA','SWAPNA AGENCIES - THRISSUR','W'],
+ ['PAWAN','KERALA','Y&K POLYMERS - CALICUT','C'],
+ ['PAWAN','TAMIL NADU','BARUN FOOT TEX - THANJAVAUR','W'],
+ ['PAWAN','TAMIL NADU','BEAUTY BAGS - PUDUCHEERY','W'],
+ ['PAWAN','TAMIL NADU','BHALAJI TRADERS - DINDIGUL','W'],
+ ['PAWAN','TAMIL NADU','ELITE ENTERPRISES - SALEM','C'],
+ ['PAWAN','TAMIL NADU','MADRAS SHOE MART - CHENNAI','W'],
+ ['PAWAN','TAMIL NADU','MORFIK MARKETING - CHENNAI','W'],
+ ['PAWAN','TAMIL NADU','SAFIYA FOOTWEAR - KANNIYAKUMARI','C'],
+ ['PAWAN','TAMIL NADU','SARAVANA STORES (TEX)','W'],
+ ['PAWAN','TAMIL NADU','THE LEGEND NEW SARAVANA STORES - 129','W'],
+ ['PAWAN','TAMIL NADU','THE LEGEND NEW SARAVANA STORES - 15','W'],
+ ['PAWAN','TAMIL NADU','THE MADRAS SILKS INDIA PVT LTD - CHENNAI','W'],
+ ['PAWAN','TAMIL NADU','VIJAY TRADERS - CHENNAI','W'],
+ // SANJEEV
+ ['SANJEEV','GUJARAT','BOSS ENTERPRISES - NAVAGAM','W'],
+ ['SANJEEV','GUJARAT','MANISH INTERNATIONAL MF PVT LTD - AHMEDABAD','W'],
+ ['SANJEEV','MAHARASHTRA','ARADHANA SHOES - ULAHASNAGAR','W'],
+ ['SANJEEV','MAHARASHTRA','ASHA AGENCIES - PIMPRI','W'],
+ ['SANJEEV','MAHARASHTRA','CHANDAN ENTERPRISES - AHMADNAGAR','W'],
+ ['SANJEEV','MAHARASHTRA','G S MARKETING - AURANGABAD','W'],
+ ['SANJEEV','MAHARASHTRA','GAURI AGENCIES - PIMPRI','W'],
+ ['SANJEEV','MAHARASHTRA','KABIR ENTERPRISES - KOLHAPUR','C'],
+ ['SANJEEV','MAHARASHTRA','KAPIL ENTERPRISES - TURBHE','W'],
+ ['SANJEEV','MAHARASHTRA','KAPIL SHOES - NAGPUR NEW','W'],
+ ['SANJEEV','MAHARASHTRA','KARTIK ENTERPRISES - MUMBAI','W'],
+ ['SANJEEV','MAHARASHTRA','MAHALAXMI AGENCY - KOLHAPUR','W'],
+ ['SANJEEV','MAHARASHTRA','NAMRATA FOOTWEAR - AMRAVATI','W'],
+ ['SANJEEV','MAHARASHTRA','NEW MADNE SHOES CENTRE - NANDED','W'],
+ ['SANJEEV','MAHARASHTRA','NEW SAINATH SHOE PALACE - AHMADNAGAR','C'],
+ ['SANJEEV','MAHARASHTRA','PATEL FOOTWEAR PRIVATE LIMITED - LATUR','C'],
+ ['SANJEEV','MAHARASHTRA','PATEL TRADELINK - PRABHANI','W'],
+ ['SANJEEV','MAHARASHTRA','PRAKASH ENTERPRISES - BHIWANDI','W'],
+ ['SANJEEV','MAHARASHTRA','RAVIRAJ FOOT WEAR - KOLHAPUR','W'],
+ ['SANJEEV','MAHARASHTRA','SANCHI ENTERPRISES - PIMPRI','W'],
+ ['SANJEEV','MAHARASHTRA','SOHAM SALES - AMALNER','W'],
+ ['SANJEEV','MAHARASHTRA','STAR AGENCIES - BARSHI','W'],
+ ['SANJEEV','MAHARASHTRA','SWASTIK ENTERPRISES - AKOLA','C'],
+ ['SANJEEV','MAHARASHTRA','WANASKAR SALES - SOLAPUR','C'],
+ // SHAMSHAD
+ ['SHAMSHAD','NEPAL','H.N. TRADERS - (BIKASHPATH - NEPAL)','W'],
+ ['SHAMSHAD','NEPAL','NEPAL FOOTWARE - BUTWAL - NEPAL','W'],
+ ['SHAMSHAD','NEPAL','R.R.TRADING - KAPILAVASTU - NEPAL','W'],
+ ['SHAMSHAD','UTTAR PRADESH','ANANYA TRADERS - JHANSI','W'],
+ ['SHAMSHAD','UTTAR PRADESH','B.K. TRADERS - AMROHA','W'],
+ ['SHAMSHAD','UTTAR PRADESH','BAJAJ SHOE CO. - SAHARANPUR','W'],
+ ['SHAMSHAD','UTTAR PRADESH','BALKESHWAR NATH ENTERPRISES - AGRA','W'],
+ ['SHAMSHAD','UTTAR PRADESH','BANSAL TRADERS - MEERUT','W'],
+ ['SHAMSHAD','UTTAR PRADESH','BROTHERS SHOE COMPANY - MUZAFFARNAGAR','W'],
+ ['SHAMSHAD','UTTAR PRADESH','CHARAN SHOBHA - MAHARAJGANJ','W'],
+ ['SHAMSHAD','UTTAR PRADESH','CLASSIC FOOTWEAR AGENCY - LUCKNOW','W'],
+ ['SHAMSHAD','UTTAR PRADESH','EAGLE FOOTWEARS - LUCKNOW','W'],
+ ['SHAMSHAD','UTTAR PRADESH','FANCY SHOE COLLECTION - SHAHGANJ','C'],
+ ['SHAMSHAD','UTTAR PRADESH','GROVER TRADER - CHANDAUSI','W'],
+ ['SHAMSHAD','UTTAR PRADESH','GUPTA TRADERS - KANPUR','W'],
+ ['SHAMSHAD','UTTAR PRADESH','PRABHAT SHOE CO - ALIGARH','W'],
+ ['SHAMSHAD','UTTAR PRADESH','QUALITY BOOT HOUSE - GORAKHPUR','W'],
+ ['SHAMSHAD','UTTAR PRADESH','SHAMSI TRADERS - BAREILLY','W'],
+ ['SHAMSHAD','UTTAR PRADESH','SHIVAY ENTERPRISES - VARANASI','W'],
+ ['SHAMSHAD','UTTAR PRADESH','SHREE RADHEY ENTERPRISES - PRAYAGRAJ','W'],
+ ['SHAMSHAD','UTTAR PRADESH','SHRI BALAJI SALES - GHAZIABAD','W'],
+ ['SHAMSHAD','UTTAR PRADESH','SUPER SHOES - VARANASI','W'],
+ ['SHAMSHAD','UTTAR PRADESH','WINTEX FOOTWEAR - VARANASI','C'],
+ ['SHAMSHAD','UTTARAKHAND','AGARWAL & COMPANY - RAMNAGAR','W'],
+ ['SHAMSHAD','UTTARAKHAND','BAJAJ SHOE COMPANY - DEHRADUN','W'],
+ ['SHAMSHAD','UTTARAKHAND','DURGA ENTERPRISES - RISHIKESH','W'],
+ ['SHAMSHAD','UTTARAKHAND','HIND SHOE AGENCIES - KASHIPUR','W'],
+ ['SHAMSHAD','UTTARAKHAND','JOSHI AGENCIES - KOTDWAR','W'],
+ ['SHAMSHAD','UTTARAKHAND','MAGIC TRADING CO - HALDWANI','C'],
+ ['SHAMSHAD','UTTARAKHAND','RAB AGENCIES - KASHIPUR','W'],
+ ['SHAMSHAD','UTTARAKHAND','SIDHBALI TRADING COMPANY - KOTDWAR','W']
+].map(r=>({sp:r[0],state:r[1],firm:r[2],wc:r[3]==='W'?'WORKING':'CLOSED'}));
+
+/* ---- 🔍 built-in worldwide discovery database (researched Jul 2026 — verify before pitching) ---- */
+const GLOBAL_LEAD_DB=[
+ // Middle East
+ {region:'Middle East',name:'Alvina General Trading LLC',city:'Dubai',country:'UAE',type:'Distributor',focus:'[EXPORT] General trading house — imports & distributes footwear in UAE',web:'https://www.google.com/search?q=Alvina+General+Trading+LLC+Dubai+footwear',source:'ReachUAE directory'},
+ // Africa
+ {region:'Africa',name:'Wigmore Trading',city:'Lagos',country:'Nigeria',type:'Distributor',focus:'[EXPORT] Leading Nigerian wholesale clothing & footwear distributor — 15+ yrs',web:'https://wigmoretrading.com',source:'Company website'},
+ {region:'Africa',name:'FAMAD PLC',city:'Lagos / Ibadan',country:'Nigeria',type:'MBO',focus:'[EXPORT] Shoes, sandals & slippers — retail shops since 1960 (Ojota, Agege, Ibadan, Benin City)',web:'https://famadplc.com',source:'Company website'},
+ {region:'Africa',name:'Shoe Layers (Finocity Ltd)',city:'Lagos',country:'Nigeria',type:'MBO',focus:'[EXPORT] Nigeria online footwear store — men/women/kids; buys stock',web:'https://www.shoelayers.com',source:'Company website'},
+ // Europe
+ {region:'Europe',name:'ASTRÉYEE',city:'—',country:'France',type:'Distributor',focus:'[EXPORT] Claims largest kids-shoes wholesaler in Europe — girls/boys/baby',web:'https://www.astreyee.com/en/14-wholesale-kids-shoes',source:'Company website'},
+ {region:'Europe',name:'Weestep',city:'Warsaw / USA',country:'Poland',type:'Distributor',focus:'[EXPORT] Kids-shoes B2B wholesale for Europe & worldwide',web:'https://weestep.com',source:'Company website'},
+ {region:'Europe',name:'Textiel Trade Wholesale',city:'Steenbergen',country:'Netherlands',type:'Distributor',focus:'[EXPORT] EU kids footwear wholesaler (licensed characters) — sneakers/sandals/boots',web:'https://www.google.com/search?q=Textiel+Trade+Wholesale+kids+footwear+Netherlands',source:'Web search'},
+ {region:'Europe',name:'NT Wholesale Footwear (US Brass)',city:'—',country:'UK',type:'Distributor',focus:'[EXPORT] UK wholesale distributor — boys/girls school shoes, importers/stockists',web:'https://www.ntwholesalefootwear.com',source:'Company website'},
+ // Americas
+ {region:'Americas',name:'NY Wholesale',city:'New York',country:'USA',type:'Distributor',focus:'[EXPORT] NY import/export house — wholesale kids shoes & accessories',web:'https://nywholesale.com',source:'Company website'},
+ {region:'Americas',name:'Kids Adventure Shoes',city:'California',country:'USA',type:'Distributor',focus:'[EXPORT] One of California’s largest wholesale kids & infant shoe suppliers',web:'https://www.google.com/search?q=Kids+Adventure+wholesale+kids+shoes+California',source:'Web search'},
+ {region:'Americas',name:'Rioco Kidswear',city:'—',country:'USA',type:'Distributor',focus:'[EXPORT] Kids & baby shoes wholesaler — low-price bulk',web:'https://riocokidswear.com',source:'Company website'}
+];
+
+/* ---- name normalisation + existing-party matching ---- */
+function agNorm(s){
+  return String(s||'').toUpperCase()
+    .split(/\s-\s|-(?=[A-Z ])/)[0]           // drop the "- CITY" suffix
+    .replace(/\(.*?\)/g,' ')
+    .replace(/[^A-Z0-9 ]/g,' ')
+    .replace(/\b(PVT|PRIVATE|LTD|LIMITED)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function matchExisting(name){
+  const n=agNorm(name);if(!n||n.length<4)return null;
+  let best=null;
+  for(const p of EXISTING_PARTIES){
+    const e=agNorm(p.firm);if(!e)continue;
+    if(e===n||((e.includes(n)||n.includes(e))&&Math.min(e.length,n.length)>=6)){
+      if(!best||p.wc==='WORKING')best=p;
+      if(best.wc==='WORKING')break;
+    }
+  }
+  return best;
+}
+
+/* ---- CRM state (persisted; syncs like the rest of the dashboard) ---- */
+const CRM_KEY='STARKIDZ_PULL_CRM';
+const CRM_DEFAULTS={forward:'92530 83246',sender:'bd.executive@starkidz.co.in',product:'Kids & Ladies Footwear',webhook:'',discoveryHook:''};
+let CRM={seq:1,leads:[],approvals:[],settings:Object.assign({},CRM_DEFAULTS)};
+function loadCrm(){
+  try{
+    const raw=(window.Store?Store.getItem(CRM_KEY):localStorage.getItem(CRM_KEY));
+    if(raw){const d=JSON.parse(raw);CRM=Object.assign(CRM,d);CRM.settings=Object.assign({},CRM_DEFAULTS,d.settings||{});}
+  }catch(e){}
+}
+function saveCrm(){
+  const s=JSON.stringify(CRM);
+  if(window.Store)Store.setItem(CRM_KEY,s);else try{localStorage.setItem(CRM_KEY,s)}catch(e){}
+}
+
+/* ---- calling-window rules: Mon–Sat, 10:00–19:30 ---- */
+function inCallWindow(d){if(d.getDay()===0)return false;const m=d.getHours()*60+d.getMinutes();return m>=600&&m<=1170;}
+function nextCallSlot(){
+  const d=new Date();
+  if(inCallWindow(d))return d;
+  if(d.getDay()!==0&&(d.getHours()*60+d.getMinutes())<600){d.setHours(10,0,0,0);return d;}
+  do{d.setDate(d.getDate()+1);}while(d.getDay()===0);
+  d.setHours(10,0,0,0);return d;
+}
+function fmtDT(d){return d.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});}
+function dtLocalVal(d){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());}
+function agentClockTick(){
+  const el=$('#agentClock');if(!el)return;
+  const ok=inCallWindow(new Date());
+  el.textContent=ok?'🟢 AGENT LIVE — inside calling window':'🔴 Outside calling hours — next slot: '+fmtDT(nextCallSlot());
+  el.style.background=ok?'#bbf7d0':'#fee2e2';el.style.color=ok?'#166534':'#b91c1c';
+}
+
+/* ---- outreach drafts (edited & approved by you before anything goes out) ---- */
+function agentEmailDraft(l){
+  const s=CRM.settings,place=l.city||'your city';
+  return {
+    subject:'STAR Kidz — '+s.product+' Distributorship for '+place,
+    body:'Dear '+(l.person||'Sir/Madam')+',\n\n'
+      +'Greetings from STAR Kidz (Ojas Footwear India Pvt. Ltd.).\n\n'
+      +'We manufacture fast-moving KIDS & LADIES footwear (EVA, PU, Stuckon, Rotary & Vertical ranges) and supply 140+ working distributors across India. We are now appointing a '
+      +(l.type==='MBO'?'retail chain partner':'distributor / B2B retail partner')+' in '+place+(l.state?', '+l.state:'')+'.\n\n'
+      +'Why partner with STAR Kidz:\n'
+      +'• Fresh kids & ladies designs every season, from our own production lines\n'
+      +'• NO MOQ — order only what sells, refill anytime\n'
+      +'• Distributor-wise margin structure with scheme & replacement support — finalised one-to-one\n'
+      +'• Quick factory-direct dispatch\n\n'
+      +'If this interests you, simply reply to this mail or call us on '+s.forward+' (Mon–Sat, 10:00 AM – 7:30 PM) and our BD team will connect the same day.\n\n'
+      +'Warm regards,\nBusiness Development — STAR Kidz\nOjas Footwear India Pvt. Ltd.\n'+s.sender
+  };
+}
+function agentCallScript(l){
+  const s=CRM.settings,place=l.city||'your city';
+  return 'OPENER: "Namaste, this is the STAR Kidz assistant calling from Ojas Footwear India. Am I speaking with '+(l.person||('the owner of '+l.name))+'? We are appointing distributors for our kids & ladies footwear range and '+place+' is open right now — do you have one minute?"\n\n'
+    +'TALKING POINTS:\n'
+    +'1. STAR Kidz manufactures kids & ladies footwear on 5 machine lines (EVA / PU / Stuckon / Rotary / Vertical) — 140+ active distributors across India.\n'
+    +'2. NO MOQ — order only what sells; margins are structured distributor-wise and finalised one-to-one, with scheme + replacement support.\n'
+    +'3. Factory-direct dispatch, and the territory for '+place+' is currently open — the first partner gets it.\n\n'
+    +'IF INTERESTED → say: "Excellent, I am connecting you to our Business Development head right now" → TRANSFER CALL TO '+s.forward+'.\n'
+    +'IF BUSY → offer a callback within Mon–Sat 10:00–19:30 and log the slot.\n'
+    +'LIKELY OBJECTION: "Already stocking another brand" → "Most of our distributors run STAR Kidz alongside other brands — kids & ladies is an add-on counter, not a replacement. May I send the catalogue on WhatsApp?"';
+}
+
+/* ---- pipeline management ---- */
+const AG_STAGES=['New','Approval Requested (Mail)','Approval Requested (Call)','Mail Sent','Call Queued','Interested — Forwarded','Not Interested','Converted','Re-Engage (Closed Party)','Blocked — Existing Party','Dropped'];
+function agentAddLead(o,src){
+  if(CRM.leads.some(x=>agNorm(x.name)===agNorm(o.name))){alert('"'+o.name+'" is already in the AI agent pipeline.');return null;}
+  const l=Object.assign({id:'L'+(CRM.seq++),stage:'New',src:src||'Manual',created:Date.now(),person:'',phone:'',email:'',city:'',state:'',type:'Distributor',segment:'Kids & Ladies'},o);
+  const ex=matchExisting(l.name);
+  if(ex){l.exMatch={firm:ex.firm,wc:ex.wc,sp:ex.sp,state:ex.state};l.stage=ex.wc==='WORKING'?'Blocked — Existing Party':'Re-Engage (Closed Party)';}
+  CRM.leads.push(l);saveCrm();return l;
+}
+function agentAddManual(){
+  const name=$('#agN').value.trim();
+  if(!name){alert('Enter the firm / outlet name first.');return;}
+  const l=agentAddLead({name,type:$('#agT').value,city:$('#agCity').value.trim(),state:$('#agState').value.trim(),person:$('#agP').value.trim(),phone:$('#agPh').value.trim(),email:$('#agEm').value.trim(),segment:$('#agSeg').value},'Manual');
+  if(!l)return;
+  ['agN','agCity','agState','agP','agPh','agEm'].forEach(id=>$('#'+id).value='');
+  if(l.exMatch)alert((l.exMatch.wc==='WORKING'?'⛔ Matches EXISTING WORKING party: ':'⚠️ Matches CLOSED party: ')+l.exMatch.firm+' ('+l.exMatch.sp+' — '+l.exMatch.state+')');
+  renderPull();
+}
+function sendToAgent(i){
+  const l=LEADS[i];if(!l)return;
+  const ph=(l.contact||'').match(/[+0-9][0-9 ()\-]{7,}/);
+  const added=agentAddLead({name:l.name,city:l.loc,email:l.email||'',phone:ph?ph[0]:'',type:l.type==='MBO'?'MBO':'Distributor'},'Pull list');
+  if(added){
+    alert('🤖 "'+l.name+'" added to the AI agent pipeline.'+(added.exMatch?'\n'+(added.exMatch.wc==='WORKING'?'⛔ Matches existing working party: ':'⚠️ Matches closed party: ')+added.exMatch.firm:''));
+    setPull('agent');
+  }
+}
+function agentImportPull(){
+  let n=0;
+  LEADS.forEach(l=>{
+    if(CRM.leads.some(x=>agNorm(x.name)===agNorm(l.name)))return;
+    const ph=(l.contact||'').match(/[+0-9][0-9 ()\-]{7,}/);
+    if(agentAddLead({name:l.name,city:l.loc,email:l.email||'',phone:ph?ph[0]:'',type:l.type==='MBO'?'MBO':'Distributor'},'Pull list'))n++;
+  });
+  alert(n+' web-sourced leads imported into the AI agent pipeline (duplicates skipped, existing parties flagged).');
+  renderPull();
+}
+/* ---- 🔍 automated lead discovery + bulk auto-mail ---- */
+function agentDiscover(){
+  const region=$('#agRegion').value;let n=0,blocked=0;
+  const tryAdd=o=>{
+    if(CRM.leads.some(x=>agNorm(x.name)===agNorm(o.name)))return;
+    const l=agentAddLead(o.lead,o.src);
+    if(l){n++;if(l.exMatch)blocked++;}
+  };
+  GLOBAL_LEAD_DB.forEach(o=>{
+    if(region!=='All'&&o.region!==region)return;
+    tryAdd({name:o.name,lead:{name:o.name,city:o.city,country:o.country,phone:o.phone||'',email:o.email||'',type:o.type,focus:o.focus},src:'Auto-discovery ('+o.region+')'});
+  });
+  if(region==='All'||region==='India'){
+    LEADS.forEach(l=>{
+      const ph=(l.contact||'').match(/[+0-9][0-9 ()\-]{7,}/);
+      tryAdd({name:l.name,lead:{name:l.name,city:l.loc,country:'India',email:l.email||'',phone:ph?ph[0]:'',type:l.type==='MBO'?'MBO':'Distributor',focus:l.focus},src:'Auto-discovery (India)'});
+    });
+  }
+  $('#agDiscStat').textContent='🟢 Generated '+n+' leads'+(blocked?' ('+blocked+' flagged against existing parties)':'')+' — region: '+region+'.';
+  renderPull();
+}
+function agentFetchRemote(){
+  const url=(CRM.settings.discoveryHook||'').trim();
+  if(!url){alert('Paste your n8n DISCOVERY webhook URL in ⚙️ Agent Settings first (import n8n-starkidz-discovery.json into n8n).');return;}
+  const region=$('#agRegion').value,el=$('#agDiscStat');
+  el.textContent='⏳ Fetching fresh leads from n8n…';
+  fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'discover_leads',region,product:CRM.settings.product})})
+    .then(r=>r.json())
+    .then(arr=>{
+      if(!Array.isArray(arr))arr=(arr&&arr.leads)||[];
+      let n=0;
+      arr.forEach(o=>{
+        if(!o||!o.name)return;
+        if(CRM.leads.some(x=>agNorm(x.name)===agNorm(o.name)))return;
+        if(agentAddLead({name:o.name,city:o.city||'',state:o.state||'',country:o.country||'',phone:o.phone||'',email:o.email||'',type:o.type||'Distributor',focus:o.focus||''},'n8n auto-discovery'))n++;
+      });
+      el.textContent='🟢 '+n+' fresh leads imported from n8n.';renderPull();
+    })
+    .catch(()=>{el.textContent='🔴 Discovery webhook unreachable or returned invalid JSON.';});
+}
+function agentBulkDraft(){
+  let n=0,noMail=0;
+  CRM.leads.forEach(l=>{
+    if(l.exMatch&&l.exMatch.wc==='WORKING')return;
+    if(['Mail Sent','Converted','Dropped','Not Interested','Blocked — Existing Party','Interested — Forwarded'].indexOf(l.stage)>-1)return;
+    if(CRM.approvals.some(a=>a.leadId===l.id&&a.kind==='email'&&a.status==='Pending'))return;
+    if(!l.email){noMail++;return;}
+    const d=agentEmailDraft(l);
+    CRM.approvals.push({id:'A'+(CRM.seq++),leadId:l.id,kind:'email',status:'Pending',created:Date.now(),subject:d.subject,body:d.body});
+    l.stage='Approval Requested (Mail)';n++;
+  });
+  saveCrm();renderPull();
+  alert('📧 '+n+' mail drafts created — waiting in the Approval Queue.'+(noMail?'\n'+noMail+' leads skipped (no email id — add their emails or use 📞 AI call instead).':''));
+}
+function agentApproveAllMails(){
+  const pend=CRM.approvals.filter(a=>a.kind==='email'&&a.status==='Pending');
+  if(!pend.length){alert('No pending mail approvals.');return;}
+  const hook=(CRM.settings.webhook||'').trim();
+  if(!hook){alert('⚠️ For automatic sending, paste your n8n webhook URL in ⚙️ Agent Settings first.\nWithout n8n, approve mails one-by-one — each opens in your mailbox to press Send.');return;}
+  if(!confirm('✅ Approve ALL '+pend.length+' mails and auto-send them via n8n from '+CRM.settings.sender+'?\nThis is your one approval for the whole batch.'))return;
+  pend.forEach(a=>{
+    const s=$('#apSub-'+a.id);if(s){a.subject=s.value;a.body=$('#apBody-'+a.id).value;}
+    a.status='Approved';a.approved=Date.now();
+    const l=CRM.leads.find(x=>x.id===a.leadId);
+    if(l)l.stage='Mail Sent';
+    agentWebhook('approved_email',l||{},a);
+  });
+  saveCrm();renderPull();
+}
+function agentStage(id,v){
+  const l=CRM.leads.find(x=>x.id===id);if(!l)return;
+  l.stage=v;
+  if(v==='Interested — Forwarded')alert('📞 Marked interested — forward this party to '+CRM.settings.forward+'.');
+  saveCrm();renderPull();
+}
+
+/* ---- approval flow: request → you approve/reject → only then mail opens / call queues ---- */
+function agentRequest(id,kind){
+  const l=CRM.leads.find(x=>x.id===id);if(!l)return;
+  if(l.exMatch&&l.exMatch.wc==='WORKING'){alert('⛔ '+l.name+' matches EXISTING WORKING party "'+l.exMatch.firm+'" ('+l.exMatch.sp+' / '+l.exMatch.state+').\nOutreach is blocked — we already work with them.');return;}
+  if(l.exMatch&&l.exMatch.wc==='CLOSED'&&!confirm('⚠️ '+l.name+' matches CLOSED party "'+l.exMatch.firm+'" — we stopped working with them earlier.\nStill create a re-engage '+(kind==='email'?'mail':'call')+' request for your approval?'))return;
+  if(kind==='email'&&!l.email){const em=prompt('No email saved for '+l.name+'. Enter their email id:');if(!em)return;l.email=em.trim();}
+  if(kind==='call'&&!l.phone){const ph=prompt('No phone saved for '+l.name+'. Enter their phone number:');if(!ph)return;l.phone=ph.trim();}
+  const a={id:'A'+(CRM.seq++),leadId:l.id,kind,status:'Pending',created:Date.now()};
+  if(kind==='email'){const d=agentEmailDraft(l);a.subject=d.subject;a.body=d.body;}
+  else{a.script=agentCallScript(l);a.schedule=dtLocalVal(nextCallSlot());}
+  CRM.approvals.push(a);
+  l.stage='Approval Requested ('+(kind==='email'?'Mail':'Call')+')';
+  saveCrm();renderPull();
+}
+function agentApprove(aid){
+  const a=CRM.approvals.find(x=>x.id===aid);if(!a||a.status!=='Pending')return;
+  const l=CRM.leads.find(x=>x.id===a.leadId)||{};
+  if(a.kind==='email'){
+    a.subject=$('#apSub-'+aid).value;a.body=$('#apBody-'+aid).value;
+    a.status='Approved';a.approved=Date.now();l.stage='Mail Sent';
+    agentWebhook('approved_email',l,a);
+    saveCrm();renderPull();
+    location.href='mailto:'+encodeURIComponent(l.email||'')+'?subject='+encodeURIComponent(a.subject)+'&body='+encodeURIComponent(a.body);
+    return;
+  }
+  const sc=$('#apWhen-'+aid).value,d=sc?new Date(sc):null;
+  if(!d||isNaN(d)){alert('Pick a call date & time first.');return;}
+  if(!inCallWindow(d)){alert('⛔ Outside the AI calling window — calls are allowed only Mon–Sat, 10:00 AM to 7:30 PM.\nNext available slot: '+fmtDT(nextCallSlot()));return;}
+  a.schedule=sc;a.script=$('#apScript-'+aid).value;
+  a.status='Approved';a.approved=Date.now();l.stage='Call Queued';
+  agentWebhook('approved_call',l,a);
+  saveCrm();renderPull();
+}
+function agentReject(aid){
+  const a=CRM.approvals.find(x=>x.id===aid);if(!a)return;
+  a.status='Rejected';
+  const l=CRM.leads.find(x=>x.id===a.leadId);
+  if(l&&l.stage.indexOf('Approval Requested')===0)l.stage='New';
+  saveCrm();renderPull();
+}
+
+/* ---- bridge to n8n / Vapi: approved actions POST to your webhook when configured ---- */
+function agentWebhook(event,l,a){
+  const url=(CRM.settings.webhook||'').trim();if(!url)return;
+  const payload={
+    event,company:'STAR Kidz — Ojas Footwear India Pvt. Ltd.',sent_by:CRM.settings.sender,
+    lead:{name:l.name,type:l.type,city:l.city,state:l.state,phone:l.phone,email:l.email,segment:l.segment},
+    email:a.kind==='email'?{from:CRM.settings.sender,to:l.email,subject:a.subject,body:a.body}:undefined,
+    call:a.kind==='call'?{phone:l.phone,script:a.script,schedule:a.schedule,forward_to:CRM.settings.forward,calling_window:'Mon-Sat 10:00-19:30 IST'}:undefined
+  };
+  fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(()=>{const el=$('#agWebhookStat');if(el)el.textContent='🟢 Sent "'+event+'" to the webhook just now.';})
+    .catch(()=>{const el=$('#agWebhookStat');if(el)el.textContent='🔴 Webhook unreachable — action saved locally; push it manually or export the CSV.';});
+}
+function agentExportCalls(){
+  const rows=CRM.approvals.filter(a=>a.kind==='call'&&a.status==='Approved');
+  if(!rows.length){alert('No approved calls in the queue yet.');return;}
+  const esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=['company,phone,city,state,schedule,forward_to,script']
+    .concat(rows.map(a=>{const l=CRM.leads.find(x=>x.id===a.leadId)||{};return [l.name,l.phone,l.city,l.state,a.schedule,CRM.settings.forward,a.script].map(esc).join(',')})).join('\n');
+  const b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),el=document.createElement('a');
+  el.href=u;el.download='starkidz-ai-call-queue.csv';el.click();URL.revokeObjectURL(u);
+}
+function agentSaveSettings(){
+  CRM.settings.forward=$('#agFwd').value.trim()||CRM_DEFAULTS.forward;
+  CRM.settings.sender=$('#agSender').value.trim()||CRM_DEFAULTS.sender;
+  CRM.settings.webhook=$('#agWebhook').value.trim();
+  CRM.settings.discoveryHook=$('#agDisc').value.trim();
+  $('#agFwdShow').textContent=CRM.settings.forward;
+  saveCrm();
+}
+
+/* ---- agent renders ---- */
+function renderAgent(){
+  agentClockTick();
+  const P=CRM.leads,ap=CRM.approvals,cnt=st=>P.filter(l=>l.stage===st).length;
+  const k=[['Pipeline Leads',P.length,'#1b3187'],['Awaiting Approval',ap.filter(a=>a.status==='Pending').length,'#b91c1c'],
+    ['Mails Sent',cnt('Mail Sent'),'#5b8cff'],['Calls Queued',cnt('Call Queued'),'#d97706'],
+    ['Interested',cnt('Interested — Forwarded'),'#059669'],['Converted',cnt('Converted'),'#166534'],
+    ['Blocked (existing)',P.filter(l=>l.exMatch&&l.exMatch.wc==='WORKING').length,'#64748b']];
+  $('#agentKpi').innerHTML=k.map(x=>`<div class="card kpi" style="padding:12px 14px;border-left-color:${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
+  $('#agFwd').value=CRM.settings.forward;$('#agSender').value=CRM.settings.sender;$('#agWebhook').value=CRM.settings.webhook||'';$('#agDisc').value=CRM.settings.discoveryHook||'';
+  $('#agFwdShow').textContent=CRM.settings.forward;
+  renderAgentApprovals();renderAgentTbl();renderAgentEx();
+}
+function renderAgentApprovals(){
+  const pend=CRM.approvals.filter(a=>a.status==='Pending');
+  const done=CRM.approvals.filter(a=>a.status!=='Pending').slice(-8).reverse();
+  let h='';
+  if(!pend.length)h+='<div style="font-size:12px;color:#94a3b8;margin-bottom:6px">No pending approvals. Press 📧 or 📞 on a pipeline lead and the draft appears here for your sign-off.</div>';
+  const pendMails=pend.filter(a=>a.kind==='email');
+  if(pendMails.length>1)h+=`<div style="margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <button class="inp" style="cursor:pointer;background:#059669;color:#fff;font-weight:800" onclick="agentApproveAllMails()">✅ Approve ALL ${pendMails.length} mails &amp; auto-send via n8n</button>
+    <span style="font-size:11px;color:#94a3b8">One click = your batch approval; n8n then sends every mail automatically from ${CRM.settings.sender}.</span></div>`;
+  h+=pend.map(a=>{
+    const l=CRM.leads.find(x=>x.id===a.leadId)||{};
+    if(a.kind==='email')return `<div class="card" style="padding:12px;margin-bottom:10px;background:#fffbeb">
+      <div style="font-weight:700;margin-bottom:6px">📧 Mail to <b>${l.name||'?'}</b> <span style="color:#64748b;font-weight:500">(${l.email||'no email'})</span></div>
+      <input id="apSub-${a.id}" class="inp" style="width:100%;margin-bottom:6px" value="${(a.subject||'').replace(/"/g,'&quot;')}">
+      <textarea id="apBody-${a.id}" class="inp" style="width:100%;height:160px;font-size:12px">${a.body||''}</textarea>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center">
+        <button class="inp" style="cursor:pointer;background:#059669;color:#fff;font-weight:700" onclick="agentApprove('${a.id}')">✅ Approve &amp; open mail</button>
+        <button class="inp" style="cursor:pointer;background:#fee2e2;color:#b91c1c;font-weight:700" onclick="agentReject('${a.id}')">✖ Reject</button>
+        <span style="font-size:11px;color:#94a3b8">Opens as a draft in your mailbox (${CRM.settings.sender}) — <b>you</b> press Send, so nothing leaves without you.</span>
+      </div></div>`;
+    return `<div class="card" style="padding:12px;margin-bottom:10px;background:#eff6ff">
+      <div style="font-weight:700;margin-bottom:6px">📞 AI call to <b>${l.name||'?'}</b> <span style="color:#64748b;font-weight:500">(${l.phone||'no phone'})</span></div>
+      <textarea id="apScript-${a.id}" class="inp" style="width:100%;height:170px;font-size:12px">${a.script||''}</textarea>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center">
+        <label style="font-size:12px">Call at <input id="apWhen-${a.id}" type="datetime-local" class="inp" value="${a.schedule||''}"></label>
+        <button class="inp" style="cursor:pointer;background:#059669;color:#fff;font-weight:700" onclick="agentApprove('${a.id}')">✅ Approve &amp; queue call</button>
+        <button class="inp" style="cursor:pointer;background:#fee2e2;color:#b91c1c;font-weight:700" onclick="agentReject('${a.id}')">✖ Reject</button>
+        <span style="font-size:11px;color:#94a3b8">Allowed Mon–Sat 10:00–19:30 only · interested calls forward to ${CRM.settings.forward}</span>
+      </div></div>`;
+  }).join('');
+  if(done.length)h+='<div style="font-size:11px;color:#64748b;margin-top:4px"><b>Recent decisions:</b><br>'+done.map(a=>{
+    const l=CRM.leads.find(x=>x.id===a.leadId)||{};
+    return (a.status==='Approved'?'✅':'✖')+' '+(a.kind==='email'?'Mail':'Call')+' — '+(l.name||'?')+' · '+new Date(a.approved||a.created).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  }).join('<br>')+'</div>';
+  $('#agentApprovals').innerHTML=h;
+}
+function renderAgentTbl(){
+  const rows=CRM.leads.slice().sort((a,b)=>b.created-a.created);
+  if(!rows.length){$('#agentTbl').innerHTML='<tbody><tr><td style="padding:18px;color:#94a3b8">No leads yet — add one above, press 🤖 on any web lead, or use ⬇ Import web leads.</td></tr></tbody>';return;}
+  const exBadge=l=>l.exMatch
+    ?`<span class="pill" style="${l.exMatch.wc==='WORKING'?'background:#fee2e2;color:#b91c1c':'background:#fef3c7;color:#92400e'}" title="${l.exMatch.sp} — ${l.exMatch.state}">${l.exMatch.wc==='WORKING'?'⛔ existing':'⚠️ closed'}: ${l.exMatch.firm}</span>`
+    :'<span class="pill" style="background:#bbf7d0;color:#166534">🆕 new</span>';
+  $('#agentTbl').innerHTML='<thead><tr><th>Firm / Outlet</th><th>Type</th><th>Location</th><th>Contact</th><th>Segment</th><th>Existing check</th><th>Stage</th><th>Outreach (needs approval)</th></tr></thead><tbody>'+
+    rows.map(l=>{
+      const blocked=l.exMatch&&l.exMatch.wc==='WORKING';
+      return `<tr>
+      <td><b>${l.name}</b><div style="font-size:10px;color:#94a3b8">${l.src}</div></td>
+      <td>${l.type}</td>
+      <td>${[l.city,l.state,l.country&&l.country!=='India'?'🌍 '+l.country:l.country].filter(Boolean).join(', ')||'—'}</td>
+      <td style="white-space:normal">${l.person?l.person+'<br>':''}${l.phone||''}${l.email?'<br><a class="lnk" href="mailto:'+l.email+'">'+l.email+'</a>':''}</td>
+      <td>${l.segment}</td>
+      <td style="white-space:normal;max-width:220px">${exBadge(l)}</td>
+      <td><select class="inp" style="font-size:11px;padding:3px 6px" onchange="agentStage('${l.id}',this.value)">${AG_STAGES.map(s=>`<option ${l.stage===s?'selected':''}>${s}</option>`).join('')}</select></td>
+      <td>${blocked
+        ?'<span style="font-size:11px;color:#b91c1c;font-weight:700">⛔ blocked — already our party</span>'
+        :`<button class="inp" style="font-size:11px;padding:3px 8px;cursor:pointer" onclick="agentRequest('${l.id}','email')">📧 Request mail</button>
+           <button class="inp" style="font-size:11px;padding:3px 8px;cursor:pointer" onclick="agentRequest('${l.id}','call')">📞 Request AI call</button>`}</td>
+      </tr>`;
+    }).join('')+'</tbody>';
+}
+function renderAgentEx(){
+  const q=($('#agExSearch').value||'').toLowerCase(),wc=$('#agExWc').value;
+  let rows=EXISTING_PARTIES;
+  if(wc!=='all')rows=rows.filter(p=>p.wc===wc);
+  if(q)rows=rows.filter(p=>(p.firm+' '+p.state+' '+p.sp).toLowerCase().includes(q));
+  const w=EXISTING_PARTIES.filter(p=>p.wc==='WORKING').length;
+  $('#agExCount').textContent=EXISTING_PARTIES.length+' parties · '+w+' working · '+(EXISTING_PARTIES.length-w)+' closed';
+  $('#agentExTbl').innerHTML='<thead><tr><th>Firm</th><th>State</th><th>Salesperson</th><th>Status</th></tr></thead><tbody>'+
+    rows.map(p=>`<tr><td>${p.firm}</td><td>${p.state}</td><td>${p.sp}</td><td><span class="pill" style="${p.wc==='WORKING'?'background:#bbf7d0;color:#166534':'background:#fee2e2;color:#b91c1c'}">${p.wc}</span></td></tr>`).join('')+'</tbody>';
+}
+setInterval(agentClockTick,30000);
+
+/* ======== BUSY ERP INTEGRATION ======== */
+let BUSY_CONFIG={orgId:'',apiKey:'',lastSync:null};
+function saveBusyConfig(){
+  BUSY_CONFIG.orgId=$('#busyOrgId').value.trim();
+  BUSY_CONFIG.apiKey=$('#busyApiKey').value.trim();
+  if(!BUSY_CONFIG.orgId||!BUSY_CONFIG.apiKey){alert('Enter Organization ID and API Key');return;}
+  localStorage.setItem('starkidz_busy_config',JSON.stringify(BUSY_CONFIG));
+  $('#busySyncStatus').textContent='✅ Connected at '+new Date().toLocaleTimeString('en-IN');
+  alert('✅ Busy ERP connected. Click "Sync Now" to import data.');
+}
+async function syncFromBusy(){
+  if(!BUSY_CONFIG.orgId||!BUSY_CONFIG.apiKey){alert('⚠️ Configure Busy ERP first');return;}
+  $('#busySyncStatus').textContent='⏳ Syncing...';
+  try{
+    // Busy API endpoints
+    const headers={'Authorization':'Bearer '+BUSY_CONFIG.apiKey,'Content-Type':'application/json'};
+
+    // Fetch Finished Goods Stock from Busy (Inventory module)
+    const invRes=await fetch('https://secure.busyworks.in/api/v1/inventory/stock?organizationId='+BUSY_CONFIG.orgId,{headers}).catch(e=>'error');
+    if(invRes&&invRes.ok){
+      const invData=await invRes.json();
+      if(invData.data&&Array.isArray(invData.data)){
+        INVENTORY_DATA=invData.data.map(item=>({
+          article:item.itemName||item.itemCode||'',
+          category:item.categoryName||'',
+          machine:'',
+          series:item.seriesName||'',
+          stock_ctns:item.quantity||0,
+          stock_pairs:(item.quantity||0)*12,
+          last_update:new Date().toLocaleDateString('en-IN')
+        }));
+        localStorage.setItem('starkidz_inventory',JSON.stringify(INVENTORY_DATA));
+        renderFinishedGoods();
+      }
+    }
+
+    // Fetch Sales Data from Busy
+    const salesRes=await fetch('https://secure.busyworks.in/api/v1/sales?organizationId='+BUSY_CONFIG.orgId,{headers}).catch(e=>'error');
+    if(salesRes&&salesRes.ok){
+      const salesData=await salesRes.json();
+      if(salesData.data){
+        localStorage.setItem('starkidz_sales_data',JSON.stringify(salesData.data));
+      }
+    }
+
+    // Fetch Party Master (Customers)
+    const partiesRes=await fetch('https://secure.busyworks.in/api/v1/parties?organizationId='+BUSY_CONFIG.orgId,{headers}).catch(e=>'error');
+    if(partiesRes&&partiesRes.ok){
+      const partiesData=await partiesRes.json();
+      if(partiesData.data){
+        localStorage.setItem('starkidz_parties',JSON.stringify(partiesData.data));
+      }
+    }
+
+    // Fetch Production Data (if available in your Busy setup)
+    const prodRes=await fetch('https://secure.busyworks.in/api/v1/production?organizationId='+BUSY_CONFIG.orgId,{headers}).catch(e=>'error');
+    if(prodRes&&prodRes.ok){
+      const prodData=await prodRes.json();
+      if(prodData.data){
+        PIPELINE_DATA={};
+        prodData.data.forEach(item=>{
+          PIPELINE_DATA[item.articleCode||'']={target_ctns:item.plannedQty||0,machine:item.machine||'',upper:item.upperProgress||0,mould:item.moulProgress||0,pack:item.packProgress||0,dispatch:item.dispatchProgress||0};
+        });
+        localStorage.setItem('starkidz_pipeline',JSON.stringify(PIPELINE_DATA));
+      }
+    }
+
+    BUSY_CONFIG.lastSync=new Date();
+    localStorage.setItem('starkidz_busy_config',JSON.stringify(BUSY_CONFIG));
+    $('#busySyncStatus').textContent='✅ Last synced: '+new Date().toLocaleString('en-IN')+' ('+[INVENTORY_DATA.length,'articles'].join(' ')+')'
+    alert('✅ Data synced successfully!\n\n📦 Inventory: '+INVENTORY_DATA.length+' articles\n🏭 Pipeline: '+Object.keys(PIPELINE_DATA).length+' articles');
+    renderAll();
+  }catch(e){
+    $('#busySyncStatus').textContent='❌ Sync failed: '+e.message;
+    console.error('Busy sync error:',e);
+  }
+}
+function loadBusyConfig(){
+  const saved=localStorage.getItem('starkidz_busy_config');
+  if(saved){
+    BUSY_CONFIG=JSON.parse(saved);
+    if(BUSY_CONFIG.orgId&&BUSY_CONFIG.apiKey){
+      $('#busyOrgId').value=BUSY_CONFIG.orgId;
+      $('#busyApiKey').value=BUSY_CONFIG.apiKey;
+      $('#busySyncStatus').textContent='✅ Connected • Last synced: '+(BUSY_CONFIG.lastSync||'Never');
+    }
+  }
+}
+
+/* ======== ROLE-BASED ACCESS CONTROL ======== */
+const ROLE_ACCESS={
+  komal:{pipeline:true,inventory:true,all:true},
+  sushil:{pipeline:true,inventory:true,all:true},
+  supervisor_upper:{pipeline:true,inventory:true,dept:'upper'},
+  supervisor_mould:{pipeline:true,inventory:true,dept:'mould'},
+  supervisor_pack:{pipeline:true,inventory:true,dept:'pack'},
+  sales:{inventory:true,orders:true}
+};
+function changeRole(){
+  const r=$('#roleSel').value;localStorage.setItem('starkidz_user',r);
+  const names={komal:'Komal Jain (GM)',sushil:'Sushil (Planning)',supervisor_upper:'Supervisor (Upper Making)',supervisor_mould:'Supervisor (Moulding)',supervisor_pack:'Supervisor (Packing)',sales:'Sales Team'};
+  const access=ROLE_ACCESS[r]||{};
+  $('#pipelineRole').textContent=names[r];
+  // Hide/show pipeline tabs based on role
+  if(!access.pipeline){document.getElementById('tabPipeline')?.remove();}
+}
+
+/* ======== INVENTORY FUNCTIONS ======== */
+let INVENTORY_DATA=JSON.parse(localStorage.getItem('starkidz_inventory')||'[]');
+function renderInventory(){
+  const season=$('#invSeason').value,series=$('#invSeries').value,machine=$('#invMachine').value,status=$('#invStatus').value,search=($('#invSearch').value||'').toUpperCase();
+  let rows=INVENTORY_DATA.slice();
+  if(season==='summer')rows=rows.filter(r=>['SANDAL','BELLY','CROCS','SOFT'].some(s=>r.category.includes(s)));
+  if(season==='winter')rows=rows.filter(r=>['SHOE','SPORT','SCHOOL','SCUBA'].some(s=>r.category.includes(s)));
+  if(series!=='all')rows=rows.filter(r=>r.series===series);
+  if(machine!=='all')rows=rows.filter(r=>r.machine===machine);
+  if(status==='low')rows=rows.filter(r=>(+r.stock_ctns||0)<=10);
+  if(status==='medium')rows=rows.filter(r=>{const s=+r.stock_ctns||0;return s>10&&s<=50;});
+  if(status==='high')rows=rows.filter(r=>(+r.stock_ctns||0)>50);
+  if(search)rows=rows.filter(r=>r.article.includes(search)||r.category.includes(search));
+
+  renderInvKpi(INVENTORY_DATA,rows);
+  renderInvTable(rows);
+  renderInvSeries(rows);
+  renderInvLowStock(rows.filter(r=>(+r.stock_ctns||0)<=10));
+  populateInvFilters();
+}
+function renderInvKpi(all,filtered){
+  const tot=all.reduce((a,r)=>a+(+r.stock_ctns||0),0);const totp=all.reduce((a,r)=>a+(+r.stock_pairs||0),0);
+  const low=all.filter(r=>(+r.stock_ctns||0)<=10).length;const summ=filtered.reduce((a,r)=>a+(+r.stock_ctns||0),0);
+  $('#invStats').innerHTML=[
+    {l:'Total',v:tot.toLocaleString()+' ctns'},
+    {l:'Pairs',v:totp.toLocaleString()},
+    {l:'Low',v:low+' articles'},
+    {l:'SKUs',v:all.length},
+  ].map(kp=>`<div class="card" style="padding:8px;text-align:center;font-size:11px"><div style="color:#64748b">${kp.l}</div><div style="font-weight:700;font-size:13px">${kp.v}</div></div>`).join('');
+}
+function renderInvTable(rows){
+  const h='<thead><tr><th>Article</th><th>Category</th><th>Machine</th><th>Stock (ctns)</th><th>Stock (pairs)</th><th>Status</th></tr></thead>';
+  const b=rows.map(r=>{
+    const st=(+r.stock_ctns||0)<=10?'Low':(+r.stock_ctns||0)<=50?'Medium':'High';
+    return `<tr><td><b>${r.article}</b></td><td style="font-size:11px;color:#64748b">${r.category}</td><td style="font-size:11px">${r.machine}</td><td class="num"><b>${(+r.stock_ctns||0).toLocaleString()}</b></td><td class="num">${(+r.stock_pairs||0).toLocaleString()}</td><td style="font-size:11px">${st}</td></tr>`;
+  }).join('');
+  $('#invTable').innerHTML=h+'<tbody>'+b+'</tbody>';
+}
+function renderInvSeries(rows){
+  const seriesData={};
+  rows.forEach(r=>{
+    if(!seriesData[r.series])seriesData[r.series]={series:r.series,articles:0,total_ctns:0,total_pairs:0};
+    seriesData[r.series].articles++;
+    seriesData[r.series].total_ctns+=(+r.stock_ctns||0);
+    seriesData[r.series].total_pairs+=(+r.stock_pairs||0);
+  });
+  const h='<thead><tr><th>Series</th><th class="num">Articles</th><th class="num">Total Stock (ctns)</th><th class="num">Total Stock (pairs)</th></tr></thead>';
+  const b=Object.values(seriesData).sort((a,b)=>b.total_ctns-a.total_ctns).map(s=>`<tr><td><b>${s.series||'—'}</b></td><td class="num">${s.articles}</td><td class="num"><b>${s.total_ctns.toLocaleString()}</b></td><td class="num">${s.total_pairs.toLocaleString()}</td></tr>`).join('');
+  $('#invSeriesTable').innerHTML=h+'<tbody>'+b+'</tbody>';
+}
+function renderInvLowStock(rows){
+  if(rows.length===0){$('#invLowAlert').style.display='none';return;}
+  $('#invLowAlert').style.display='block';
+  const h='<thead><tr><th>Article</th><th>Category</th><th>Stock (ctns)</th><th>Stock (pairs)</th><th>Reorder?</th></tr></thead>';
+  const b=rows.map(r=>`<tr style="background:#fef2f2"><td><b>${r.article}</b></td><td>${r.category}</td><td class="num" style="color:#dc2626;font-weight:700">${(+r.stock_ctns||0).toLocaleString()}</td><td class="num">${(+r.stock_pairs||0).toLocaleString()}</td><td><button class="inp" onclick="alert('Add to reorder list')" style="font-size:11px;padding:3px 8px">📋 Add to Reorder</button></td></tr>`).join('');
+  $('#invLowTable').innerHTML=h+'<tbody>'+b+'</tbody>';
+}
+function populateInvFilters(){
+  const series=[...new Set(INVENTORY_DATA.map(r=>r.series).filter(Boolean))].sort();
+  const machines=[...new Set(INVENTORY_DATA.map(r=>r.machine).filter(Boolean))].sort();
+  $('#invSeries').innerHTML='<option value="all">All Series</option>'+series.map(s=>`<option value="${s}">${s}</option>`).join('');
+  $('#invMachine').innerHTML='<option value="all">All Machines</option>'+machines.map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+function invImportFile(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls,.csv';inp.onchange=e=>{
+    const f=e.target.files[0];const r=new FileReader();
+    r.onload=()=>{
+      try{const wb=XLSX.read(r.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws);
+        INVENTORY_DATA=data.map(row=>({article:row['Article']||row['article']||'',category:row['Category']||row['category']||'',machine:row['Machine']||row['machine']||'',series:row['Series']||row['series']||'',stock_ctns:row['Stock (ctns)']||row['stock_ctns']||0,stock_pairs:row['Stock (pairs)']||row['stock_pairs']||0,last_update:new Date().toLocaleDateString('en-IN')}));
+        localStorage.setItem('starkidz_inventory',JSON.stringify(INVENTORY_DATA));
+        $('#invLastUpdate').textContent=new Date().toLocaleString('en-IN');
+        renderInventory();alert('✅ Imported '+INVENTORY_DATA.length+' articles');
+      }catch(ex){alert('Error: '+ex.message);}
+    };r.readAsBinaryString(f);
+  };inp.click();
+}
+function invDownloadCSV(){
+  const rows=[['Article','Category','Machine','Series','Stock (ctns)','Stock (pairs)','Last Update'],...INVENTORY_DATA.map(r=>[r.article,r.category,r.machine,r.series,r.stock_ctns||0,r.stock_pairs||0,r.last_update||''])];
+  const csv=rows.map(r=>r.map(c=>/[",\n]/.test(c)?'"'+String(c).replace(/"/g,'""')+'"':c).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='inventory_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+function invLinkBusyAPI(){alert('🔗 Busy API integration coming soon. Until then, use Import XLSX to load your Inventify/Busy stock export regularly.');}
+
+/* ======== PIPELINE FUNCTIONS ======== */
+let PIPELINE_DATA=JSON.parse(localStorage.getItem('starkidz_pipeline')||'{}');
+let PIPELINE_VIEW='all';
+function setPipelineView(v){
+  PIPELINE_VIEW=v;
+  ['#pipeAll','#pipeSched','#pipeDept'].forEach(id=>$(id).style.display='none');
+  ['#pipeViewAll','#pipeViewSched','#pipeViewDept'].forEach(id=>$(id).className='tab-btn tab-off');
+  if(v==='all'){$('#pipeAll').style.display='block';$('#pipeViewAll').className='tab-btn tab-on';renderPipelineAll();}
+  else if(v==='schedule'){$('#pipeSched').style.display='block';$('#pipeViewSched').className='tab-btn tab-on';renderPipelineSchedule();}
+  else{$('#pipeDept').style.display='block';$('#pipeViewDept').className='tab-btn tab-on';}
+}
+function renderPipelineAll(){
+  const articles=Object.keys(PIPELINE_DATA).length;const total=Object.values(PIPELINE_DATA).reduce((a,r)=>a+(r.target_ctns||0),0);
+  const completed=Object.values(PIPELINE_DATA).filter(r=>(r.dispatch||0)>=100).length;
+  $('#pipeKpi').innerHTML=[
+    {l:'Articles',v:articles},
+    {l:'Target',v:total.toLocaleString()},
+    {l:'Done',v:completed},
+    {l:'In Progress',v:articles-completed},
+  ].map(kp=>`<div class="card" style="padding:8px;text-align:center"><div style="font-size:10px;color:#64748b">${kp.l}</div><div style="font-weight:700;font-size:14px">${kp.v}</div></div>`).join('');
+  const h='<thead><tr><th>Article</th><th>Target</th><th>Upper</th><th>Mould</th><th>Pack</th><th>Dispatch</th><th>Overall</th></tr></thead>';
+  const b=Object.entries(PIPELINE_DATA).map(([art,r])=>{
+    const avg=Math.round(((r.upper||0)+(r.mould||0)+(r.pack||0)+(r.dispatch||0))/4);
+    return `<tr><td><b>${art}</b></td><td>${r.target_ctns||0}</td><td>${r.upper||0}%</td><td>${r.mould||0}%</td><td>${r.pack||0}%</td><td>${r.dispatch||0}%</td><td><b>${avg}%</b></td></tr>`;
+  }).join('');
+  $('#pipeTbl').innerHTML=h+'<tbody>'+b+'</tbody>';
+}
+function renderPipelineSchedule(){
+  const h='<thead><tr><th>Article</th><th>Machine</th><th>Qty</th><th>Week 1</th><th>Week 2</th><th>Week 3</th><th>Week 4</th><th>Notes</th></tr></thead>';
+  const b=Object.entries(PIPELINE_DATA).map(([art,r])=>`<tr><td><b>${art}</b></td><td>${r.machine||'—'}</td><td>${(r.target_ctns||0).toLocaleString()}</td><td style="text-align:center">${r.week1?'✓':''}</td><td style="text-align:center">${r.week2?'✓':''}</td><td style="text-align:center">${r.week3?'✓':''}</td><td style="text-align:center">${r.week4?'✓':''}</td><td>${r.notes||'—'}</td></tr>`).join('');
+  $('#schedTbl').innerHTML=h+'<tbody>'+b+'</tbody>';
+}
+function renderDeptPipeline(){
+  const dept=$('#deptSel').value;if(!dept){$('#deptWork').innerHTML='';return;}
+  const h='<thead><tr><th>Article</th><th>Target</th><th>% Complete</th><th>Status</th><th>Update</th></tr></thead>';
+  const rows=Object.entries(PIPELINE_DATA).filter(([,r])=>r.machine).map(([art,r])=>{
+    const pct=r[dept]||0;
+    return `<tr><td><b>${art}</b></td><td>${(r.target_ctns||0)}</td><td>${pct}%</td><td>${pct>=100?'✅':'⏳'}</td><td><input type="number" min="0" max="100" value="${pct}" style="width:50px;padding:3px;border:1px solid #cbd5e1;border-radius:4px" onchange="updateDeptProgress('${art}','${dept}',this.value)"></td></tr>`;
+  }).join('');
+  $('#deptWork').innerHTML=`<table class="tbl" style="font-size:12px">${h}<tbody>${rows}</tbody></table>`;
+}
+function updateDeptProgress(art,dept,pct){
+  if(!PIPELINE_DATA[art])PIPELINE_DATA[art]={};PIPELINE_DATA[art][dept]=Math.max(0,Math.min(100,+pct||0));localStorage.setItem('starkidz_pipeline',JSON.stringify(PIPELINE_DATA));renderDeptPipeline();
+}
+
 /* ---- module switch ---- */
 function setModule(m){
   $('#view-push').style.display=m==='push'?'':'none';
   $('#view-pull').style.display=m==='pull'?'':'none';
   $('#view-orders').style.display=m==='orders'?'':'none';
+  $('#view-inventory').style.display=m==='inventory'?'':'none';
+  $('#view-pipeline').style.display=m==='pipeline'?'':'none';
   $('#tabPush').className='tab-btn '+(m==='push'?'tab-on':'tab-off');
   $('#tabPull').className='tab-btn '+(m==='pull'?'tab-on':'tab-off');
   $('#tabOrders').className='tab-btn '+(m==='orders'?'tab-on':'tab-off');
+  $('#tabInv').className='tab-btn '+(m==='inventory'?'tab-on':'tab-off');
+  $('#tabPipeline').className='tab-btn '+(m==='pipeline'?'tab-on':'tab-off');
   if(m==='pull')renderPull();
+  if(m==='inventory')renderInventory();
+  if(m==='pipeline'){
+    setPipelineView('all');
+  }
 }
-function renderAll(){renderKpi();renderPivots();renderSide()}
+function renderAll(){renderKpi();renderPivots();renderSide();renderFinishedGoods()}
+let currentFinishedGoodsFilter='all';
+function renderFinishedGoods(){
+  let rows=INVENTORY_DATA.slice();
+  if(currentFinishedGoodsFilter==='summer')rows=rows.filter(r=>['SANDAL','BELLY','CROCS','SOFT'].some(s=>r.category.includes(s)));
+  if(currentFinishedGoodsFilter==='winter')rows=rows.filter(r=>['SHOE','SPORT','SCHOOL','SCUBA'].some(s=>r.category.includes(s)));
+  const h='<thead><tr><th>Article</th><th>Category</th><th>Machine</th><th>Series</th><th>Stock (ctns)</th><th>Stock (pairs)</th><th>Last Update</th></tr></thead>';
+  const b=rows.map(r=>`<tr><td><b>${r.article}</b></td><td style="font-size:11px;color:#64748b">${r.category}</td><td style="font-size:11px">${r.machine}</td><td style="font-size:11px">${r.series||'—'}</td><td class="num"><b>${(+r.stock_ctns||0).toLocaleString()}</b></td><td class="num">${(+r.stock_pairs||0).toLocaleString()}</td><td style="font-size:11px;color:#94a3b8">${r.last_update||'—'}</td></tr>`).join('');
+  $('#finishedGoodsTable').innerHTML=h+'<tbody>'+b+'</tbody>';
+}
+function filterFinishedGoods(f){currentFinishedGoodsFilter=f;renderFinishedGoods()}
+
+/* init with sample data & load Busy config */
+loadBusyConfig();
+if(!localStorage.getItem('starkidz_inventory')){
+  const sampleInv=[
+    {article:'CRYSTA-13',category:'LADIES BELLY',machine:'Vertical',series:'Crysta',stock_ctns:35,stock_pairs:420,last_update:'2026-07-04'},
+    {article:'DIYA-02',category:'LADIES SPORTS',machine:'Stuckon',series:'Diya',stock_ctns:18,stock_pairs:216,last_update:'2026-07-04'},
+    {article:'STAR',category:'SCHOOL SHOE',machine:'Vertical',series:'Star',stock_ctns:5,stock_pairs:60,last_update:'2026-07-04'},
+    {article:'FIRE',category:'LIGHT SHOES',machine:'Rotary',series:'Fire',stock_ctns:60,stock_pairs:720,last_update:'2026-07-04'},
+    {article:'AIR-2002',category:'SCUBA',machine:'AIR',series:'Air',stock_ctns:12,stock_pairs:144,last_update:'2026-07-04'},
+    {article:'ALIA-01',category:'SK',machine:'Vertical',series:'Alia',stock_ctns:22,stock_pairs:264,last_update:'2026-07-04'},
+    {article:'CANDY-21',category:'LADIES BELLY',machine:'Vertical',series:'Candy',stock_ctns:45,stock_pairs:540,last_update:'2026-07-03'},
+    {article:'BEAR-101',category:'11X1 2X5 PVC',machine:'Vertical',series:'Bear',stock_ctns:41,stock_pairs:492,last_update:'2026-07-03'},
+    {article:'GSD-250',category:'GIRLS SANDAL',machine:'PU',series:'GSD',stock_ctns:40,stock_pairs:480,last_update:'2026-07-02'},
+    {article:'KVS-171',category:'SK',machine:'PU',series:'KVS',stock_ctns:32,stock_pairs:384,last_update:'2026-07-01'},
+  ];
+  localStorage.setItem('starkidz_inventory',JSON.stringify(sampleInv));
+  INVENTORY_DATA=sampleInv;
+}
+if(!localStorage.getItem('starkidz_pipeline')){
+  const samplePipe={
+    'CRYSTA-13':{target_ctns:140,machine:'Vertical',upper:72,mould:55,pack:38,dispatch:18,week1:true,week2:true,week3:false,week4:false},
+    'DIYA-02':{target_ctns:160,machine:'Stuckon',upper:60,mould:40,pack:20,dispatch:8,week1:true,week2:true,week3:true,week4:false},
+    'STAR':{target_ctns:90,machine:'Vertical',upper:90,mould:80,pack:70,dispatch:55,week1:true,week2:true,week3:false,week4:false},
+    'FIRE':{target_ctns:110,machine:'Rotary',upper:85,mould:70,pack:55,dispatch:40,week1:true,week2:true,week3:false,week4:false},
+  };
+  localStorage.setItem('starkidz_pipeline',JSON.stringify(samplePipe));
+  PIPELINE_DATA=samplePipe;
+}
 
 /* init */
-if(window.Store)Store.register(LINK_KEY);
-loadLink();
-if(window.Store)Store.onChange(LINK_KEY,()=>{loadLink();renderLinkPanel();renderCompare();});
+if(window.Store){Store.register(LINK_KEY);Store.register(CRM_KEY);}
+loadLink();loadCrm();
+if(window.Store){
+  Store.onChange(LINK_KEY,()=>{loadLink();renderLinkPanel();renderCompare();});
+  Store.onChange(CRM_KEY,()=>{loadCrm();renderPull();});
+}
 fillFilters();renderProd();renderAll();renderPull();renderCompare();
 </script>
 </body>
