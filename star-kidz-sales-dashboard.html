@@ -350,20 +350,7 @@
         <button class="inp" onclick="agentFetchRemote()" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700">🌐 Auto-fetch fresh leads (n8n / Apollo)</button>
         <button class="inp" onclick="agentBulkDraft()" style="cursor:pointer;background:#fffbeb;color:#92400e;font-weight:700">📧 Draft mails for ALL new leads</button>
       </div>
-      <div style="font-size:11px;color:#64748b;margin-top:8px">⚡ loads the built-in researched database — India B2B + exporters + Middle East / Africa / Europe / Americas importers — deduped against the pipeline and your existing Busy parties. 🌐 pulls unlimited fresh leads live from your n8n discovery workflow (<b>n8n-starkidz-discovery.json</b>, Apollo-powered). 📧 queues one personalised draft per lead with an email id — then press <b>✅ Approve ALL</b> in the queue and n8n sends every mail automatically from your mailbox.</div>
-    </div>
-
-    <!-- 🧠 AI Contact Finder — auto-fetch mail ids & phone numbers from the web -->
-    <div class="card" style="padding:14px;margin-bottom:16px;border-left:5px solid #0ea5e9">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-        <div style="font-weight:800">🧠 AI Contact Finder — mail ids &amp; phone numbers from the web</div>
-        <span id="agFindStat" style="font-size:11px;color:#94a3b8"></span>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="inp" onclick="agentFindAllContacts()" style="cursor:pointer;background:#0ea5e9;color:#fff;font-weight:700">⚡ Find mail &amp; phone for ALL leads missing contacts</button>
-        <span id="agFindCount" style="font-size:11px;color:#64748b"></span>
-      </div>
-      <div style="font-size:11px;color:#64748b;margin-top:8px">Searches the web (Apollo people &amp; company data via your n8n contact-finder workflow — <b>n8n-starkidz-contact-finder.json</b>) for each lead's official email id, phone number and decision-maker name, and fills them into the pipeline automatically. Leads that already have both mail &amp; phone are skipped. You can also press <b>🔎 AI find</b> on any single lead in the pipeline below.</div>
+      <div style="font-size:11px;color:#64748b;margin-top:8px">⚡ loads the built-in researched database — India B2B + exporters + Middle East / Africa / Europe / Americas importers — deduped against the pipeline and your existing Busy parties. 🌐 pulls unlimited fresh leads live from your n8n discovery workflow (<b>n8n-starkidz-discovery.json</b>, Apollo-powered). <b>🧠 Contacts included:</b> after every discovery the AI finder automatically looks up each new lead's mail id &amp; phone number from the web (<b>n8n-starkidz-contact-finder.json</b>) and shows them in the pipeline — and if you press 📧/📞 on a lead whose contact is still missing, it web-finds it on the spot before creating the draft, so mails &amp; calls go out easily. 📧 queues one personalised draft per lead with an email id — then press <b>✅ Approve ALL</b> in the queue and n8n sends every mail automatically from your mailbox.</div>
     </div>
 
     <!-- Approval queue -->
@@ -1343,6 +1330,7 @@ function agentDiscover(){
   }
   $('#agDiscStat').textContent='🟢 Generated '+n+' leads'+(blocked?' ('+blocked+' flagged against existing parties)':'')+' — region: '+region+'.';
   renderPull();
+  agentAutoEnrichNew();
 }
 function agentFetchRemote(){
   const url=(CRM.settings.discoveryHook||'').trim();
@@ -1360,24 +1348,23 @@ function agentFetchRemote(){
         if(agentAddLead({name:o.name,city:o.city||'',state:o.state||'',country:o.country||'',phone:o.phone||'',email:o.email||'',type:o.type||'Distributor',focus:o.focus||''},'n8n auto-discovery'))n++;
       });
       el.textContent='🟢 '+n+' fresh leads imported from n8n.';renderPull();
+      agentAutoEnrichNew();
     })
     .catch(()=>{el.textContent='🔴 Discovery webhook unreachable or returned invalid JSON.';});
 }
-/* ---- 🧠 AI contact finder: fetch missing mail ids & phone numbers from the web via n8n ---- */
+/* ---- 🧠 AI contact finder: built into discovery & outreach — fetches missing mail ids / phones via n8n ---- */
 function agentEnrichLead(id){
   const l=CRM.leads.find(x=>x.id===id);if(!l)return;
   agentEnrichBatch([l]);
 }
-function agentFindAllContacts(){
-  const missing=CRM.leads.filter(l=>(!l.email||!l.phone)&&!(l.exMatch&&l.exMatch.wc==='WORKING'));
-  if(!missing.length){alert('✅ Every lead in the pipeline already has both mail id & phone number.');return;}
-  agentEnrichBatch(missing);
-}
-function agentEnrichBatch(list){
-  const url=(CRM.settings.enrichHook||'').trim(),el=$('#agFindStat');
-  if(!url){alert('🧠 Paste your n8n CONTACT-FINDER webhook URL in ⚙️ Agent Settings first.\n(Import n8n-starkidz-contact-finder.json into n8n, activate it, copy the production URL.)');return;}
+function agentEnrichBatch(list,quiet){
+  const url=(CRM.settings.enrichHook||'').trim(),el=$('#agDiscStat');
+  if(!url){
+    if(!quiet)alert('🧠 Paste your n8n CONTACT-FINDER webhook URL in ⚙️ Agent Settings first.\n(Import n8n-starkidz-contact-finder.json into n8n, activate it, copy the production URL.)');
+    return Promise.resolve(0);
+  }
   if(el)el.textContent='⏳ AI finder searching mail ids & phone numbers for '+list.length+' lead(s)…';
-  fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+  return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     event:'find_contacts',
     leads:list.map(l=>({id:l.id,name:l.name,city:l.city||'',state:l.state||'',country:l.country||'India',type:l.type,website:l.website||''}))
   })})
@@ -1395,10 +1382,17 @@ function agentEnrichBatch(list){
         if(o.website&&!l.website)l.website=String(o.website).trim();
       });
       saveCrm();renderPull();
-      const el2=$('#agFindStat');
-      if(el2)el2.textContent=(nE||nP)?'🟢 AI finder done — filled in '+nE+' mail id(s) + '+nP+' phone number(s).':'🟡 Finder ran but found nothing new — try adding city/website to the leads for better matches.';
+      const el2=$('#agDiscStat');
+      if(el2)el2.textContent=(nE||nP)?'🟢 Contacts found — filled in '+nE+' mail id(s) + '+nP+' phone number(s).':'🟡 Contact finder ran but found nothing new for these leads.';
+      return nE+nP;
     })
-    .catch(()=>{const el2=$('#agFindStat');if(el2)el2.textContent='🔴 Contact-finder webhook unreachable or returned invalid JSON.';});
+    .catch(()=>{const el2=$('#agDiscStat');if(el2)el2.textContent='🔴 Contact-finder webhook unreachable or returned invalid JSON.';return 0;});
+}
+/* after any discovery, auto-find contacts for the fresh leads that came in without mail/phone */
+function agentAutoEnrichNew(){
+  if(!(CRM.settings.enrichHook||'').trim())return;
+  const missing=CRM.leads.filter(l=>(!l.email||!l.phone)&&!(l.exMatch&&l.exMatch.wc==='WORKING'));
+  if(missing.length)agentEnrichBatch(missing.slice(0,25),true); // batch of 25 to protect Apollo credits
 }
 function agentBulkDraft(){
   let n=0,noMail=0;
@@ -1441,8 +1435,15 @@ function agentRequest(id,kind){
   const l=CRM.leads.find(x=>x.id===id);if(!l)return;
   if(l.exMatch&&l.exMatch.wc==='WORKING'){alert('⛔ '+l.name+' matches EXISTING WORKING party "'+l.exMatch.firm+'" ('+l.exMatch.sp+' / '+l.exMatch.state+').\nOutreach is blocked — we already work with them.');return;}
   if(l.exMatch&&l.exMatch.wc==='CLOSED'&&!confirm('⚠️ '+l.name+' matches CLOSED party "'+l.exMatch.firm+'" — we stopped working with them earlier.\nStill create a re-engage '+(kind==='email'?'mail':'call')+' request for your approval?'))return;
-  if(kind==='email'&&!l.email){const em=prompt('No email saved for '+l.name+'. Enter their email id:');if(!em)return;l.email=em.trim();}
-  if(kind==='call'&&!l.phone){const ph=prompt('No phone saved for '+l.name+'. Enter their phone number:');if(!ph)return;l.phone=ph.trim();}
+  // Missing contact? Auto-find it from the web first (n8n contact finder), then continue
+  const needs=(kind==='email'&&!l.email)||(kind==='call'&&!l.phone);
+  if(needs&&(CRM.settings.enrichHook||'').trim()&&!l._enrichTried){
+    l._enrichTried=true; // one web attempt per lead — then fall back to manual entry
+    agentEnrichBatch([l],true).then(()=>agentRequest(id,kind));
+    return;
+  }
+  if(kind==='email'&&!l.email){const em=prompt('No email found on the web for '+l.name+'. Enter their email id:');if(!em)return;l.email=em.trim();}
+  if(kind==='call'&&!l.phone){const ph=prompt('No phone found on the web for '+l.name+'. Enter their phone number:');if(!ph)return;l.phone=ph.trim();}
   const a={id:'A'+(CRM.seq++),leadId:l.id,kind,status:'Pending',created:Date.now()};
   if(kind==='email'){const d=agentEmailDraft(l);a.subject=d.subject;a.body=d.body;}
   else{a.script=agentCallScript(l);a.schedule=dtLocalVal(nextCallSlot());}
@@ -1520,8 +1521,6 @@ function renderAgent(){
   $('#agentKpi').innerHTML=k.map(x=>`<div class="card kpi" style="padding:12px 14px;border-left-color:${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
   $('#agFwd').value=CRM.settings.forward;$('#agSender').value=CRM.settings.sender;$('#agWebhook').value=CRM.settings.webhook||'';$('#agDisc').value=CRM.settings.discoveryHook||'';$('#agEnrich').value=CRM.settings.enrichHook||'';
   $('#agFwdShow').textContent=CRM.settings.forward;
-  const miss=CRM.leads.filter(l=>(!l.email||!l.phone)&&!(l.exMatch&&l.exMatch.wc==='WORKING')).length;
-  const fc=$('#agFindCount');if(fc)fc.textContent=miss?miss+' lead(s) missing mail id or phone':'✅ all leads have mail & phone';
   renderAgentApprovals();renderAgentTbl();renderAgentEx();
 }
 function renderAgentApprovals(){
