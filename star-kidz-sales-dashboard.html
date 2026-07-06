@@ -331,6 +331,7 @@
           <label>📧 Approval / sender mailbox<input id="agSender" class="inp" style="width:100%" onchange="agentSaveSettings()"></label>
           <label>🔗 n8n outreach webhook URL (approved mails/calls POST here for auto-send)<input id="agWebhook" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-leadgen" onchange="agentSaveSettings()"></label>
           <label>🔍 n8n discovery webhook URL (returns fresh leads JSON)<input id="agDisc" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-discover" onchange="agentSaveSettings()"></label>
+          <label>🧠 n8n contact-finder webhook URL (returns mail ids &amp; phones)<input id="agEnrich" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-find-contacts" onchange="agentSaveSettings()"></label>
           <div id="agWebhookStat" style="font-size:11px;color:#94a3b8"></div>
           <div style="font-size:11px;color:#64748b">🕙 Calling window is fixed: <b>Mon–Sat, 10:00 AM – 7:30 PM</b>. Product line: <b>Kids &amp; Ladies footwear</b>.</div>
         </div>
@@ -350,6 +351,19 @@
         <button class="inp" onclick="agentBulkDraft()" style="cursor:pointer;background:#fffbeb;color:#92400e;font-weight:700">📧 Draft mails for ALL new leads</button>
       </div>
       <div style="font-size:11px;color:#64748b;margin-top:8px">⚡ loads the built-in researched database — India B2B + exporters + Middle East / Africa / Europe / Americas importers — deduped against the pipeline and your existing Busy parties. 🌐 pulls unlimited fresh leads live from your n8n discovery workflow (<b>n8n-starkidz-discovery.json</b>, Apollo-powered). 📧 queues one personalised draft per lead with an email id — then press <b>✅ Approve ALL</b> in the queue and n8n sends every mail automatically from your mailbox.</div>
+    </div>
+
+    <!-- 🧠 AI Contact Finder — auto-fetch mail ids & phone numbers from the web -->
+    <div class="card" style="padding:14px;margin-bottom:16px;border-left:5px solid #0ea5e9">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <div style="font-weight:800">🧠 AI Contact Finder — mail ids &amp; phone numbers from the web</div>
+        <span id="agFindStat" style="font-size:11px;color:#94a3b8"></span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="inp" onclick="agentFindAllContacts()" style="cursor:pointer;background:#0ea5e9;color:#fff;font-weight:700">⚡ Find mail &amp; phone for ALL leads missing contacts</button>
+        <span id="agFindCount" style="font-size:11px;color:#64748b"></span>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-top:8px">Searches the web (Apollo people &amp; company data via your n8n contact-finder workflow — <b>n8n-starkidz-contact-finder.json</b>) for each lead's official email id, phone number and decision-maker name, and fills them into the pipeline automatically. Leads that already have both mail &amp; phone are skipped. You can also press <b>🔎 AI find</b> on any single lead in the pipeline below.</div>
     </div>
 
     <!-- Approval queue -->
@@ -1349,6 +1363,43 @@ function agentFetchRemote(){
     })
     .catch(()=>{el.textContent='🔴 Discovery webhook unreachable or returned invalid JSON.';});
 }
+/* ---- 🧠 AI contact finder: fetch missing mail ids & phone numbers from the web via n8n ---- */
+function agentEnrichLead(id){
+  const l=CRM.leads.find(x=>x.id===id);if(!l)return;
+  agentEnrichBatch([l]);
+}
+function agentFindAllContacts(){
+  const missing=CRM.leads.filter(l=>(!l.email||!l.phone)&&!(l.exMatch&&l.exMatch.wc==='WORKING'));
+  if(!missing.length){alert('✅ Every lead in the pipeline already has both mail id & phone number.');return;}
+  agentEnrichBatch(missing);
+}
+function agentEnrichBatch(list){
+  const url=(CRM.settings.enrichHook||'').trim(),el=$('#agFindStat');
+  if(!url){alert('🧠 Paste your n8n CONTACT-FINDER webhook URL in ⚙️ Agent Settings first.\n(Import n8n-starkidz-contact-finder.json into n8n, activate it, copy the production URL.)');return;}
+  if(el)el.textContent='⏳ AI finder searching mail ids & phone numbers for '+list.length+' lead(s)…';
+  fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    event:'find_contacts',
+    leads:list.map(l=>({id:l.id,name:l.name,city:l.city||'',state:l.state||'',country:l.country||'India',type:l.type,website:l.website||''}))
+  })})
+    .then(r=>r.json())
+    .then(arr=>{
+      if(!Array.isArray(arr))arr=(arr&&arr.results)||[];
+      let nE=0,nP=0;
+      arr.forEach(o=>{
+        if(!o)return;
+        const l=CRM.leads.find(x=>x.id===o.id)||CRM.leads.find(x=>agNorm(x.name)===agNorm(o.name||''));
+        if(!l)return;
+        if(o.email&&!l.email){l.email=String(o.email).trim();nE++;}
+        if(o.phone&&!l.phone){l.phone=String(o.phone).trim();nP++;}
+        if(o.person&&!l.person)l.person=String(o.person).trim();
+        if(o.website&&!l.website)l.website=String(o.website).trim();
+      });
+      saveCrm();renderPull();
+      const el2=$('#agFindStat');
+      if(el2)el2.textContent=(nE||nP)?'🟢 AI finder done — filled in '+nE+' mail id(s) + '+nP+' phone number(s).':'🟡 Finder ran but found nothing new — try adding city/website to the leads for better matches.';
+    })
+    .catch(()=>{const el2=$('#agFindStat');if(el2)el2.textContent='🔴 Contact-finder webhook unreachable or returned invalid JSON.';});
+}
 function agentBulkDraft(){
   let n=0,noMail=0;
   CRM.leads.forEach(l=>{
@@ -1453,6 +1504,7 @@ function agentSaveSettings(){
   CRM.settings.sender=$('#agSender').value.trim()||CRM_DEFAULTS.sender;
   CRM.settings.webhook=$('#agWebhook').value.trim();
   CRM.settings.discoveryHook=$('#agDisc').value.trim();
+  CRM.settings.enrichHook=$('#agEnrich').value.trim();
   $('#agFwdShow').textContent=CRM.settings.forward;
   saveCrm();
 }
@@ -1466,8 +1518,10 @@ function renderAgent(){
     ['Interested',cnt('Interested — Forwarded'),'#059669'],['Converted',cnt('Converted'),'#166534'],
     ['Blocked (existing)',P.filter(l=>l.exMatch&&l.exMatch.wc==='WORKING').length,'#64748b']];
   $('#agentKpi').innerHTML=k.map(x=>`<div class="card kpi" style="padding:12px 14px;border-left-color:${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
-  $('#agFwd').value=CRM.settings.forward;$('#agSender').value=CRM.settings.sender;$('#agWebhook').value=CRM.settings.webhook||'';$('#agDisc').value=CRM.settings.discoveryHook||'';
+  $('#agFwd').value=CRM.settings.forward;$('#agSender').value=CRM.settings.sender;$('#agWebhook').value=CRM.settings.webhook||'';$('#agDisc').value=CRM.settings.discoveryHook||'';$('#agEnrich').value=CRM.settings.enrichHook||'';
   $('#agFwdShow').textContent=CRM.settings.forward;
+  const miss=CRM.leads.filter(l=>(!l.email||!l.phone)&&!(l.exMatch&&l.exMatch.wc==='WORKING')).length;
+  const fc=$('#agFindCount');if(fc)fc.textContent=miss?miss+' lead(s) missing mail id or phone':'✅ all leads have mail & phone';
   renderAgentApprovals();renderAgentTbl();renderAgentEx();
 }
 function renderAgentApprovals(){
@@ -1519,7 +1573,7 @@ function renderAgentTbl(){
       <td><b>${l.name}</b><div style="font-size:10px;color:#94a3b8">${l.src}</div></td>
       <td>${l.type}</td>
       <td>${[l.city,l.state,l.country&&l.country!=='India'?'🌍 '+l.country:l.country].filter(Boolean).join(', ')||'—'}</td>
-      <td style="white-space:normal">${l.person?l.person+'<br>':''}${l.phone||''}${l.email?'<br><a class="lnk" href="mailto:'+l.email+'">'+l.email+'</a>':''}</td>
+      <td style="white-space:normal">${l.person?l.person+'<br>':''}${l.phone||''}${l.email?'<br><a class="lnk" href="mailto:'+l.email+'">'+l.email+'</a>':''}${(!l.email||!l.phone)&&!blocked?'<br><button class="inp" style="font-size:10px;padding:2px 7px;cursor:pointer;background:#e0f2fe;color:#0369a1;font-weight:700" onclick="agentEnrichLead(\''+l.id+'\')" title="AI-find this lead\'s mail id & phone from the web">🔎 AI find</button>':''}</td>
       <td>${l.segment}</td>
       <td style="white-space:normal;max-width:220px">${exBadge(l)}</td>
       <td><select class="inp" style="font-size:11px;padding:3px 6px" onchange="agentStage('${l.id}',this.value)">${AG_STAGES.map(s=>`<option ${l.stage===s?'selected':''}>${s}</option>`).join('')}</select></td>

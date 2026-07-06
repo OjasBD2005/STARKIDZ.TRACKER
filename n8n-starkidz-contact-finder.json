@@ -1,0 +1,127 @@
+{
+  "name": "STAR Kidz AI Contact Finder (Apollo → mail ids & phones)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## STAR Kidz AI Contact Finder — setup\n\n1. Paste your **Apollo.io API key** into BOTH HTTP nodes (header `x-api-key`) — same key as the discovery workflow.\n2. **Activate** the workflow, copy the Webhook **Production URL**.\n3. Paste it in the dashboard: **🤖 Lead-Gen AI Agent → ⚙️ Agent Settings → 🧠 contact-finder webhook URL**.\n4. In the dashboard press **⚡ Find mail & phone for ALL leads missing contacts** (or 🔎 AI find on one lead). The dashboard POSTs `{event:'find_contacts', leads:[{id,name,city,state,country,...}]}`; this workflow looks up each firm on Apollo (company phone + website, then a decision-maker with email) and returns `[{id,email,phone,person,website}]` — the dashboard fills the pipeline automatically.\n\n⚠️ Apollo notes: personal emails may come back as `email_not_unlocked@...` on the free plan — unlocking costs credits. Company phone numbers & websites are usually free. ~2 API calls per lead, so enrich in small batches on the free tier.",
+        "height": 440,
+        "width": 420
+      },
+      "id": "note-1",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-60, -240]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "starkidz-find-contacts",
+        "responseMode": "responseNode",
+        "options": { "allowedOrigins": "*" }
+      },
+      "id": "webhook-1",
+      "name": "Contact Finder Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [420, 0],
+      "webhookId": "starkidz-find-contacts"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst leads = Array.isArray(body.leads) ? body.leads : [];\nreturn leads.map(l => ({ json: {\n  id: l.id || '',\n  name: l.name || '',\n  city: l.city || '',\n  state: l.state || '',\n  country: l.country || 'India',\n  website: l.website || ''\n}}));"
+      },
+      "id": "code-split",
+      "name": "Split Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/mixed_companies/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "YOUR_APOLLO_API_KEY" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  q_organization_name: $json.name,\n  organization_locations: [$json.country || 'India'],\n  per_page: 1\n}) }}",
+        "options": {}
+      },
+      "id": "apollo-company",
+      "name": "Apollo Find Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pair each company result back with its lead (same order as Split Leads)\nconst leads = $('Split Leads').all().map(i => i.json);\nconst results = $input.all().map(i => i.json);\nreturn leads.map((l, idx) => {\n  const res = results[idx] || {};\n  const org = ((res.organizations || res.accounts || [])[0]) || {};\n  return { json: {\n    ...l,\n    org_phone: org.phone || (org.primary_phone && org.primary_phone.number) || '',\n    org_website: org.website_url || l.website || '',\n    org_domain: org.primary_domain || ''\n  }};\n});"
+      },
+      "id": "code-company",
+      "name": "Attach Company Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/mixed_people/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "YOUR_APOLLO_API_KEY" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({\n  person_titles: ['Owner','Founder','Proprietor','Partner','Director','Managing Director','Purchase Manager','Procurement Manager'],\n  per_page: 1\n}, $json.org_domain ? { q_organization_domains: $json.org_domain } : { q_organization_name: $json.name })) }}",
+        "options": {}
+      },
+      "id": "apollo-people",
+      "name": "Apollo Find Decision Maker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pair people results with leads and build the response the dashboard expects\nconst leads = $('Attach Company Data').all().map(i => i.json);\nconst results = $input.all().map(i => i.json);\nconst out = leads.map((l, idx) => {\n  const res = results[idx] || {};\n  const p = ((res.people || res.contacts || [])[0]) || {};\n  let email = p.email || '';\n  if (/email_not_unlocked/i.test(email)) email = '';   // locked on free plan — don't save junk\n  return {\n    id: l.id,\n    name: l.name,\n    email: email,\n    phone: l.org_phone || (p.organization && p.organization.phone) || '',\n    person: [p.first_name, p.last_name].filter(Boolean).join(' '),\n    website: l.org_website\n  };\n});\nreturn [{ json: { results: out } }];"
+      },
+      "id": "code-results",
+      "name": "Build Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.results) }}",
+        "options": {}
+      },
+      "id": "respond-1",
+      "name": "Return Contacts JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1740, 0]
+    }
+  ],
+  "connections": {
+    "Contact Finder Webhook": { "main": [[{ "node": "Split Leads", "type": "main", "index": 0 }]] },
+    "Split Leads": { "main": [[{ "node": "Apollo Find Company", "type": "main", "index": 0 }]] },
+    "Apollo Find Company": { "main": [[{ "node": "Attach Company Data", "type": "main", "index": 0 }]] },
+    "Attach Company Data": { "main": [[{ "node": "Apollo Find Decision Maker", "type": "main", "index": 0 }]] },
+    "Apollo Find Decision Maker": { "main": [[{ "node": "Build Results", "type": "main", "index": 0 }]] },
+    "Build Results": { "main": [[{ "node": "Return Contacts JSON", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
