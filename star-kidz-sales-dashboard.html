@@ -313,7 +313,7 @@
         <div style="font-weight:800;margin-bottom:8px">➕ Add New Lead <span style="font-weight:500;color:#94a3b8;font-size:11px">(auto-checked against existing Busy parties)</span></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
           <input id="agN" class="inp" placeholder="Firm / outlet name *" style="grid-column:span 2">
-          <select id="agT" class="inp"><option>Distributor</option><option>B2B Retail Outlet</option><option>MBO</option></select>
+          <select id="agT" class="inp"><option>Distributor</option><option>B2B Retail Outlet</option><option>MBO</option><option>Exporter</option></select>
           <select id="agSeg" class="inp"><option>Kids &amp; Ladies</option><option>Kids</option><option>Ladies</option></select>
           <input id="agCity" class="inp" placeholder="City">
           <input id="agState" class="inp" placeholder="State">
@@ -362,7 +362,7 @@
     <!-- Pipeline -->
     <div class="card" style="padding:14px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <div style="font-weight:800">📋 Lead Pipeline — New Distributors &amp; B2B Retail Outlets</div>
+        <div style="font-weight:800">Lead Pipeline</div>
         <button class="inp" style="cursor:pointer" onclick="agentExportCalls()">📥 Export approved call queue (CSV for AI caller)</button>
       </div>
       <div class="scrollbox" style="max-height:420px"><table class="tbl" id="agentTbl"></table></div>
@@ -1171,6 +1171,15 @@ const EXISTING_PARTIES=[
 
 /* ---- 🔍 built-in worldwide discovery database (researched Jul 2026 — verify before pitching) ---- */
 const GLOBAL_LEAD_DB=[
+ // India — footwear exporters & export/sourcing houses (buy from factories, ship worldwide)
+ {region:'India',name:'Mirza International',city:'Kanpur',country:'India',type:'Exporter',focus:'[EXPORT] Major Kanpur footwear exporter (REDTAPE group) — leather & non-leather, worldwide',web:'https://www.google.com/search?q=Mirza+International+Kanpur+footwear+exporter',source:'Web research (Jul 2026)'},
+ {region:'India',name:'Superhouse Group',city:'Kanpur',country:'India',type:'Exporter',focus:'[EXPORT] Kanpur leather & footwear export house — 35+ countries',web:'https://www.superhousegroup.com',source:'Company website'},
+ {region:'India',name:'Farida Group',city:'Chennai',country:'India',type:'Exporter',focus:'[EXPORT] One of India’s largest footwear exporters — Chennai cluster',web:'https://www.faridagroup.in',source:'Company website'},
+ {region:'India',name:'Tata International (Footwear)',city:'Dewas, MP',country:'India',type:'Exporter',focus:'[EXPORT] Tata footwear export division — full-shoe & components, global buyers',web:'https://www.tatainternational.com',source:'Company website'},
+ {region:'India',name:'Liberty Shoes (Exports)',city:'Karnal, Haryana',country:'India',type:'Exporter',focus:'[EXPORT] Liberty export division — 25+ countries incl. Middle East & Europe',web:'https://www.libertyshoes.com',source:'Company website'},
+ {region:'India',name:'Lakhani Footwear (Exports)',city:'Faridabad, Haryana',country:'India',type:'Exporter',focus:'[EXPORT] EVA/PU & sports footwear exporter — large OEM capacity',web:'https://www.lakhanifootwear.com',source:'Company website'},
+ {region:'India',name:'Aqualite Industries (Exports)',city:'Bahadurgarh, Haryana',country:'India',type:'Exporter',focus:'[EXPORT] EVA/PVC footwear exporter — Middle East, Africa & Asia markets',web:'https://www.aqualite.com',source:'Company website'},
+ {region:'India',name:'Impulse International',city:'New Delhi',country:'India',type:'Exporter',focus:'[EXPORT] Delhi buying agency / export house — sources Indian footwear for overseas buyers',web:'https://www.google.com/search?q=Impulse+International+Delhi+buying+agency+footwear',source:'Web research (Jul 2026)'},
  // Middle East
  {region:'Middle East',name:'Alvina General Trading LLC',city:'Dubai',country:'UAE',type:'Distributor',focus:'[EXPORT] General trading house — imports & distributes footwear in UAE',web:'https://www.google.com/search?q=Alvina+General+Trading+LLC+Dubai+footwear',source:'ReachUAE directory'},
  // Africa
@@ -1218,6 +1227,14 @@ function loadCrm(){
   try{
     const raw=(window.Store?Store.getItem(CRM_KEY):localStorage.getItem(CRM_KEY));
     if(raw){const d=JSON.parse(raw);CRM=Object.assign(CRM,d);CRM.settings=Object.assign({},CRM_DEFAULTS,d.settings||{});}
+    // migration: [EXPORT]-focused INDIAN leads = Exporter type; foreign [EXPORT] leads are importers, keep their own type
+    (CRM.leads||[]).forEach(l=>{
+      if(!l.focus&&typeof LEADS!=='undefined'){const src=LEADS.find(o=>agNorm(o.name)===agNorm(l.name));if(src&&src.focus)l.focus=src.focus;}
+      if(!/\[EXPORT\]/.test(l.focus||''))return;
+      const isIndia=!l.country||l.country==='India';
+      if(isIndia){if(l.type!=='Exporter')l.type='Exporter';}
+      else if(l.type==='Exporter'){const g=(typeof GLOBAL_LEAD_DB!=='undefined')&&GLOBAL_LEAD_DB.find(o=>o.name===l.name);l.type=(g&&g.type)||'Distributor';}
+    });
   }catch(e){}
 }
 function saveCrm(){
@@ -1305,7 +1322,7 @@ function agentImportPull(){
   LEADS.forEach(l=>{
     if(CRM.leads.some(x=>agNorm(x.name)===agNorm(l.name)))return;
     const ph=(l.contact||'').match(/[+0-9][0-9 ()\-]{7,}/);
-    if(agentAddLead({name:l.name,city:l.loc,email:l.email||'',phone:ph?ph[0]:'',type:l.type==='MBO'?'MBO':'Distributor'},'Pull list'))n++;
+    if(agentAddLead({name:l.name,city:l.loc,email:l.email||'',phone:ph?ph[0]:'',focus:l.focus||'',type:l.type==='MBO'?'MBO':(/\[EXPORT\]/.test(l.focus||'')?'Exporter':'Distributor')},'Pull list'))n++;
   });
   alert(n+' web-sourced leads imported into the AI agent pipeline (duplicates skipped, existing parties flagged).');
   renderPull();
@@ -1325,7 +1342,7 @@ function agentDiscover(){
   if(region==='All'||region==='India'){
     LEADS.forEach(l=>{
       const ph=(l.contact||'').match(/[+0-9][0-9 ()\-]{7,}/);
-      tryAdd({name:l.name,lead:{name:l.name,city:l.loc,country:'India',email:l.email||'',phone:ph?ph[0]:'',type:l.type==='MBO'?'MBO':'Distributor',focus:l.focus},src:'Auto-discovery (India)'});
+      tryAdd({name:l.name,lead:{name:l.name,city:l.loc,country:'India',email:l.email||'',phone:ph?ph[0]:'',type:l.type==='MBO'?'MBO':(/\[EXPORT\]/.test(l.focus||'')?'Exporter':'Distributor'),focus:l.focus},src:'Auto-discovery (India)'});
     });
   }
   $('#agDiscStat').textContent='🟢 Generated '+n+' leads'+(blocked?' ('+blocked+' flagged against existing parties)':'')+' — region: '+region+'.';
