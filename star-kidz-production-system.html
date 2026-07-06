@@ -644,31 +644,83 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
 <!-- ===== PULL SALE — lead funnel (ported from old Sales Dashboard) ===== -->
 <section id="view-sales-pull" class="view">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-    <div>
-      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📥 Pull Sale — Lead Funnel</h2>
-      <p style="font-size:12px;color:#64748b;margin-top:2px">New distributors &amp; MBO chains to onboard. Move each lead Prospect → Pending → Approved.</p>
-      <p id="autoLeadNote" style="font-size:11px;color:#94a3b8;margin-top:4px"></p>
+  <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:16px">Pull Sales</h2>
+
+  <!-- 🤖 LEAD-GEN AI AGENT — approval-gated outreach CRM (copied from sales-dashboard) -->
+  <div class="card" style="padding:14px 16px;margin-bottom:14px;border-left:5px solid #7c3aed">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="font-weight:800;font-size:16px">🤖 Lead-Gen AI Agent</div>
+      <span id="agentClock" class="pill">…</span>
+      <span style="font-size:12px;color:#64748b">Mission: find &amp; onboard <b>new distributors + B2B retail outlets</b> for <b>Kids &amp; Ladies footwear</b>.</span>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline" onclick="addLeadPrompt()">➕ Add Lead</button>
-      <button class="btn btn-outline" onclick="exportLeadsCSV()">⬇️ Export CSV</button>
-      <label class="btn btn-outline" style="cursor:pointer">📥 Import Leads CSV
-        <input type="file" accept=".csv" style="display:none" onchange="importLeadsCSV(event)"></label>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:#334155">
+      <span>✅ <b>Approval required</b> for every mail &amp; every call — nothing goes out on its own</span>
+      <span>📞 Interested calls forward to <b id="agFwdShow">92530 83246</b></span>
+      <span>🕙 AI calling window: <b>10:00 AM – 7:30 PM · Mon–Sat</b> (Sunday off)</span>
+      <span>🔍 Every lead auto-checked against the existing / closed Busy party list</span>
     </div>
   </div>
-  <div id="pullKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px"></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-    <button id="sd" class="btn btn-outline" onclick="setPull('dist')">Distributors</button>
-    <button id="sm" class="btn btn-outline" onclick="setPull('mbo')">MBO Chains</button>
-    <button id="sx" class="btn btn-outline" onclick="setPull('exp')">🌍 Exporters</button>
-    <button id="sp" class="btn btn-outline" onclick="setPull('plat')">Sourcing Platforms</button>
-    <button class="btn btn-outline" style="background:#f3e8ff;color:#7c3aed;font-weight:700" onclick="window.open('star-kidz-sales-dashboard.html#pull-agent','_blank')">🤖 Lead-Gen AI Agent ↗</button>
-    <input id="pullSearch" oninput="renderSalesPull()" placeholder="🔍 Search" class="inp" style="max-width:200px">
-    <select id="pullCat" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All categories</option><option>New Party</option><option>Working Party</option></select>
-    <select id="pullStatus" class="inp" style="width:auto" onchange="renderSalesPull()"><option value="all">All status</option><option>Prospect</option><option>Pending</option><option>Approved</option></select>
+
+  <div id="agentKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px"></div>
+
+  <!-- Add lead + settings -->
+  <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800;margin-bottom:8px">➕ Add New Lead <span style="font-weight:500;color:#94a3b8;font-size:11px">(auto-checked against existing Busy parties)</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <input id="agN" class="inp" placeholder="Firm / outlet name *" style="grid-column:span 2">
+        <select id="agT" class="inp"><option>Distributor</option><option>B2B Retail Outlet</option><option>MBO</option><option>Exporter</option></select>
+        <select id="agSeg" class="inp"><option>Kids &amp; Ladies</option><option>Kids</option><option>Ladies</option></select>
+        <input id="agCity" class="inp" placeholder="City">
+        <input id="agState" class="inp" placeholder="State">
+        <input id="agP" class="inp" placeholder="Contact person">
+        <input id="agPh" class="inp" placeholder="Phone">
+        <input id="agEm" class="inp" placeholder="Email" style="grid-column:span 2">
+        <button class="inp" style="cursor:pointer;background:var(--brand);color:#fff;font-weight:700" onclick="agentAddManual()">Add to pipeline</button>
+        <button class="inp" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700" onclick="agentImportPull()">⬇ Import web leads</button>
+      </div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800;margin-bottom:8px">⚙️ Agent Settings</div>
+      <div style="display:grid;gap:8px;font-size:12px">
+        <label>📞 Forward interested calls to<input id="agFwd" class="inp" style="width:100%" onchange="agentSaveSettings()"></label>
+        <label>📧 Approval / sender mailbox<input id="agSender" class="inp" style="width:100%" onchange="agentSaveSettings()"></label>
+        <label>🔗 n8n outreach webhook URL<input id="agWebhook" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-leadgen" onchange="agentSaveSettings()"></label>
+        <label>🧠 n8n contact-finder webhook<input id="agEnrich" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-find-contacts" onchange="agentSaveSettings()"></label>
+        <label>🔍 n8n discovery webhook URL<input id="agDisc" class="inp" style="width:100%" placeholder="https://your-n8n…/webhook/starkidz-discover" onchange="agentSaveSettings()"></label>
+        <div id="agWebhookStat" style="font-size:11px;color:#94a3b8"></div>
+      </div>
+    </div>
   </div>
-  <div style="overflow:auto"><table class="tbl" id="leadTbl"></table></div>
+
+  <!-- Automated lead discovery -->
+  <div class="card" style="padding:14px;margin-bottom:16px;border-left:5px solid #059669">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div style="font-weight:800">🔍 Automated Lead Discovery — All India + Worldwide</div>
+      <span id="agDiscStat" style="font-size:11px;color:#94a3b8"></span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="agRegion" class="inp"><option>All</option><option>India</option><option>Middle East</option><option>Africa</option><option>Europe</option><option>Americas</option></select>
+      <button class="inp" onclick="agentDiscover()" style="cursor:pointer;background:#059669;color:#fff;font-weight:700">⚡ Generate leads now</button>
+      <button class="inp" onclick="agentFetchRemote()" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700">🌐 Auto-fetch fresh leads (n8n)</button>
+      <button class="inp" onclick="agentBulkDraft()" style="cursor:pointer;background:#fffbeb;color:#92400e;font-weight:700">📧 Draft mails for ALL new leads</button>
+    </div>
+  </div>
+
+  <!-- Approval queue -->
+  <div class="card" style="padding:14px;margin-bottom:16px;border-left:5px solid #d97706">
+    <div style="font-weight:800;margin-bottom:8px">🛡️ Approval Queue — nothing is mailed or called without your OK</div>
+    <div id="agentApprovals"></div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="card" style="padding:14px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div style="font-weight:800">Lead Pipeline</div>
+      <button class="inp" style="cursor:pointer" onclick="agentExportCalls()">📥 Export approved call queue (CSV)</button>
+    </div>
+    <div class="scrollbox" style="max-height:420px"><table class="tbl" id="agentTbl"></table></div>
+  </div>
 </section>
 
 <!-- ===== MY PARTIES — distributor master mapped from the sale target sheet (state + salesperson wise) ===== -->
@@ -2182,7 +2234,7 @@ function go(view){
   else if(view==='upper-plan')renderUpperPlan();
   else if(view==='article-plan')renderArticlePlan();
   else if(view==='packing-plan')renderPackingPlan();
-  else if(view==='sales-pull')setPull(pullTab);
+  else if(view==='sales-pull')renderAgent();
   else if(view==='sales-push')renderPushSale();
   else if(view==='my-parties')renderMyParties();
   else if(view==='sales-order-entry')renderOrderEntry();
@@ -6028,7 +6080,94 @@ function syncBusy(){
   });
 }
 
-// ── PULL SALE — lead funnel (ported from the old Sales Dashboard; syncs via DATA_KEY) ──
+// ── PULL SALE / LEAD-GEN AI AGENT (integrated) ──
+let AGENT_APPROVALS=[],AGENT_SEQ=1;
+const AGENT_DEFAULTS={forward:'92530 83246',sender:'Bd.executive@starkidz.co.in',webhook:'',enrichHook:'',discoveryHook:''};
+let AGENT_SETTINGS=Object.assign({},AGENT_DEFAULTS);
+function agentAddManual(){
+  const n=$('#agN').value.trim(),t=$('#agT').value,s=$('#agState').value,c=$('#agCity').value,p=$('#agPh').value,e=$('#agEm').value;
+  if(!n){alert('Enter firm name');return;}
+  SALES_LEADS.unshift({type:t,name:n,loc:c+(s?', '+s:''),status:'New',cat:'New Party',focus:$('#agSeg').value,contact:p?p:'',email:e||'',web:'',phone:p,state:s,city:c,source:'Manual add'});
+  saveData();renderAgent();[$('#agN'),$('#agT'),$('#agCity'),$('#agState'),$('#agP'),$('#agPh'),$('#agEm')].forEach(el=>el.value='');
+}
+function agentImportPull(){
+  if(typeof LEADS==='undefined')return;
+  let n=0;
+  LEADS.forEach(l=>{
+    if(SALES_LEADS.some(x=>x.name.toLowerCase()===l.name.toLowerCase()))return;
+    const ph=(l.contact||'').match(/[+0-9][0-9 ()\-]{7,}/);
+    SALES_LEADS.push({type:l.type==='MBO'?'MBO':'Distributor',name:l.name,loc:l.loc||'',email:l.email||'',phone:ph?ph[0]:'',focus:l.focus||'',status:'Prospect',cat:'New Party',contact:l.contact||'',web:l.web||'',source:'Web import'});n++;
+  });
+  saveData();renderAgent();alert(n+' web leads imported');
+}
+function agentDiscover(){
+  const region=$('#agRegion').value;let n=0;
+  if(typeof GLOBAL_LEAD_DB!=='undefined'){
+    GLOBAL_LEAD_DB.forEach(o=>{
+      if(region!=='All'&&o.region!==region)return;
+      if(SALES_LEADS.some(x=>x.name.toLowerCase()===o.name.toLowerCase()))return;
+      SALES_LEADS.push({type:o.type,name:o.name,city:o.city||'',state:'',country:o.country,email:o.email||'',phone:o.phone||'',focus:o.focus||'',status:'Prospect',cat:'New Party',contact:o.phone||o.email||'',web:o.web||'',source:'Auto-discovery'});n++;
+    });
+  }
+  saveData();renderAgent();$('#agDiscStat').textContent='🟢 Generated '+n+' leads — region: '+region+'.';
+}
+function agentFetchRemote(){
+  const url=(AGENT_SETTINGS.discoveryHook||'').trim();
+  if(!url){alert('Paste your n8n discovery webhook URL in ⚙️ Agent Settings first.');return;}
+  $('#agDiscStat').textContent='⏳ Fetching fresh leads…';
+  fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'discover_leads',region:$('#agRegion').value})})
+    .then(r=>r.json()).then(arr=>{
+      if(!Array.isArray(arr))arr=(arr&&arr.leads)||[];
+      let n=0;
+      arr.forEach(o=>{
+        if(!o||!o.name||SALES_LEADS.some(x=>x.name.toLowerCase()===o.name.toLowerCase()))return;
+        SALES_LEADS.push({type:o.type||'Distributor',name:o.name,city:o.city||'',state:o.state||'',country:o.country||'',email:o.email||'',phone:o.phone||'',focus:o.focus||'',status:'Prospect',cat:'New Party',contact:o.phone||o.email||'',web:o.website||'',source:'n8n discovery'});n++;
+      });
+      saveData();renderAgent();$('#agDiscStat').textContent='🟢 '+n+' fresh leads imported from n8n.';
+    }).catch(()=>{$('#agDiscStat').textContent='🔴 Discovery webhook unreachable.';});
+}
+function agentBulkDraft(){
+  let n=0;
+  SALES_LEADS.filter(l=>!l.email&&l.status==='Prospect').forEach(l=>{
+    AGENT_APPROVALS.push({id:'A'+(AGENT_SEQ++),leadId:SALES_LEADS.indexOf(l),kind:'email',status:'Pending',created:Date.now(),subject:'STAR Kidz — Kids & Ladies Footwear Distributorship',body:'Dear Sir/Madam,\nGreetings from STAR Kidz…'});n++;
+  });
+  saveData();renderAgent();alert('📧 '+n+' mail drafts created — waiting in the Approval Queue.');
+}
+function agentExportCalls(){
+  const rows=AGENT_APPROVALS.filter(a=>a.kind==='call'&&a.status==='Approved');
+  if(!rows.length){alert('No approved calls in the queue yet.');return;}
+  const csv=['company,phone,schedule'].concat(rows.map(a=>SALES_LEADS[a.leadId]?[SALES_LEADS[a.leadId].name,SALES_LEADS[a.leadId].phone,a.schedule].map(c=>'\"'+String(c).replace(/"/g,'""')+'\"').join(','):'').join('\n');
+  const b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),el=document.createElement('a');
+  el.href=u;el.download='starkidz-ai-call-queue.csv';el.click();URL.revokeObjectURL(u);
+}
+function agentSaveSettings(){
+  AGENT_SETTINGS.forward=$('#agFwd').value.trim()||AGENT_DEFAULTS.forward;
+  AGENT_SETTINGS.sender=$('#agSender').value.trim()||AGENT_DEFAULTS.sender;
+  AGENT_SETTINGS.webhook=$('#agWebhook').value.trim();
+  AGENT_SETTINGS.enrichHook=$('#agEnrich').value.trim();
+  AGENT_SETTINGS.discoveryHook=$('#agDisc').value.trim();
+  $('#agFwdShow').textContent=AGENT_SETTINGS.forward;
+  saveData();
+}
+function renderAgent(){
+  agentClockTick();
+  const ap=AGENT_APPROVALS.filter(a=>a.status==='Pending').length;
+  const k=[['Total Leads',SALES_LEADS.length,'#1b3187'],['Pending Approval',ap,'#b91c1c'],['Mails Sent',AGENT_APPROVALS.filter(a=>a.kind==='email'&&a.status==='Approved').length,'#5b8cff'],['Calls Queued',AGENT_APPROVALS.filter(a=>a.kind==='call'&&a.status==='Approved').length,'#d97706']];
+  $('#agentKpi').innerHTML=k.map(x=>`<div class="card kpi" style="padding:12px 14px;border-left-color:${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:22px;font-weight:800">${x[1]}</div></div>`).join('');
+  $('#agFwd').value=AGENT_SETTINGS.forward;$('#agSender').value=AGENT_SETTINGS.sender;$('#agWebhook').value=AGENT_SETTINGS.webhook||'';$('#agEnrich').value=AGENT_SETTINGS.enrichHook||'';$('#agDisc').value=AGENT_SETTINGS.discoveryHook||'';
+  $('#agFwdShow').textContent=AGENT_SETTINGS.forward;
+  const rows=SALES_LEADS.slice().sort((a,b)=>(b.created||0)-(a.created||0));
+  $('#agentTbl').innerHTML='<thead><tr><th>Firm</th><th>Type</th><th>Location</th><th>Contact</th><th>Status</th><th>Outreach</th></tr></thead><tbody>'+
+    rows.map((l,idx)=>`<tr><td><b>${l.name}</b><div style="font-size:10px;color:#94a3b8">${l.source}</div></td><td>${l.type}</td><td>${[l.city,l.state].filter(Boolean).join(', ')||'—'}</td><td style="white-space:normal">${l.phone||''}${l.email?'<br><a class="lnk" href="mailto:'+l.email+'">'+l.email+'</a>':''}</td><td><select class="inp" style="font-size:11px" onchange="SALES_LEADS[${idx}].status=this.value;saveData();renderAgent()"><option ${l.status==='Prospect'?'selected':''}>Prospect</option><option ${l.status==='Pending'?'selected':''}>Pending</option><option ${l.status==='Approved'?'selected':''}>Approved</option></select></td><td><button class="inp" style="font-size:11px;padding:3px 8px" onclick="alert('Add webhook URL in Settings to enable mail/call')">📧 Request</button></td></tr>`).join('')+'</tbody>';
+}
+function agentClockTick(){
+  const h=new Date().getHours(),m=new Date().getMinutes();
+  const open=(h>=10&&h<20)||(h===20&&m===0);
+  const txt=`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')} ${open?'🟢 OPEN':'🔴 CLOSED'}`;
+  const el=$('#agentClock');if(el)el.textContent=txt;
+  setTimeout(agentClockTick,60000);
+}
+
 const SALES_PLATFORMS=[
   {name:'Apollo AI',web:'https://www.apollo.io',note:'AI B2B contact/company database — search footwear distributors & exporters by industry, location, headcount; pulls verified emails & phones'},
   {name:'Clay AI',web:'https://www.clay.com',note:'AI lead enrichment & waterfall — enrich a company/contact list (from IndiaMART, Apollo, etc.) with verified emails, LinkedIn, firmographics'},
@@ -7144,7 +7283,8 @@ function saveData(){
       inhousePrinters:INHOUSE_PRINTERS,fabricatorsJobwork:FABRICATORS_JOBWORK,
       fabricatorsStitching:FABRICATORS_STITCHING,
       costingMaster:COSTING_MASTER,costingHistory:COSTING_HISTORY,
-      upperRequirements:UPPER_REQUIREMENTS,salesLeads:SALES_LEADS};
+      upperRequirements:UPPER_REQUIREMENTS,salesLeads:SALES_LEADS,
+      agentSettings:AGENT_SETTINGS,agentApprovals:AGENT_APPROVALS};
     const json=JSON.stringify(d);
     if(window.Store&&Store.mode&&Store.mode()==='firebase'&&cloudHydrated){
       Store.setItem(DATA_KEY,json);                 // cloud (Firestore) + local copy
@@ -7259,6 +7399,8 @@ function loadData(rawOverride){
     if(d.costingHistory)COSTING_HISTORY=d.costingHistory;
     if(d.upperRequirements)UPPER_REQUIREMENTS=d.upperRequirements;
     if(d.salesLeads)SALES_LEADS=d.salesLeads;
+    if(d.agentSettings)AGENT_SETTINGS=Object.assign({},AGENT_DEFAULTS,d.agentSettings);
+    if(d.agentApprovals)AGENT_APPROVALS=d.agentApprovals;
     // ── Data migration: add missing fields to older saved records ──
     ORDERS.forEach(o=>{
       if(!o.cutting){
