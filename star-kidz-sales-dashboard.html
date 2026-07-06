@@ -45,8 +45,8 @@
     <!-- Star Kidz logo (own brand mark — NOT the magenta report logo) -->
     <svg viewBox="0 0 64 64" style="width:42px;height:42px;flex-shrink:0"><circle cx="32" cy="32" r="30.5" fill="#fff"/><circle cx="32" cy="32" r="30.5" fill="none" stroke="#e11d2b" stroke-width="3"/><path d="M32 10 L37.29 24.72 L52.92 25.2 L40.56 34.78 L44.94 49.8 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#e11d2b"/><path d="M32 10 L32 41 L19.06 49.8 L23.44 34.78 L11.08 25.2 L26.71 24.72 Z" fill="#b01421"/></svg>
     <div style="flex:1">
-      <div style="font-size:19px;font-weight:800;line-height:1">STAR <span style="color:var(--accent)">Kidz</span> · Sales Funnel</div>
-      <div style="font-size:11px;opacity:.7">Ojas Footwear India Pvt. Ltd. — Push &amp; Pull Sales · Busy-linked</div>
+      <div style="font-size:19px;font-weight:800;line-height:1">STAR <span style="color:var(--accent)">Kidz</span> · Lead-Gen AI Agent</div>
+      <div style="font-size:11px;opacity:.7">Ojas Footwear India Pvt. Ltd. — Approval-gated outreach · new distributors &amp; B2B outlets</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <label style="font-size:11px;opacity:.8">Role</label>
@@ -68,8 +68,8 @@
       <button id="linkBtn" class="inp" style="cursor:pointer;background:#eef3ff;color:var(--brand);font-weight:700" onclick="toggleLinkPanel()">🔗 Link &amp; Configure</button>
     </div>
   </div>
-  <!-- Module dropdowns I / II / III / IV / V -->
-  <div style="max-width:1480px;margin:auto;padding:0 20px 12px;display:flex;gap:10px;flex-wrap:wrap">
+  <!-- Module dropdowns I / II / III / IV / V — hidden: this page is AI-agent only (all modules live in the Production System app) -->
+  <div style="display:none;max-width:1480px;margin:auto;padding:0 20px 12px;gap:10px;flex-wrap:wrap">
     <div id="tabPush" class="tab-btn tab-on" onclick="setModule('push')">I — Push Sale</div>
     <div id="tabPull" class="tab-btn tab-off" onclick="setModule('pull')">II — Pull Sale</div>
     <div id="tabOrders" class="tab-btn tab-off" onclick="setModule('orders')">III — Pending Orders</div>
@@ -158,8 +158,8 @@
   </div>
 </div>
 
-<!-- ===== PRODUCTION TRACKER (pinned at top) ===== -->
-<div style="max-width:1480px;margin:14px auto 0;padding:0 20px">
+<!-- ===== PRODUCTION TRACKER (hidden — AI-agent-only page) ===== -->
+<div style="display:none;max-width:1480px;margin:14px auto 0;padding:0 20px">
   <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-left:5px solid #b45309">
     <div style="font-weight:800;color:#0f172a">🏭 Production Tracker</div>
     <div id="prodStrip" style="display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:#334155"></div>
@@ -266,9 +266,9 @@
 
 <!-- ================= PULL SALE ================= -->
 <section id="view-pull" style="display:none">
-  <div id="pullKpi" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px"></div>
+  <div id="pullKpi" style="display:none;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px"></div>
 
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+  <div style="display:none;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
     <div class="tab-btn sub-on" id="sd" onclick="setPull('dist')" style="padding:7px 16px">🏭 Distributors</div>
     <div class="tab-btn sub-off" id="sm" onclick="setPull('mbo')" style="padding:7px 16px">🛍️ MBOs &amp; Outlets</div>
     <div class="tab-btn sub-off" id="sp" onclick="setPull('plat')" style="padding:7px 16px">🌐 B2B / B2C Platforms</div>
@@ -1900,8 +1900,8 @@ if(window.Store){
   Store.onChange(CRM_KEY,()=>{loadCrm();renderPull();});
 }
 fillFilters();renderProd();renderAll();renderPull();renderCompare();
-// Deep-link support: #pull-agent jumps straight to Pull Sale > Lead-Gen AI Agent tab
-if(location.hash==='#pull-agent'){setModule('pull');setPull('agent');}
+// AI-agent-only page: always open on Pull Sale > Lead-Gen AI Agent
+setModule('pull');setPull('agent');
 </script>
 </body>
 </html>

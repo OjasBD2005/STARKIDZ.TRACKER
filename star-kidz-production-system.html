@@ -981,7 +981,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   <!-- Import Form -->
   <div id="fgImportForm" style="display:none;margin-top:14px" class="card">
     <div style="font-weight:700;margin-bottom:10px">📤 Upload / Configure Finished Goods Stock</div>
-    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Upload an .xlsx/.csv with columns: Article, Stock (ctns), Stock (pairs) — matching articles will have stock &amp; last-update refreshed.</p>
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Upload an .xlsx/.csv — either your raw Busy/warehouse export (Item SkuCode + Qty columns; size-level SKUs are auto-grouped into articles) or a summary file (Article, Stock (ctns), Stock (pairs)). New articles are added automatically and the data is saved for the Sales Dashboard too.</p>
     <input type="file" accept=".xlsx,.xls,.csv" id="fgImportFile" style="margin-bottom:8px">
     <button class="btn btn-brand" onclick="uploadFGStock()" style="font-size:12px">Upload File</button>
   </div>
@@ -1589,6 +1589,23 @@ let FINISHED_GOODS_STOCK=[
   {article:'GSD-250',category:'GIRLS SANDAL',machine:'PU',series:'GSD',stockCtns:40,stockPairs:480,lastUpdate:'2026-07-02',season:'Winter'},
   {article:'KVS-171',category:'SK',machine:'PU',series:'KVS',stockCtns:32,stockPairs:384,lastUpdate:'2026-07-01',season:'Winter'},
 ];
+// Imported stock overrides the sample list — shared with the Sales Dashboard via the starkidz_inventory key
+(function(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('starkidz_inventory')||'null');
+    if(Array.isArray(saved)&&saved.length){
+      FINISHED_GOODS_STOCK=saved.map(r=>({
+        article:r.article||'',category:r.category||'',machine:r.machine||'',series:r.series||r.article||'',
+        stockCtns:+r.stock_ctns||0,stockPairs:+r.stock_pairs||0,lastUpdate:r.last_update||'',
+        season:/SHOE|SPORT|SCHOOL|SCUBA/i.test(r.category||'')?'Winter':'Summer'
+      }));
+    }
+  }catch(e){}
+})();
+function saveFGStock(){
+  const out=FINISHED_GOODS_STOCK.map(s=>({article:s.article,category:s.category,machine:s.machine,series:s.series,stock_ctns:s.stockCtns,stock_pairs:s.stockPairs,last_update:s.lastUpdate}));
+  localStorage.setItem('starkidz_inventory',JSON.stringify(out));
+}
 
 // ── DATA: INVENTORY ──
 let INVENTORY=[
@@ -4468,11 +4485,40 @@ function uploadFGStock(){
   const reader=new FileReader();reader.onload=(e)=>{
     try{
       const data=new Uint8Array(e.target.result);const workbook=XLSX.read(data,{type:'array'});const sheet=workbook.Sheets[workbook.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(sheet);rows.forEach(r=>{
-        const existing=FINISHED_GOODS_STOCK.find(s=>s.article===r.Article);if(existing){
-          existing.stockCtns=parseInt(r['Stock (ctns)'])||0;existing.stockPairs=parseInt(r['Stock (pairs)'])||0;existing.lastUpdate=new Date().toISOString().split('T')[0];
-        }
-      });renderFGStock();input.value='';toggleEl('fgImportForm');toast('Uploaded','✅','Finished goods stock updated successfully.');
+      const rows=XLSX.utils.sheet_to_json(sheet);
+      if(!rows.length){alert('File is empty');return}
+      const today=new Date().toISOString().split('T')[0];
+      if('Item SkuCode' in rows[0]){
+        // Raw Busy/Unicommerce SKU export: aggregate size-level SKUs (e.g. SKZBEAR13-KHK-1) into articles
+        const agg={};
+        rows.forEach(r=>{
+          const sku=String(r['Item SkuCode']||'');const qty=parseInt(r['Qty'])||0;
+          const m=sku.match(/^([A-Z0-9]+)-/i);if(!m)return;
+          const art=m[1].toUpperCase();
+          if(!agg[art])agg[art]={article:art,category:'',machine:'',series:art,stockCtns:0,stockPairs:0,lastUpdate:today,season:'Summer'};
+          agg[art].stockPairs+=qty;
+        });
+        Object.values(agg).forEach(a=>{
+          a.stockCtns=Math.floor(a.stockPairs/12); // 12 pairs per carton
+          const old=FINISHED_GOODS_STOCK.find(s=>s.article===a.article);
+          if(old){a.category=old.category;a.machine=old.machine;a.series=old.series;a.season=old.season;}
+        });
+        FINISHED_GOODS_STOCK=Object.values(agg).sort((x,y)=>x.article.localeCompare(y.article));
+      }else{
+        // Summary format: Article, Stock (ctns), Stock (pairs) — updates matches AND adds new articles
+        rows.forEach(r=>{
+          const art=String(r.Article||r.article||'').trim();if(!art)return;
+          let s=FINISHED_GOODS_STOCK.find(x=>x.article===art);
+          if(!s){
+            s={article:art,category:String(r.Category||''),machine:String(r.Machine||''),series:String(r.Series||art),stockCtns:0,stockPairs:0,lastUpdate:today,
+               season:/SHOE|SPORT|SCHOOL|SCUBA/i.test(String(r.Category||''))?'Winter':'Summer'};
+            FINISHED_GOODS_STOCK.push(s);
+          }
+          s.stockCtns=parseInt(r['Stock (ctns)'])||0;s.stockPairs=parseInt(r['Stock (pairs)'])||parseInt(r['Qty'])||0;s.lastUpdate=today;
+        });
+      }
+      saveFGStock();renderFGStock();input.value='';toggleEl('fgImportForm');
+      toast('Uploaded','✅',FINISHED_GOODS_STOCK.length+' articles now in Finished Goods Stock.');
     }catch(err){alert('Error reading file: '+err.message);}
   };reader.readAsArrayBuffer(input.files[0]);
 }
