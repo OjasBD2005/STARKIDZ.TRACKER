@@ -1,0 +1,97 @@
+{
+  "name": "STAR Kidz Lead-Gen Bridge (approved mail + AI call)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## STAR Kidz Lead-Gen Bridge — setup\n\n1. **Activate this workflow**, open the Webhook node and copy its **Production URL**.\n2. Paste that URL into the dashboard: **Pull Sale → 🤖 Lead-Gen AI Agent → ⚙️ Agent Settings → webhook URL**.\n3. **Send Approved Mail node**: attach your SMTP credential for `bd.executive@starkidz.co.in` (Microsoft 365 / Gmail SMTP).\n4. **Bolna AI Call node**: create a free account at bolna.ai, build one agent (Hinglish, kids & ladies footwear distributor pitch), then put your **API key** in the Authorization header and your **agent_id** in the body.\n5. Calls are already pre-filtered by the dashboard: only APPROVED calls inside **Mon–Sat 10:00–19:30** ever reach this webhook. Interested calls transfer to **92530 83246** (sent in the payload as `call.forward_to`).\n\nPayload events: `approved_email` → mail branch · `approved_call` → call branch.",
+        "height": 420,
+        "width": 420
+      },
+      "id": "note-1",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-20, -220]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "starkidz-leadgen",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Dashboard Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "webhookId": "starkidz-leadgen"
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.event }}",
+        "rules": {
+          "rules": [
+            { "value2": "approved_email", "output": 0 },
+            { "value2": "approved_call", "output": 1 }
+          ]
+        }
+      },
+      "id": "switch-1",
+      "name": "Mail or Call?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [680, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "bd.executive@starkidz.co.in",
+        "toEmail": "={{ $json.body.email.to }}",
+        "subject": "={{ $json.body.email.subject }}",
+        "text": "={{ $json.body.email.body }}",
+        "options": {}
+      },
+      "id": "email-1",
+      "name": "Send Approved Mail",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [940, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bolna.ai/call",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer YOUR_BOLNA_API_KEY" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  agent_id: 'YOUR_BOLNA_AGENT_ID',\n  recipient_phone_number: $json.body.call.phone,\n  variables: {\n    company: $json.body.lead.name,\n    city: $json.body.lead.city,\n    script: $json.body.call.script,\n    transfer_number: $json.body.call.forward_to\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "call-1",
+      "name": "Bolna AI Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 120]
+    }
+  ],
+  "connections": {
+    "Dashboard Webhook": {
+      "main": [[{ "node": "Mail or Call?", "type": "main", "index": 0 }]]
+    },
+    "Mail or Call?": {
+      "main": [
+        [{ "node": "Send Approved Mail", "type": "main", "index": 0 }],
+        [{ "node": "Bolna AI Call", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

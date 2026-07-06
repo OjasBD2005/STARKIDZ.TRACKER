@@ -1,0 +1,88 @@
+{
+  "name": "STAR Kidz Lead Discovery (Apollo → dashboard)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## STAR Kidz Lead Discovery — setup\n\n1. Get a **free Apollo.io account** → Settings → Integrations → **API key**, paste it in the Apollo Search node header `x-api-key`.\n2. **Activate** this workflow, copy the Webhook **Production URL**.\n3. Paste it in the dashboard: **🤖 Lead-Gen AI Agent → ⚙️ Agent Settings → 🔍 discovery webhook URL**.\n4. In the dashboard press **🌐 Auto-fetch fresh leads** — it POSTs `{event:'discover_leads', region}` here; this workflow searches Apollo for footwear distributors/importers (India + worldwide by region) and returns them as JSON; the dashboard imports and dedupes them automatically.\n\nFree Apollo plan ≈ 50–100 credits/month; upgrade for volume. You can duplicate the Apollo node for IndiaMART/other sources and merge results.",
+        "height": 400,
+        "width": 400
+      },
+      "id": "note-1",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "starkidz-discover",
+        "responseMode": "responseNode",
+        "options": { "allowedOrigins": "*" }
+      },
+      "id": "webhook-1",
+      "name": "Discovery Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [420, 0],
+      "webhookId": "starkidz-discover"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/mixed_companies/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "YOUR_APOLLO_API_KEY" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  q_organization_keyword_tags: ['footwear distributor','shoes wholesale','footwear importer'],\n  organization_locations: ($json.body.region==='India') ? ['India']\n    : ($json.body.region==='Middle East') ? ['United Arab Emirates','Saudi Arabia','Qatar','Oman','Kuwait']\n    : ($json.body.region==='Africa') ? ['Nigeria','Kenya','Ghana','Tanzania','South Africa','Egypt']\n    : ($json.body.region==='Europe') ? ['United Kingdom','Germany','France','Netherlands','Poland','Spain','Italy']\n    : ($json.body.region==='Americas') ? ['United States','Canada','Mexico','Brazil']\n    : ['India','United Arab Emirates','Nigeria','United Kingdom','United States'],\n  per_page: 25\n}) }}",
+        "options": {}
+      },
+      "id": "apollo-1",
+      "name": "Apollo Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst orgs = res.organizations || res.accounts || [];\nconst leads = orgs.map(o => ({\n  name: o.name,\n  city: o.city || '',\n  state: o.state || '',\n  country: o.country || '',\n  phone: o.phone || (o.primary_phone && o.primary_phone.number) || '',\n  email: '',\n  web: o.website_url || '',\n  type: 'Distributor',\n  focus: '[AUTO] ' + ((o.industry || 'footwear wholesale/distribution')) + (o.estimated_num_employees ? ' · ~' + o.estimated_num_employees + ' staff' : '')\n}));\nreturn [{ json: { leads } }];"
+      },
+      "id": "code-1",
+      "name": "Map to Dashboard Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.leads) }}",
+        "options": {}
+      },
+      "id": "respond-1",
+      "name": "Return Leads JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1140, 0]
+    }
+  ],
+  "connections": {
+    "Discovery Webhook": {
+      "main": [[{ "node": "Apollo Search", "type": "main", "index": 0 }]]
+    },
+    "Apollo Search": {
+      "main": [[{ "node": "Map to Dashboard Format", "type": "main", "index": 0 }]]
+    },
+    "Map to Dashboard Format": {
+      "main": [[{ "node": "Return Leads JSON", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

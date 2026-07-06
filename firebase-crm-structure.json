@@ -1,0 +1,110 @@
+{
+  "config": {
+    "company": {
+      "name": "STAR Kidz — Ojas Footwear India Pvt. Ltd.",
+      "product_line": "Kids & Ladies Footwear",
+      "brands": ["Star Kidz", "Star Ride"]
+    },
+    "calling": {
+      "forward_interested_to": "+919253083246",
+      "window_start": "10:00",
+      "window_end": "19:30",
+      "timezone": "Asia/Kolkata",
+      "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+      "sunday_off": true,
+      "max_attempts_per_lead": 3,
+      "retry_gap_hours": 48
+    },
+    "ai": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "approval_required_for_mail": true,
+      "approval_required_for_call": true,
+      "approval_mailbox": "Bd.executive@starkidz.co.in"
+    },
+    "whatsapp": {
+      "catalogue_pdf_url": "https://starkidz-tracker.vercel.app/catalogues/star-kidz-combined-catalogue.pdf",
+      "brand_profile_url": "https://starkidz-tracker.vercel.app/catalogues/star-kidz-company-profile.pdf",
+      "catalogue_summer_sandals_url": "https://starkidz-tracker.vercel.app/catalogues/star-kidz-summer-sandals.pdf",
+      "catalogue_winter_shoes_url": "https://starkidz-tracker.vercel.app/catalogues/star-kidz-winter-shoes.pdf",
+      "catalogue_star_ride_ladies_url": "https://starkidz-tracker.vercel.app/catalogues/star-ride-ladies-catalogue.pdf",
+      "template_catalogue": "Hello {{contact_person}}, thank you for your interest in STAR Kidz (Ojas Footwear). Here is our latest Kids & Ladies footwear catalogue: {{catalogue_pdf_url}}. Reply here or call {{forward_phone}} to discuss distributor pricing.",
+      "template_followup": "Hi {{contact_person}}, following up on the STAR Kidz catalogue we shared. Would you like samples or a rate list for your area ({{city}})?"
+    },
+    "stages": {
+      "1": { "name": "Lead Sourcing",    "description": "Scraped/collected from IndiaMART, JustDial, Apify, web, CSV import" },
+      "2": { "name": "Capture",          "description": "Webhook caught the lead and saved it to this database" },
+      "3": { "name": "Lead Selection",   "description": "Morning batch marks qualified leads ReadyToCall" },
+      "4": { "name": "Catalogue Send",   "description": "WhatsApp catalogue auto-sent when status becomes Interested" },
+      "5": { "name": "CRM Integration",  "description": "Synced to dashboard (tracker app / Looker Studio)" },
+      "6": { "name": "WhatsApp & Email", "description": "Status-change triggers send approved templates" },
+      "7": { "name": "AI Calling",       "description": "Vapi.ai calls ReadyToCall leads inside the calling window" },
+      "8": { "name": "Re-Sourcing",      "description": "Weekly refresh of stale/exhausted lead pools" },
+      "9": { "name": "Conversion",       "description": "Tag: 1=Callback Scheduled, 2=Not Interested, 3=Hot Lead" }
+    },
+    "conversion_tags": {
+      "0": "Untagged",
+      "1": "Callback Scheduled",
+      "2": "Not Interested",
+      "3": "Hot Lead"
+    },
+    "statuses": ["New", "ReadyToCall", "Calling", "Contacted", "Interested", "CatalogueSent", "FollowUp", "Converted", "NotInterested", "Blocked"]
+  },
+  "leads": {
+    "LEAD-0001": {
+      "firm_name": "Sample Footwear Agencies",
+      "type": "Distributor",
+      "segment": "Kids & Ladies",
+      "city": "Karnal",
+      "state": "Haryana",
+      "country": "India",
+      "region": "India",
+      "contact_person": "Sample Person",
+      "phone": "+911234567890",
+      "whatsapp": "+911234567890",
+      "email": "sample@example.com",
+      "website": "",
+      "source": "IndiaMART",
+      "stage": 3,
+      "status": "ReadyToCall",
+      "conversion_tag": 0,
+      "busy_party_check": "clean",
+      "call_attempts": 0,
+      "last_call_at": null,
+      "next_call_at": null,
+      "narration": "",
+      "transcript_url": "",
+      "catalogue_sent": false,
+      "catalogue_sent_at": null,
+      "approval": {
+        "call_approved": false,
+        "mail_approved": false,
+        "approved_by": "",
+        "approved_at": null
+      },
+      "created_at": "2026-07-06T09:00:00+05:30",
+      "updated_at": "2026-07-06T09:00:00+05:30"
+    }
+  },
+  "call_log": {
+    "CALL-0001": {
+      "lead_id": "LEAD-0001",
+      "started_at": null,
+      "duration_sec": 0,
+      "outcome": "",
+      "sentiment": "",
+      "transferred_to_human": false,
+      "transcript": "",
+      "ai_summary": "",
+      "recording_url": ""
+    }
+  },
+  "daily_queue": {
+    "2026-07-06": {
+      "selected_lead_ids": ["LEAD-0001"],
+      "generated_at": "2026-07-06T08:00:00+05:30",
+      "calls_done": 0,
+      "calls_planned": 1
+    }
+  }
+}
