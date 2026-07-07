@@ -6136,7 +6136,7 @@ function agentBulkDraft(){
 function agentExportCalls(){
   const rows=AGENT_APPROVALS.filter(a=>a.kind==='call'&&a.status==='Approved');
   if(!rows.length){alert('No approved calls in the queue yet.');return;}
-  const csv=['company,phone,schedule'].concat(rows.map(a=>SALES_LEADS[a.leadId]?[SALES_LEADS[a.leadId].name,SALES_LEADS[a.leadId].phone,a.schedule].map(c=>'\"'+String(c).replace(/"/g,'""')+'\"').join(','):'').join('\n');
+  const csv=['company,phone,schedule'].concat(rows.map(a=>SALES_LEADS[a.leadId]?[SALES_LEADS[a.leadId].name,SALES_LEADS[a.leadId].phone,a.schedule].map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(','):'')).join('\n');
   const b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),el=document.createElement('a');
   el.href=u;el.download='starkidz-ai-call-queue.csv';el.click();URL.revokeObjectURL(u);
 }
