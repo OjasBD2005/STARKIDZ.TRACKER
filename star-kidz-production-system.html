@@ -200,7 +200,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Enter Order</div>
       <div class="sb-item" data-view="fg-stock" onclick="go('fg-stock')">📦 Finished Goods Stock</div>
-      <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Payment &amp; Stock Aging</div>
+      <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Party Performance</div>
       <div class="sb-item" data-view="state-perf" onclick="go('state-perf')">📊 State Performance</div>
     </div>
   </div>
@@ -1056,8 +1056,8 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <section id="view-payment-aging" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <div>
-      <h2 style="font-size:20px;font-weight:800;color:#0f172a">💳 Payment &amp; Stock Aging</h2>
-      <p style="font-size:12px;color:#64748b;margin-top:2px">Distributor-wise outstanding by aging bucket (0-30 / 31-60 / 61-90 / 90+ days) with overdue red-flags, plus finished-goods stock aging.</p>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">💳 Party Performance</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Distributor-wise payment performance — outstanding by aging bucket (0-30 / 31-60 / 61-90 / 90+ days) with overdue red-flags and bill-wise received vs pending.</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span id="paSyncBadge" class="pill pill-amber">⏳ Sample figures — connect Busy for live</span>
