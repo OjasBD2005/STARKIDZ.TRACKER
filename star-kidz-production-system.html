@@ -6735,19 +6735,28 @@ function agingByParty(){
   return Object.values(m);
 }
 function paStates(){return [...new Set(agingByParty().map(p=>p.state))].filter(s=>s&&s!=='—').sort();}
+// Master sees the full business state list (all salesperson territories + any state present in receivables);
+// a state-locked rep only ever sees their own assigned states.
+function paStateOptions(){
+  if(hasStateLock())return (currentUser.states||[]).slice().sort();
+  const set=new Set();
+  SALESPERSONS.forEach(s=>(s.states||[]).forEach(x=>x&&set.add(String(x).toUpperCase())));
+  RECEIVABLE_BILLS.forEach(b=>{const st=stateOfCustomer(b.party);if(st&&st!=='—')set.add(String(st).toUpperCase());});
+  return [...set].sort();
+}
 
 function renderPaymentAging(){
   const tbl=$('#paTbl');if(!tbl)return;
   const live=RECEIVABLES_LIVE, badge=$('#paSyncBadge');
   if(badge){badge.className='pill '+(live?'pill-green':'pill-amber');badge.textContent=live?'✅ Live from Busy import':'⏳ Amounts from last Busy data — aging estimated';}
   const sel=$('#paState');
-  if(sel){const cur=sel.value||'all', sts=paStates();
-    sel.innerHTML='<option value="all">'+(hasStateLock()?'My States':'All States')+'</option>'+sts.map(s=>`<option>${s}</option>`).join('');
-    if([...sel.options].some(o=>o.value===cur))sel.value=cur;}
-  const all=agingByParty();
-  let rows=all.slice();
+  if(sel){const cur=sel.value||'all', sts=paStateOptions();
+    sel.innerHTML='<option value="all">'+(hasStateLock()?'My States (all)':'All States')+'</option>'+sts.map(s=>`<option>${s}</option>`).join('');
+    sel.value=[...sel.options].some(o=>o.value===cur)?cur:'all';}
+  const all=agingByParty();                              // already role-scoped (rep = own states only)
   const st=sel?sel.value:'all';
-  if(st&&st!=='all')rows=rows.filter(r=>stateEq(r.state,st));
+  const scoped=(st&&st!=='all')?all.filter(r=>stateEq(r.state,st)):all;   // master's selected state narrows the whole view
+  let rows=scoped.slice();
   const q=(($('#paSearch')&&$('#paSearch').value)||'').trim().toLowerCase();
   if(q)rows=rows.filter(r=>r.party.toLowerCase().includes(q));
   if($('#paOverdueOnly')&&$('#paOverdueOnly').checked)rows=rows.filter(r=>r.buckets['90+']>0||r.overdue>0);
@@ -6756,15 +6765,19 @@ function renderPaymentAging(){
   renderBillWise();
 
   const kpi=(l,v,s,c)=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${c}"><div style="font-size:11px;color:#64748b;font-weight:600">${l}</div><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:11px;color:#94a3b8">${s}</div></div>`;
-  const totOut=all.reduce((s,r)=>s+r.total,0), tot90=all.reduce((s,r)=>s+r.buckets['90+'],0),
-        totOverdue=all.reduce((s,r)=>s+r.overdue,0), nRed=all.filter(r=>r.buckets['90+']>0).length,
-        totCur=all.reduce((s,r)=>s+r.buckets['0-30'],0);
+  const totOut=scoped.reduce((s,r)=>s+r.total,0), tot90=scoped.reduce((s,r)=>s+r.buckets['90+'],0),
+        totOverdue=scoped.reduce((s,r)=>s+r.overdue,0), nRed=scoped.filter(r=>r.buckets['90+']>0).length,
+        totCur=scoped.reduce((s,r)=>s+r.buckets['0-30'],0);
+  const stLabel=(st&&st!=='all')?' · '+st:'';
   $('#paKpiStrip').innerHTML=
-    kpi('Total Outstanding',fmtCr(totOut),all.length+' distributors','#1b3187')+
+    kpi('Total Outstanding',fmtCr(totOut),scoped.length+' distributors'+stLabel,'#1b3187')+
     kpi('Overdue (past due)',fmtCr(totOverdue),'needs follow-up','#dc2626')+
     kpi('90+ Days',fmtCr(tot90),nRed+' parties in red','#b91c1c')+
     kpi('Current (0–30)',fmtCr(totCur),'healthy','#059669');
-  $('#paNote').textContent=(hasStateLock()?'🔒 Your parties only · ':'🌐 All distributors · ')+'🔴 red = has a 90+ day / overdue balance. Click a row for bill-wise detail.'+(live?'':' · amounts are the last Busy figures; day-wise aging is estimated until Busy sends dated bill lines.');
+  const scopeMsg=hasStateLock()
+    ?'🔒 Your states only: '+((currentUser.states||[]).slice().sort().join(', ')||'—')+' — you see only parties in these states.'
+    :(st&&st!=='all'?'🌐 State: '+st+' — pick "All States" to see everyone.':'🌐 All states — select a state above to view that state’s parties.');
+  $('#paNote').textContent=scopeMsg+' 🔴 red = 90+ day / overdue balance. Click a row for bill-wise detail.'+(live?'':' · amounts are last Busy figures; day-wise aging estimated until Busy sends dated bill lines.');
 
   const cell=(v,red)=>`<td style="text-align:right${red&&v?';color:#dc2626;font-weight:700':''}">${v?fmtN(v):'—'}</td>`;
   tbl.innerHTML='<thead><tr><th>Distributor</th><th>State</th>'+
