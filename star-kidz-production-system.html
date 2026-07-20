@@ -192,7 +192,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div class="sb-item active" data-view="dash" onclick="go('dash')">📊 Dashboard</div>
   </div>
 
-  <div class="sb-section">
+  <div class="sb-section" id="salesDashNav">
     <div class="sb-title" onclick="toggleSub(this)">📈 Sales Dashboard <span class="sb-chevron open">▶</span></div>
     <div class="sb-sub" style="max-height:260px">
       <div class="sb-item" data-view="sales-push" onclick="go('sales-push')">📤 Push Sale</div>
@@ -1473,7 +1473,7 @@ const USERS=[
   {id:'U_SL7', empId:'SLS-07', name:'PAWAN TIWARI', title:'Field Sales',       role:'SALES', phone:'9138575477', states:['ANDHRA PRADESH','GOA','KARNATAKA','KERALA','TAMIL NADU']},
   {id:'U_SL8', empId:'SLS-08', name:'ASHRAF',       title:'Field Sales',       role:'SALES', phone:'9254174707', states:['ASSAM','BIHAR','JHARKHAND','TRIPURA','WEST BENGAL']},
 ];
-let currentUser=USERS[0], IS_MASTER=false;
+let currentUser=USERS[0], IS_MASTER=false, ACTING_MASTER=false;
 function isMaster(){return IS_MASTER}
 function canEditDelivery(){return currentUser.role==='GM'||IS_MASTER}
 function canPlan(){return ['GM','PLANNING'].includes(currentUser.role)||IS_MASTER}
@@ -7496,9 +7496,37 @@ const PROD_LOGIN_MAP={'KOMAL JAIN':'U_GM','SUSHIL':'U_PL1','DISPATCH 1':'U_PL1',
   // Field sales — restricted view if they ever land here directly (normal login still routes them to ojas-dispatch-tracker.html)
   'RENU':'U_SL1','SANJEEV':'U_SL2','DHEERAJ':'U_SL3','SHAMSHAD':'U_SL4','SHUBHAMI':'U_SL5','ROSHAN':'U_SL6','PAWAN TIWARI':'U_SL7','ASHRAF':'U_SL8'};
 function onUserChange(){
-  currentUser=USERS.find(u=>u.id===$('#userSelect').value)||USERS[0];
+  const v=$('#userSelect').value;
+  if(v==='__MASTER__'){ ACTING_MASTER=true; currentUser=USERS[0]; }   // MASTER = full access, own identity
+  else { ACTING_MASTER=false; currentUser=USERS.find(u=>u.id===v)||USERS[0]; }
   _pushFiltersBuilt=false;_myPartiesBuilt=false;   // rebuild role-scoped filters for the newly-selected user
-  toast('Logged in','👤',currentUser.name+' · '+currentUser.title);refresh();
+  renderRoleChip(); applyRoleVisibility();
+  toast('Logged in','👤',(ACTING_MASTER?'MASTER · Full Access':currentUser.name+' · '+currentUser.title));refresh();
+}
+// ── ACTIVE ROLE chip (sidebar) — shows MASTER for the master login, never KOMAL JAIN ──
+function renderRoleChip(){
+  const chip=document.getElementById('activeRoleChip');if(!chip)return;
+  const master=IS_MASTER&&ACTING_MASTER;
+  const isPlanner=canPlan();
+  const nm=master?'MASTER':currentUser.name;
+  const ttl=master?'Full Access · All Modules':currentUser.title;
+  chip.innerHTML=`<div style="opacity:.55;font-size:9px;letter-spacing:.07em;margin-bottom:3px">ACTIVE ROLE</div>`+
+    `<span style="color:${(master||!isPlanner)?'#fbbf24':'#34d399'}">${nm}</span>`+
+    `<div style="font-size:10px;color:#9ca3af;font-weight:400;margin-top:1px">${ttl}</div>`+
+    ((isPlanner||master)?'':`<div style="margin-top:5px;font-size:9px;background:rgba(239,68,68,.15);color:#fca5a5;border-radius:4px;padding:2px 6px;display:inline-block">🔒 Planning: View-only</div>`);
+}
+// ── Sidebar section visibility by role (re-applied when the master switches view) ──
+function applyRoleVisibility(){
+  const _r=currentUser.role;
+  const master=IS_MASTER&&ACTING_MASTER;
+  // Sales Dashboard — hidden for KOMAL JAIN (GM). MASTER (own identity) still sees it.
+  const salesNav=$('#salesDashNav');if(salesNav)salesNav.style.display=(_r==='GM'&&!master)?'none':'';
+  const qNav=$('#myQueueNav');if(qNav)qNav.style.display=(IS_MASTER||['GM','UPPER','PU','PVC','STUCKON','EVA','RMDISP','CUTTING'].includes(_r))?'flex':'none';
+  const pNav=$('#pendencyNav');if(pNav)pNav.style.display=(IS_MASTER||_r==='GM'||_r==='PLANNING')?'flex':'none';
+  const uiNav=$('#upperIssuanceNav');if(uiNav)uiNav.style.display=(IS_MASTER||_r==='GM'||_r==='UPPER'||_r==='CUTTING')?'block':'none';
+  const ppNav=$('#peopleNav');if(ppNav)ppNav.style.display=(IS_MASTER||_r==='GM'||_r==='PLANNING')?'block':'none';
+  const rmNav=$('#rmstoreNav');if(rmNav)rmNav.style.display=(IS_MASTER||_r==='GM'||_r==='RMSTORE')?'block':'none';
+  updateQueueBadges();
 }
 function logout(){try{localStorage.removeItem('STARKIDZ_USER')}catch(_){}window.location.href='login.html'}
 
@@ -7653,8 +7681,8 @@ function seedInventifyOrders(){
   let u=null;try{u=localStorage.getItem('STARKIDZ_USER')}catch(_){}
   if(!u){location.href='login.html';return}
   if(u==='MASTER'){
-    IS_MASTER=true;
-    $('#userSelect').innerHTML=USERS.map(u=>`<option value="${u.id}">${u.empId} · ${u.name} — ${u.title}</option>`).join('');
+    IS_MASTER=true; ACTING_MASTER=true;
+    $('#userSelect').innerHTML=`<option value="__MASTER__">👑 MASTER — Full Access</option>`+USERS.map(u=>`<option value="${u.id}">${u.empId} · ${u.name} — ${u.title}</option>`).join('');
     currentUser=USERS[0];
   }else if(PROD_LOGIN_MAP[u]){
     currentUser=USERS.find(x=>x.id===PROD_LOGIN_MAP[u])||USERS[0];
@@ -7695,13 +7723,11 @@ function seedInventifyOrders(){
 
   // ── Role chip + planning-nav badge for non-planners ──
   const roleChip=document.createElement('div');
+  roleChip.id='activeRoleChip';
   roleChip.style.cssText='padding:10px 14px;font-size:11px;font-weight:700;border-bottom:1px solid #1f2937;word-break:break-word';
-  const isPlanner=canPlan();
-  roleChip.innerHTML=`<div style="opacity:.55;font-size:9px;letter-spacing:.07em;margin-bottom:3px">ACTIVE ROLE</div>`+
-    `<span style="color:${isPlanner?'#34d399':'#fbbf24'}">${currentUser.name}</span>`+
-    `<div style="font-size:10px;color:#9ca3af;font-weight:400;margin-top:1px">${currentUser.title}</div>`+
-    (isPlanner?'':`<div style="margin-top:5px;font-size:9px;background:rgba(239,68,68,.15);color:#fca5a5;border-radius:4px;padding:2px 6px;display:inline-block">🔒 Planning: View-only</div>`);
   document.getElementById('sidebar').insertBefore(roleChip,document.querySelector('.sb-section'));
+  renderRoleChip();
+  const isPlanner=canPlan();
   if(!isPlanner){
     document.querySelectorAll('[data-view="machine-plan"],[data-view="upper-plan"],[data-view="article-plan"],[data-view="packing-plan"]').forEach(el=>{
       if(!el.querySelector('.view-badge')){
@@ -7714,12 +7740,7 @@ function seedInventifyOrders(){
 
   // Show/hide sidebar sections based on role
   const _r=currentUser.role;
-  const qNav=$('#myQueueNav');if(qNav)qNav.style.display=(IS_MASTER||['GM','UPPER','PU','PVC','STUCKON','EVA','RMDISP','CUTTING'].includes(_r))?'flex':'none';
-  const pNav=$('#pendencyNav');if(pNav)pNav.style.display=(IS_MASTER||_r==='GM'||_r==='PLANNING')?'flex':'none';
-  const uiNav=$('#upperIssuanceNav');if(uiNav)uiNav.style.display=(IS_MASTER||_r==='GM'||_r==='UPPER'||_r==='CUTTING')?'block':'none';
-  const ppNav=$('#peopleNav');if(ppNav)ppNav.style.display=(IS_MASTER||_r==='GM'||_r==='PLANNING')?'block':'none';
-  const rmNav=$('#rmstoreNav');if(rmNav)rmNav.style.display=(IS_MASTER||_r==='GM'||_r==='RMSTORE')?'block':'none';
-  updateQueueBadges();
+  applyRoleVisibility();
   // Route each role to their default landing view
   if(_r==='UPPER'||_r==='CUTTING')go('upper-issuance');
   else if(_r==='RMSTORE')go('rm-store');

@@ -102,7 +102,7 @@ body{
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   transition:transform .15s ease,background .3s;
 }
-.theme-toggle:hover{transform:translateY(-2px)}
+.theme-toggle:hover{transform:none}
 .theme-toggle .ico{font-size:16px;line-height:1}
 
 /* ============ LOGIN CARD (3D tilt) ============ */
@@ -151,7 +151,7 @@ form{margin-top:22px;display:flex;flex-direction:column;gap:14px;transform:trans
 .inp::placeholder{color:var(--muted2);font-weight:500}
 .inp:focus{border-color:var(--brand-pink);box-shadow:0 0 0 3px rgba(236,72,153,.22);background:var(--inp-focus-bg)}
 .eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;opacity:.55;padding:4px}
-.eye:hover{opacity:1}
+.eye:hover{opacity:.55}
 
 .err{display:none;color:#f43f5e;font-size:12px;font-weight:700}
 
@@ -163,12 +163,12 @@ form{margin-top:22px;display:flex;flex-direction:column;gap:14px;transform:trans
   box-shadow:0 12px 28px -8px rgba(225,29,43,.5);
   transition:transform .15s,box-shadow .2s,background-position .3s;
 }
-.signin:hover{transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(236,72,153,.6);background-position:90% 0}
+.signin:hover{transform:none;box-shadow:0 12px 28px -8px rgba(225,29,43,.5)}
 .signin:active{transform:scale(.97)}
 
 .foot{margin-top:24px;text-align:center;font-size:11px;color:var(--muted2)}
 .foot a{color:var(--brand-pink);text-decoration:none;font-weight:700}
-.foot a:hover{text-decoration:underline}
+.foot a:hover{text-decoration:none}
 
 .shake{animation:shk .4s}
 @keyframes shk{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
@@ -315,20 +315,8 @@ function toggleTheme(){
 }
 applyThemeUI();
 
-// ============ 3D CARD TILT (mouse parallax) ============
-(function(){
-  const tilt=document.getElementById('tilt');
-  const fine=window.matchMedia('(pointer:fine)').matches;
-  const noMotion=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-  if(!fine||noMotion)return;
-  const MAX=7; // degrees
-  window.addEventListener('mousemove',e=>{
-    const cx=window.innerWidth/2, cy=window.innerHeight/2;
-    const rx=((e.clientY-cy)/cy)*-MAX, ry=((e.clientX-cx)/cx)*MAX;
-    tilt.style.transform=`rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
-  });
-  window.addEventListener('mouseleave',()=>{tilt.style.transform='rotateX(0) rotateY(0)'});
-})();
+// ============ 3D CARD TILT — DISABLED (no hover/parallax on login) ============
+// Card stays flat; no mouse-follow tilt.
 
 // ============ IDENTITY REGISTRY (client-side demo gate) ============
 const USERS = {
