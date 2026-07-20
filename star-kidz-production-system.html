@@ -1065,6 +1065,15 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#475569;font-weight:600;padding-bottom:8px;cursor:pointer"><input type="checkbox" id="paOverdueOnly" onchange="renderPaymentAging()"> 🔴 Overdue only</label>
   </div>
 
+  <!-- Party-wise outstanding graph (stacked by aging bucket) -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <div style="font-weight:800">📊 Party-wise Outstanding — stacked by aging bucket (top 12)</div>
+      <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="downloadAgingChartPNG()">⬇️ PNG</button>
+    </div>
+    <div style="height:340px;position:relative"><canvas id="agingChartCanvas"></canvas></div>
+  </div>
+
   <!-- Party-wise aging table -->
   <div class="card">
     <div style="font-weight:800;margin-bottom:4px">🏬 Distributor-wise Payment Aging</div>
@@ -6726,6 +6735,7 @@ function renderPaymentAging(){
   if(q)rows=rows.filter(r=>r.party.toLowerCase().includes(q));
   if($('#paOverdueOnly')&&$('#paOverdueOnly').checked)rows=rows.filter(r=>r.buckets['90+']>0||r.overdue>0);
   rows.sort((a,b)=>b.buckets['90+']-a.buckets['90+']||b.total-a.total);
+  renderAgingChart(rows);
 
   const kpi=(l,v,s,c)=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${c}"><div style="font-size:11px;color:#64748b;font-weight:600">${l}</div><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:11px;color:#94a3b8">${s}</div></div>`;
   const totOut=all.reduce((s,r)=>s+r.total,0), tot90=all.reduce((s,r)=>s+r.buckets['90+'],0),
@@ -6771,6 +6781,36 @@ function openAgingDetail(party){
     `</tbody></table></div>`;
   $('#lowBillModal').style.display='flex';
 }
+
+// ── Party-wise outstanding graph (stacked bar by aging bucket) ──
+let agingChart=null;
+function renderAgingChart(rows){
+  const cv=document.getElementById('agingChartCanvas');if(!cv||typeof Chart==='undefined')return;
+  const top=rows.slice(0,12);
+  if(agingChart){agingChart.destroy();agingChart=null;}
+  agingChart=new Chart(cv.getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:top.map(r=>r.party.split(' - ')[0]),
+      datasets:AGING_BUCKETS.map(b=>({label:BUCKET_LABEL[b],data:top.map(r=>r.buckets[b]),backgroundColor:BUCKET_COLOR[b],borderWidth:0}))
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{stacked:true,ticks:{autoSkip:false,maxRotation:60,minRotation:40,font:{size:10}}},
+        y:{stacked:true,ticks:{callback:v=>v>=1e5?'₹'+(v/1e5).toFixed(1)+'L':fmtN(v)}}
+      },
+      plugins:{
+        legend:{position:'top'},
+        tooltip:{callbacks:{
+          title:items=>top[items[0].dataIndex]?top[items[0].dataIndex].party:'',
+          label:c=>c.dataset.label+': '+fmtN(c.parsed.y)
+        }}
+      }
+    }
+  });
+}
+function downloadAgingChartPNG(){if(!agingChart)return;const a=document.createElement('a');a.href=agingChart.toBase64Image();a.download='party-aging-'+todayISO()+'.png';a.click();}
 
 // ── Stock aging (uses FINISHED_GOODS_STOCK.lastUpdate as the movement date) ──
 function stockAgeDays(s){return s.lastUpdate?Math.max(0,daysBetween(new Date(s.lastUpdate),new Date())):null;}
