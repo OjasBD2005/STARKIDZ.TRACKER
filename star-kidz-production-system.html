@@ -6785,19 +6785,59 @@ function renderPaymentAging(){
       `<td style="text-align:right">${fmtN(rows.reduce((s,r)=>s+r.total,0))}</td><td></td><td></td></tr>`:'')+
     '</tbody>';
 }
+function ordersForParty(party){
+  const base=(party||'').split(' - ')[0].toLowerCase().trim();if(!base)return [];
+  return ORDERS.filter(o=>{const c=(o.customer||'').toLowerCase().trim();return c&&(c.includes(base)||base.includes(c));});
+}
+let partyChart=null;
 function openAgingDetail(party){
   const p=agingByParty().find(r=>r.party===party);if(!p)return;
   const bills=p.bills.slice().sort((a,b)=>b.age-a.age);
-  $('#lowBillTitle').textContent='💳 '+party+' — Bill-wise Aging';
+  const ords=ordersForParty(party).slice().sort((a,b)=>new Date(b.order_date)-new Date(a.order_date));
+  const billed=bills.reduce((s,b)=>s+(+b.billAmt||0),0), received=bills.reduce((s,b)=>s+(+b.received||0),0);
+  const ordQty=ords.reduce((s,o)=>s+(+o.qty||0),0);
+  const kpi=(l,v,c)=>`<div class="card" style="padding:10px 12px;border-left:4px solid ${c}"><div style="font-size:10px;color:#64748b;font-weight:600">${l}</div><div style="font-size:16px;font-weight:800;color:${c}">${v}</div></div>`;
+  $('#lowBillTitle').textContent='💳 '+party+' — Payment & Orders';
   $('#lowBillBody').innerHTML=
     `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:14px">`+
-    AGING_BUCKETS.map(b=>`<div class="card" style="padding:10px 12px;border-left:4px solid ${BUCKET_COLOR[b]}"><div style="font-size:10px;color:#64748b;font-weight:600">${BUCKET_LABEL[b]}</div><div style="font-size:16px;font-weight:800;color:${BUCKET_COLOR[b]}">${p.buckets[b]?fmtN(p.buckets[b]):'—'}</div></div>`).join('')+
+    kpi('Billed',fmtN(billed),'#1b3187')+kpi('Received',fmtN(received),'#059669')+kpi('Pending',fmtN(p.total),'#dc2626')+
+    kpi('Open Bills',bills.length,'#7c3aed')+kpi('Orders (qty)',ordQty?fmtN(ordQty)+' prs':'—','#0891b2')+
     `</div>`+
-    `<div class="card" style="padding:10px 12px;margin-bottom:12px;border-left:4px solid #dc2626"><div style="font-size:11px;color:#64748b;font-weight:600">Total Outstanding · Overdue</div><div style="font-size:18px;font-weight:800;color:#b91c1c">${fmtN(p.total)} <span style="font-size:13px;color:#64748b">· overdue ${p.overdue?fmtN(p.overdue):'0'}</span></div></div>`+
-    `<div style="overflow:auto;max-height:300px"><table class="tbl"><thead><tr><th>Bill No</th><th>Bill Date</th><th>Due Date</th><th style="text-align:right">Balance</th><th style="text-align:right">Age</th><th>Bucket</th></tr></thead><tbody>`+
-    bills.map(b=>`<tr style="${b.bucket==='90+'||b.overdue?'background:#fef2f2':''}"><td>${b.billno}</td><td>${fmtFull(b.billDate)}</td><td>${b.dueDate?fmtFull(b.dueDate):'—'}${b.overdue?' <span class="pill pill-red" style="font-size:9px">overdue</span>':''}</td><td style="text-align:right;font-weight:700">${fmtN(b.balance)}</td><td style="text-align:right;${b.age>90?'color:#dc2626;font-weight:700':''}">${b.age}d</td><td><span class="pill" style="background:${BUCKET_COLOR[b.bucket]}22;color:${BUCKET_COLOR[b.bucket]}">${b.bucket}</span></td></tr>`).join('')+
-    `</tbody></table></div>`;
+    `<div class="card" style="margin-bottom:14px"><div style="font-weight:800;margin-bottom:6px">📊 Payment vs Order — month-wise</div><div style="height:250px;position:relative"><canvas id="partyChartCanvas"></canvas></div><div style="font-size:10px;color:#94a3b8;margin-top:6px">Bars = billed / received / pending (₹) per month from bills · line = order qty (prs) where production orders are linked.</div></div>`+
+    `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px">`+
+    AGING_BUCKETS.map(b=>`<div class="card" style="padding:8px 10px;border-left:4px solid ${BUCKET_COLOR[b]}"><div style="font-size:10px;color:#64748b;font-weight:600">${BUCKET_LABEL[b]}</div><div style="font-size:14px;font-weight:800;color:${BUCKET_COLOR[b]}">${p.buckets[b]?fmtN(p.buckets[b]):'—'}</div></div>`).join('')+
+    `</div>`+
+    `<div style="font-weight:800;margin-bottom:6px">🧾 Bills</div>`+
+    `<div style="overflow:auto;max-height:240px;margin-bottom:14px"><table class="tbl"><thead><tr><th>Bill No</th><th>Bill Date</th><th>Due Date</th><th style="text-align:right">Bill Amt</th><th style="text-align:right">Received</th><th style="text-align:right">Pending</th><th style="text-align:right">Age</th><th>Payment</th></tr></thead><tbody>`+
+    bills.map(b=>{const sts=billStatus(b);const pill=sts==='Received'?'<span class="pill pill-green">✅</span>':sts==='Partial'?'<span class="pill pill-amber">◐</span>':'<span class="pill pill-red">⏳</span>';return `<tr style="${b.bucket==='90+'||b.overdue?'background:#fef2f2':''}"><td>${b.billno}</td><td>${fmtFull(b.billDate)}</td><td>${b.dueDate?fmtFull(b.dueDate):'—'}${b.overdue?' <span class="pill pill-red" style="font-size:9px">overdue</span>':''}</td><td style="text-align:right">${fmtN(b.billAmt)}</td><td style="text-align:right;color:#059669">${b.received?fmtN(b.received):'—'}</td><td style="text-align:right;font-weight:700;${b.bucket==='90+'?'color:#dc2626':''}">${fmtN(b.balance)}</td><td style="text-align:right;${b.age>90?'color:#dc2626;font-weight:700':''}">${b.age}d</td><td>${pill}</td></tr>`;}).join('')+
+    `</tbody></table></div>`+
+    `<div style="font-weight:800;margin-bottom:6px">📦 Orders <span style="font-size:11px;color:#94a3b8;font-weight:600">(linked production orders)</span></div>`+
+    (ords.length?`<div style="overflow:auto;max-height:220px"><table class="tbl"><thead><tr><th>Order No</th><th>Date</th><th>Article</th><th style="text-align:right">Qty</th><th>Stage</th></tr></thead><tbody>`+
+      ords.map(o=>`<tr><td>${o.order_no}</td><td>${fmtFull(o.order_date)}</td><td style="font-size:11px">${o.article_name||o.article_code||'—'}</td><td style="text-align:right">${fmtN(o.qty)}</td><td style="font-size:11px">${stageName(o)}</td></tr>`).join('')+
+      `</tbody></table></div>`
+      :`<div class="card" style="text-align:center;color:#94a3b8;padding:16px;font-size:12px">No production orders linked to this party yet. Orders placed through the app with this party's name will appear here.</div>`);
   $('#lowBillModal').style.display='flex';
+  // build the month-wise payment/order chart (canvas now visible & measurable)
+  const mm={};
+  const addM=(dateStr,f)=>{const d=new Date(dateStr);if(isNaN(d))return;const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');(mm[k]=mm[k]||{billed:0,received:0,pending:0,qty:0,label:d.toLocaleString('en-IN',{month:'short',year:'2-digit'})});f(mm[k]);};
+  bills.forEach(b=>addM(b.billDate,o=>{o.billed+=+b.billAmt||0;o.received+=+b.received||0;o.pending+=+b.balance||0;}));
+  ords.forEach(o=>addM(o.order_date,x=>{x.qty+=+o.qty||0;}));
+  const keys=Object.keys(mm).sort(), labels=keys.map(k=>mm[k].label), hasQty=keys.some(k=>mm[k].qty>0);
+  if(partyChart){partyChart.destroy();partyChart=null;}
+  if(typeof Chart!=='undefined'&&keys.length){
+    const ds=[
+      {type:'bar',label:'Billed',data:keys.map(k=>mm[k].billed),backgroundColor:'#1b3187',yAxisID:'y'},
+      {type:'bar',label:'Received',data:keys.map(k=>mm[k].received),backgroundColor:'#059669',yAxisID:'y'},
+      {type:'bar',label:'Pending',data:keys.map(k=>mm[k].pending),backgroundColor:'#dc2626',yAxisID:'y'}
+    ];
+    if(hasQty)ds.push({type:'line',label:'Order Qty (prs)',data:keys.map(k=>mm[k].qty),borderColor:'#0891b2',backgroundColor:'#0891b2',tension:.3,yAxisID:'y1'});
+    partyChart=new Chart(document.getElementById('partyChartCanvas').getContext('2d'),{
+      data:{labels,datasets:ds},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{y:{position:'left',ticks:{callback:v=>v>=1e5?'₹'+(v/1e5).toFixed(1)+'L':fmtN(v)}},y1:{position:'right',display:hasQty,grid:{drawOnChartArea:false},title:{display:hasQty,text:'prs'}}},
+        plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.dataset.yAxisID==='y1'?fmtN(c.parsed.y)+' prs':fmtN(c.parsed.y))}}}}
+    });
+  }
 }
 
 // ── Bill-wise receivables (which bill is received / partly received / pending) ──
