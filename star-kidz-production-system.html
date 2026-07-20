@@ -1081,6 +1081,21 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div style="overflow:auto"><table class="tbl" id="paTbl"></table></div>
   </div>
 
+  <!-- Bill-wise receivables (received vs pending) -->
+  <div class="card" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <div style="font-weight:800">🧾 Bill-wise Receivables — received vs pending</div>
+      <select id="bwStatus" class="inp" style="width:auto;font-size:12px" onchange="renderBillWise()">
+        <option value="all">All bills</option>
+        <option value="Pending">⏳ Pending only</option>
+        <option value="Partial">◐ Partly received</option>
+        <option value="Received">✅ Received</option>
+      </select>
+    </div>
+    <div id="bwNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto;max-height:460px"><table class="tbl" id="bwTbl"></table></div>
+  </div>
+
   <!-- Stock aging -->
   <div class="card" style="margin-top:18px">
     <div style="font-weight:800;margin-bottom:4px">📦 Finished-Goods Stock Aging</div>
@@ -6694,10 +6709,12 @@ function seedReceivables(){
   pushReceivables.forEach((r,i)=>{
     const ages=spreads[i%spreads.length];
     ages.forEach((age,j)=>{
-      const bal=Math.round(r.amt/ages.length);
+      const bal=Math.round(r.amt/ages.length);          // pending balance = real outstanding (unchanged)
+      const recvMult=[0,0.5,0,1.2][(i+j)%4];            // some bills partly collected → varied payment status
+      const received=Math.round(bal*recvMult);          // extra collection on top; billAmt = pending + received
       RECEIVABLE_BILLS.push({
         party:r.customer, billno:'S/'+(1200+i*3+j),
-        billDate:daysAgoISO(age), billAmt:bal, received:0, balance:bal,
+        billDate:daysAgoISO(age), billAmt:bal+received, received:received, balance:bal,
         dueDate:daysAgoISO(age-45)   // 45-day credit term
       });
     });
@@ -6736,6 +6753,7 @@ function renderPaymentAging(){
   if($('#paOverdueOnly')&&$('#paOverdueOnly').checked)rows=rows.filter(r=>r.buckets['90+']>0||r.overdue>0);
   rows.sort((a,b)=>b.buckets['90+']-a.buckets['90+']||b.total-a.total);
   renderAgingChart(rows);
+  renderBillWise();
 
   const kpi=(l,v,s,c)=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${c}"><div style="font-size:11px;color:#64748b;font-weight:600">${l}</div><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:11px;color:#94a3b8">${s}</div></div>`;
   const totOut=all.reduce((s,r)=>s+r.total,0), tot90=all.reduce((s,r)=>s+r.buckets['90+'],0),
@@ -6780,6 +6798,26 @@ function openAgingDetail(party){
     bills.map(b=>`<tr style="${b.bucket==='90+'||b.overdue?'background:#fef2f2':''}"><td>${b.billno}</td><td>${fmtFull(b.billDate)}</td><td>${b.dueDate?fmtFull(b.dueDate):'—'}${b.overdue?' <span class="pill pill-red" style="font-size:9px">overdue</span>':''}</td><td style="text-align:right;font-weight:700">${fmtN(b.balance)}</td><td style="text-align:right;${b.age>90?'color:#dc2626;font-weight:700':''}">${b.age}d</td><td><span class="pill" style="background:${BUCKET_COLOR[b.bucket]}22;color:${BUCKET_COLOR[b.bucket]}">${b.bucket}</span></td></tr>`).join('')+
     `</tbody></table></div>`;
   $('#lowBillModal').style.display='flex';
+}
+
+// ── Bill-wise receivables (which bill is received / partly received / pending) ──
+function billStatus(b){if((+b.balance)<=0)return 'Received';if((+b.received)>0)return 'Partial';return 'Pending';}
+function renderBillWise(){
+  const tbl=$('#bwTbl');if(!tbl)return;
+  let bills=receivablesInScope().map(b=>{const age=billAgeDays(b);return {...b,age,bucket:bucketOf(age),overdue:billOverdue(b),status:billStatus(b)};});
+  const st=$('#paState')?$('#paState').value:'all';
+  if(st&&st!=='all')bills=bills.filter(b=>stateEq(stateOfCustomer(b.party),st));
+  const q=(($('#paSearch')&&$('#paSearch').value)||'').trim().toLowerCase();
+  if(q)bills=bills.filter(b=>b.party.toLowerCase().includes(q)||String(b.billno).toLowerCase().includes(q));
+  const sf=$('#bwStatus')?$('#bwStatus').value:'all';
+  if(sf&&sf!=='all')bills=bills.filter(b=>b.status===sf);
+  bills.sort((a,b)=>b.age-a.age);
+  const totAmt=bills.reduce((s,b)=>s+(+b.billAmt||0),0), totRecv=bills.reduce((s,b)=>s+(+b.received||0),0), totPend=bills.reduce((s,b)=>s+(+b.balance||0),0);
+  $('#bwNote').innerHTML=`${bills.length} open bills · Billed <b>${fmtN(totAmt)}</b> · <span style="color:#059669">Received ${fmtN(totRecv)}</span> · <span style="color:#dc2626">Pending ${fmtN(totPend)}</span>`;
+  const stPill=s=>s==='Received'?'<span class="pill pill-green">✅ Received</span>':s==='Partial'?'<span class="pill pill-amber">◐ Partly received</span>':'<span class="pill pill-red">⏳ Pending</span>';
+  tbl.innerHTML='<thead><tr><th>Bill No</th><th>Distributor</th><th>Bill Date</th><th>Due Date</th><th style="text-align:right">Bill Amt</th><th style="text-align:right">Received</th><th style="text-align:right">Pending</th><th style="text-align:right">Age</th><th>Payment</th></tr></thead><tbody>'+
+    (bills.length?bills.map(b=>`<tr style="${b.status==='Pending'&&b.bucket==='90+'?'background:#fef2f2':''}"><td>${b.billno}</td><td style="font-size:11px"><b>${b.party.split(' - ')[0]}</b></td><td style="font-size:11px">${fmtFull(b.billDate)}</td><td style="font-size:11px">${b.dueDate?fmtFull(b.dueDate):'—'}${b.overdue?' <span class="pill pill-red" style="font-size:9px">overdue</span>':''}</td><td style="text-align:right">${fmtN(b.billAmt)}</td><td style="text-align:right;color:#059669">${b.received?fmtN(b.received):'—'}</td><td style="text-align:right;font-weight:700;${b.bucket==='90+'?'color:#dc2626':''}">${b.balance?fmtN(b.balance):'—'}</td><td style="text-align:right;${b.age>90?'color:#dc2626;font-weight:700':''}">${b.age}d</td><td>${stPill(b.status)}</td></tr>`).join('')
+    :'<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:16px">No bills in scope.</td></tr>')+'</tbody>';
 }
 
 // ── Party-wise outstanding graph (stacked bar by aging bucket) ──
