@@ -201,6 +201,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Enter Order</div>
       <div class="sb-item" data-view="fg-stock" onclick="go('fg-stock')">📦 Finished Goods Stock</div>
       <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Payment &amp; Stock Aging</div>
+      <div class="sb-item" data-view="state-perf" onclick="go('state-perf')">📊 State Performance</div>
     </div>
   </div>
 
@@ -1105,6 +1106,43 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
     <div id="bwNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
     <div style="overflow:auto;max-height:460px"><table class="tbl" id="bwTbl"></table></div>
+  </div>
+</section>
+
+<!-- ===== STATE PERFORMANCE & GROWTH ===== -->
+<section id="view-state-perf" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📊 State Performance &amp; Growth</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">All states in one place — sales up/down vs last year, parties that have gone quiet, and late-paying distributors.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="spfSyncBadge" class="pill pill-amber">⏳ Sample figures — connect Busy for live</span>
+      <select id="spfState" class="inp" style="width:auto;font-size:12px" onchange="renderStatePerf()"></select>
+    </div>
+  </div>
+
+  <div id="spfKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px"></div>
+
+  <!-- State-wise growth -->
+  <div class="card" style="margin-bottom:18px">
+    <div style="font-weight:800;margin-bottom:6px">🗺️ State-wise Sales Growth — this year vs last year</div>
+    <div style="height:320px;position:relative;margin-bottom:12px"><canvas id="spfChartCanvas"></canvas></div>
+    <div style="overflow:auto"><table class="tbl" id="spfStateTbl"></table></div>
+  </div>
+
+  <!-- Parties not performing -->
+  <div class="card" style="margin-bottom:18px">
+    <div style="font-weight:800;margin-bottom:4px">😴 Parties Not Performing — dropped / quiet</div>
+    <div id="spfDropNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto"><table class="tbl" id="spfDropTbl"></table></div>
+  </div>
+
+  <!-- Late payment parties -->
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:4px">⏰ Late Payment Parties — overdue</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Distributors with a balance past its due date or in the 90+ day bucket — chase these first.</div>
+    <div style="overflow:auto"><table class="tbl" id="spfLateTbl"></table></div>
   </div>
 </section>
 
@@ -2266,7 +2304,7 @@ function isRestrictedProduction(){return !IS_MASTER && currentUser.role!=='SALES
 function canAccessProductionDashboard(){return IS_MASTER || currentUser.role==='PLANNING' || currentUser.role==='GM' || ['UPPER','PU','PVC','STUCKON','EVA','RMSTORE','RMDISP','CUTTING'].includes(currentUser.role)}
 function canAccessFinishedGoodsStock(){return IS_MASTER || currentUser.role==='SALES' || currentUser.role==='PLANNING' || currentUser.role==='GM' || currentUser.name==='RENU' || currentUser.name==='SHUBHAMI' || currentUser.name==='KOMAL JAIN' || currentUser.name==='SUSHIL'}
 const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
-const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties','payment-aging'];
+const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties','payment-aging','state-perf'];
 function renderBlocked(view,reason){
   const el=$('#view-'+view);if(!el)return;
   el.innerHTML=`<div class="card" style="text-align:center;padding:60px 20px">
@@ -2306,6 +2344,7 @@ function go(view){
   else if(view==='sales-pull')renderAgent();
   else if(view==='sales-push')renderPushSale();
   else if(view==='payment-aging'){renderPaymentAging();}
+  else if(view==='state-perf'){renderStatePerf();}
   else if(view==='my-parties')renderMyParties();
   else if(view==='sales-order-entry')renderOrderEntry();
   else if(view==='settings')loadSettings();
@@ -6979,6 +7018,122 @@ function exportAgingCSV(){
   const lines=[head.join(',')].concat(rows.map(r=>[r.party,r.state,r.buckets['0-30'],r.buckets['31-60'],r.buckets['61-90'],r.buckets['90+'],r.total,r.overdue,r.oldest].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')));
   const blob=new Blob([lines.join('\n')],{type:'text/csv'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='payment-aging-'+todayISO()+'.csv';a.click();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STATE PERFORMANCE & GROWTH  (one tab: state YoY growth + quiet parties + late payers)
+// State-wise this-FY vs last-FY sales. SAMPLE seed (mix of up/down) so the window is
+// usable now; when dated sale data is uploaded (LINK.saleCur/salePrev via Push Sale →
+// Link & Configure) or Busy connects, statePerfScoped() computes the real numbers.
+// ══════════════════════════════════════════════════════════════════════
+const STATE_PERF_SEED=[
+  {state:'UTTAR PRADESH',sp:'SHAMSHAD',last:149900000,cur:167500000},
+  {state:'DELHI',sp:'DHEERAJ',last:78000000,cur:71200000},
+  {state:'HARYANA',sp:'DHEERAJ',last:26000000,cur:29500000},
+  {state:'RAJASTHAN',sp:'DHEERAJ',last:21000000,cur:18400000},
+  {state:'PUNJAB',sp:'DHEERAJ',last:15000000,cur:13600000},
+  {state:'MAHARASHTRA',sp:'SANJEEV',last:64000000,cur:69800000},
+  {state:'GUJARAT',sp:'SANJEEV',last:22000000,cur:19600000},
+  {state:'WEST BENGAL',sp:'ASHRAF',last:41000000,cur:47300000},
+  {state:'BIHAR',sp:'ASHRAF',last:33000000,cur:31200000},
+  {state:'ASSAM',sp:'ASHRAF',last:18000000,cur:21500000},
+  {state:'JHARKHAND',sp:'ASHRAF',last:14000000,cur:12100000},
+  {state:'MADHYA PRADESH',sp:'ROSHAN OJHA',last:24000000,cur:26800000},
+  {state:'CHATISGARH',sp:'ROSHAN OJHA',last:12000000,cur:9800000},
+  {state:'ODISHA',sp:'ROSHAN OJHA',last:9000000,cur:10400000},
+  {state:'TAMIL NADU',sp:'PAWAN TIWARI',last:38000000,cur:42600000},
+  {state:'KARNATAKA',sp:'PAWAN TIWARI',last:28000000,cur:25300000},
+  {state:'ANDHRA PRADESH',sp:'PAWAN TIWARI',last:19000000,cur:22100000},
+  {state:'TELANGANA',sp:'PAWAN TIWARI',last:16000000,cur:18700000},
+  {state:'KERALA',sp:'PAWAN TIWARI',last:11000000,cur:9400000},
+  {state:'UTTARAKHAND',sp:'SHAMSHAD',last:8000000,cur:8900000}
+];
+function statePerfScoped(){
+  const haveLink=(typeof LINK!=='undefined')&&(LINK.saleCur||[]).length&&(LINK.salePrev||[]).length;
+  let rows;
+  if(haveLink){
+    const m={};
+    const add=(arr,k)=>arr.forEach(r=>{let st=stateOfCustomer(r.party);if(!st||st==='—')return;st=String(st).toUpperCase();(m[st]=m[st]||{state:st,cur:0,last:0,sp:attributeSP(r.party)||'—'});m[st][k]+=+r.value||0;});
+    add(LINK.saleCur,'cur');add(LINK.salePrev,'last');
+    rows=Object.values(m);
+  }else rows=STATE_PERF_SEED.map(r=>({...r}));
+  if(hasStateLock())rows=rows.filter(r=>(currentUser.states||[]).some(s=>stateEq(s,r.state)));
+  rows.forEach(r=>r.growth=r.last?((r.cur-r.last)/r.last*100):(r.cur?100:0));
+  return {rows:rows.sort((a,b)=>b.growth-a.growth),live:haveLink};
+}
+// Parties that have dropped off / gone quiet: prev-period billing vs current
+function droppedParties(){
+  const haveLink=(typeof LINK!=='undefined')&&(LINK.saleCur||[]).length&&(LINK.salePrev||[]).length;
+  let rows;
+  if(haveLink){
+    const cur={},last={};
+    LINK.saleCur.forEach(r=>{cur[r.party]=(cur[r.party]||0)+(+r.value||0);});
+    LINK.salePrev.forEach(r=>{last[r.party]=(last[r.party]||0)+(+r.value||0);});
+    rows=Object.keys(last).map(p=>({party:p,last:last[p],cur:cur[p]||0}));
+  }else{
+    rows=pushCustPrev.map(pv=>{const c=pushCustRows.find(x=>x.customer===pv.customer);return {party:pv.customer,last:+pv.taxless||0,cur:c?+c.taxless||0:0};});
+  }
+  rows.forEach(r=>{r.drop=r.last?((r.last-r.cur)/r.last*100):0;r.state=stateOfCustomer(r.party)||'—';r.sp=attributeSP(r.party)||'—';const recv=pushReceivables.find(x=>x.customer===r.party);r.due=recv?recv.amt:0;});
+  rows=rows.filter(r=>r.drop>=40);
+  if(hasStateLock())rows=rows.filter(r=>(currentUser.states||[]).some(s=>stateEq(s,r.state)));
+  return rows.sort((a,b)=>b.drop-a.drop);
+}
+function latePayers(){
+  return agingByParty().filter(p=>p.overdue>0||p.buckets['90+']>0)
+    .map(p=>({party:p.party,state:p.state,overdue:p.overdue||p.buckets['90+'],oldest:p.oldest,sp:attributeSP(p.party)||'—'}))
+    .sort((a,b)=>b.overdue-a.overdue);
+}
+let statePerfChart=null;
+const growPillHTML=g=>`<span class="pill" style="${g>=0?'background:#dcfce7;color:#15803d':'background:#fee2e2;color:#b91c1c'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}%</span>`;
+function renderStatePerf(){
+  const tbl=$('#spfStateTbl');if(!tbl)return;
+  const {rows:allStates,live}=statePerfScoped();
+  const badge=$('#spfSyncBadge');if(badge){badge.className='pill '+(live?'pill-green':'pill-amber');badge.textContent=live?'✅ Live from uploaded sale data':'⏳ Sample figures — upload sale data / connect Busy for live';}
+  // state dropdown
+  const sel=$('#spfState');
+  if(sel){const cur=sel.value||'all';
+    const list=hasStateLock()?(currentUser.states||[]).slice().sort():[...new Set(allStates.map(r=>r.state))].sort();
+    sel.innerHTML='<option value="all">'+(hasStateLock()?'My States':'All States')+'</option>'+list.map(s=>`<option>${s}</option>`).join('');
+    sel.value=[...sel.options].some(o=>o.value===cur)?cur:'all';}
+  const pick=sel?sel.value:'all';
+  const states=(pick&&pick!=='all')?allStates.filter(r=>stateEq(r.state,pick)):allStates;
+  // KPIs
+  const up=states.filter(r=>r.growth>0).length, down=states.filter(r=>r.growth<0).length;
+  const totCur=states.reduce((s,r)=>s+r.cur,0), totLast=states.reduce((s,r)=>s+r.last,0);
+  const overall=totLast?((totCur-totLast)/totLast*100):0;
+  const kpi=(l,v,s,c)=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${c}"><div style="font-size:11px;color:#64748b;font-weight:600">${l}</div><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:11px;color:#94a3b8">${s}</div></div>`;
+  $('#spfKpis').innerHTML=
+    kpi('This Year',fmtCr(totCur),states.length+' states','#1b3187')+
+    kpi('Last Year',fmtCr(totLast),'same states','#7c3aed')+
+    kpi('Overall Growth',(overall>=0?'▲ ':'▼ ')+Math.abs(overall).toFixed(1)+'%',overall>=0?'growing':'declining',overall>=0?'#059669':'#dc2626')+
+    kpi('States Up / Down',up+' ▲ / '+down+' ▼','vs last year','#d97706');
+  // state table
+  tbl.innerHTML='<thead><tr><th>State</th><th style="text-align:right">This Year</th><th style="text-align:right">Last Year</th><th>Growth</th><th>Salesperson</th></tr></thead><tbody>'+
+    (states.length?states.map(r=>`<tr style="${r.growth<0?'background:#fef2f2':''}"><td><b>${r.state}</b></td><td style="text-align:right">${fmtCr(r.cur)}</td><td style="text-align:right">${fmtCr(r.last)}</td><td>${growPillHTML(r.growth)}</td><td style="font-size:11px">${r.sp||'—'}</td></tr>`).join('')
+    :'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px">No state data in scope.</td></tr>')+'</tbody>';
+  // chart — growth% per state, green up / red down
+  const cv=document.getElementById('spfChartCanvas');
+  if(cv&&typeof Chart!=='undefined'){
+    const top=states.slice(0,18);
+    if(statePerfChart){statePerfChart.destroy();statePerfChart=null;}
+    statePerfChart=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:top.map(r=>r.state),datasets:[{label:'Growth % vs last year',data:top.map(r=>+r.growth.toFixed(1)),backgroundColor:top.map(r=>r.growth>=0?'#059669':'#dc2626'),borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.parsed.y>=0?'▲ ':'▼ ')+Math.abs(c.parsed.y)+'%'}}},
+        scales:{y:{ticks:{callback:v=>v+'%'}},x:{ticks:{autoSkip:false,maxRotation:60,minRotation:45,font:{size:10}}}}}
+    });
+  }
+  // parties not performing
+  let drops=droppedParties();if(pick!=='all')drops=drops.filter(r=>stateEq(r.state,pick));
+  $('#spfDropNote').textContent=(live?'':'Comparing last-period vs current billing (sample) — ')+'parties down 40%+ or gone silent. '+(hasStateLock()?'Your states only.':'');
+  $('#spfDropTbl').innerHTML='<thead><tr><th>Party</th><th>State</th><th style="text-align:right">Last Year</th><th style="text-align:right">This Year</th><th>Drop</th><th style="text-align:right">Outstanding</th><th>Salesperson</th></tr></thead><tbody>'+
+    (drops.length?drops.map(r=>`<tr style="background:#fff7ed"><td><b>${r.party}</b></td><td style="font-size:11px">${r.state}</td><td style="text-align:right">${fmtN(r.last)}</td><td style="text-align:right">${r.cur?fmtN(r.cur):'—'}</td><td>${growPillHTML(-r.drop)}</td><td style="text-align:right;color:#b91c1c">${r.due?fmtN(r.due):'—'}</td><td style="font-size:11px">${r.sp}</td></tr>`).join('')
+    :'<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:16px">No under-performing parties in scope. 👍</td></tr>')+'</tbody>';
+  // late payers
+  let late=latePayers();if(pick!=='all')late=late.filter(r=>stateEq(r.state,pick));
+  $('#spfLateTbl').innerHTML='<thead><tr><th>Party</th><th>State</th><th style="text-align:right">Overdue</th><th style="text-align:right">Oldest bill</th><th>Salesperson</th></tr></thead><tbody>'+
+    (late.length?late.map(r=>`<tr style="background:#fef2f2"><td><b>${r.party}</b></td><td style="font-size:11px">${r.state}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtN(r.overdue)}</td><td style="text-align:right;${r.oldest>90?'color:#dc2626;font-weight:700':''}">${r.oldest}d</td><td style="font-size:11px">${r.sp}</td></tr>`).join('')
+    :'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px">No overdue parties in scope. 👍</td></tr>')+'</tbody>';
 }
 
 let PUSH_FACT=[]; // populated by real Busy Consolidated_report import (line-item grain)
