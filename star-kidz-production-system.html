@@ -1011,12 +1011,21 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <button class="btn btn-outline" onclick="filterFGStock('all')" id="fgFilterAll" style="font-size:12px">All</button>
       <button class="btn btn-outline" onclick="filterFGStock('Summer')" id="fgFilterSummer" style="font-size:12px">Summer</button>
       <button class="btn btn-outline" onclick="filterFGStock('Winter')" id="fgFilterWinter" style="font-size:12px">Winter</button>
+      <select id="fgAgeFilter" class="inp" style="width:auto;font-size:12px" onchange="filterFGAge(this.value)" title="Stock aging filter">
+        <option value="all">🕐 All ages</option>
+        <option value="0-30">🟢 Fresh 0–30d</option>
+        <option value="31-60">🟠 31–60d</option>
+        <option value="61-90">🟧 61–90d</option>
+        <option value="90+">🔴 Old stock 90+ d</option>
+      </select>
       <button class="btn btn-brand" onclick="downloadFGStock()" style="font-size:12px">⬇️ Download</button>
       <button class="btn btn-outline" onclick="toggleEl('fgImportForm')" style="font-size:12px">📤 Upload Stock</button>
     </div>
   </div>
+  <!-- Stock aging KPI strip -->
+  <div id="fgAgeKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px"></div>
   <div class="card" style="padding:14px 16px;overflow:auto">
-    <table class="tbl" style="min-width:1000px">
+    <table class="tbl" style="min-width:1100px">
       <thead>
         <tr>
           <th>Article</th>
@@ -1026,6 +1035,8 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
           <th class="num">Stock (ctns)</th>
           <th class="num">Stock (pairs)</th>
           <th>Last Update</th>
+          <th class="num">Age</th>
+          <th>Aging</th>
         </tr>
       </thead>
       <tbody id="fgStockTable"></tbody>
@@ -1094,14 +1105,6 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
     <div id="bwNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
     <div style="overflow:auto;max-height:460px"><table class="tbl" id="bwTbl"></table></div>
-  </div>
-
-  <!-- Stock aging -->
-  <div class="card" style="margin-top:18px">
-    <div style="font-weight:800;margin-bottom:4px">📦 Finished-Goods Stock Aging</div>
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Age = days since each article's last stock update (movement). Slow-moving stock (90+ days) is flagged red — candidates to push/liquidate.</div>
-    <div id="saKpiStrip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px"></div>
-    <div style="overflow:auto"><table class="tbl" id="saTbl"></table></div>
   </div>
 </section>
 
@@ -2302,7 +2305,7 @@ function go(view){
   else if(view==='packing-plan')renderPackingPlan();
   else if(view==='sales-pull')renderAgent();
   else if(view==='sales-push')renderPushSale();
-  else if(view==='payment-aging'){renderPaymentAging();renderStockAging();}
+  else if(view==='payment-aging'){renderPaymentAging();}
   else if(view==='my-parties')renderMyParties();
   else if(view==='sales-order-entry')renderOrderEntry();
   else if(view==='settings')loadSettings();
@@ -4569,25 +4572,47 @@ function populateInvLocationSelect(){
 }
 
 // ── FINISHED GOODS STOCK FUNCTIONS ──
-let fgFilterSeason='all';
+let fgFilterSeason='all', fgFilterAge='all';
+// stockAgeDays / bucketOf / AGING_BUCKETS / BUCKET_COLOR / BUCKET_LABEL are defined in the aging module below
 function renderFGStock(){
-  const filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK:FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
-  const html=filtered.map(s=>`
-    <tr>
+  let filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK.slice():FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
+  const withAge=filtered.map(s=>{const age=stockAgeDays(s);return {...s,age,bucket:age==null?'—':bucketOf(age)};});
+  // aging KPI strip (over the season-filtered set, before the age filter narrows it)
+  const bkPairs={'0-30':0,'31-60':0,'61-90':0,'90+':0};
+  withAge.forEach(s=>{if(s.bucket!=='—')bkPairs[s.bucket]+=+s.stockPairs||0;});
+  const totPairs=withAge.reduce((t,s)=>t+(+s.stockPairs||0),0);
+  const oldPairs=bkPairs['90+'], oldArticles=withAge.filter(s=>s.bucket==='90+').length;
+  const kpi=(l,v,sub,c,active)=>`<div class="card" style="padding:10px 12px;border-left:4px solid ${c};cursor:pointer;${active?'box-shadow:0 0 0 2px '+c+' inset':''}" onclick="filterFGAge('${l==='All Stock'?'all':(l==='Old Stock'?'90+':l)}')"><div style="font-size:10px;color:#64748b;font-weight:600">${l}</div><div style="font-size:18px;font-weight:800;color:${c}">${v}</div><div style="font-size:10px;color:#94a3b8">${sub}</div></div>`;
+  const ks=$('#fgAgeKpis');
+  if(ks)ks.innerHTML=
+    kpi('All Stock',fmtN(totPairs)+' prs',withAge.length+' articles','#1b3187',fgFilterAge==='all')+
+    ['0-30','31-60','61-90'].map(b=>kpi(b,fmtN(bkPairs[b])+' prs',BUCKET_LABEL[b],BUCKET_COLOR[b],fgFilterAge===b)).join('')+
+    kpi('Old Stock',fmtN(oldPairs)+' prs',oldArticles+' articles · 90+ d','#b91c1c',fgFilterAge==='90+');
+  // apply age filter + surface oldest first
+  let rows=fgFilterAge==='all'?withAge:withAge.filter(s=>s.bucket===fgFilterAge);
+  rows.sort((a,b)=>(b.age||0)-(a.age||0));
+  const html=rows.length?rows.map(s=>{
+    const red=s.bucket==='90+',amber=s.bucket==='61-90';
+    const pill=s.age==null?'<span class="pill pill-slate">no date</span>':red?'<span class="pill pill-red">🔴 Old 90+</span>':amber?'<span class="pill pill-amber">⚠️ Aging</span>':'<span class="pill pill-green">✅ Fresh</span>';
+    return `<tr style="${red?'background:#fef2f2':''}">
       <td><b>${s.article}</b></td>
       <td>${s.category}</td>
       <td>${s.machine}</td>
       <td>${s.series}</td>
       <td class="num" style="font-weight:700">${s.stockCtns}</td>
       <td class="num" style="font-weight:700">${s.stockPairs}</td>
-      <td style="font-size:12px;color:#64748b">${s.lastUpdate}</td>
-    </tr>
-  `).join('');
+      <td style="font-size:12px;color:#64748b">${s.lastUpdate||'—'}</td>
+      <td class="num" style="${s.age>90?'color:#dc2626;font-weight:700':''}">${s.age==null?'—':s.age+'d'}</td>
+      <td>${pill}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:16px">No stock in this age band.</td></tr>';
   const tbl=$('#fgStockTable');if(tbl)tbl.innerHTML=html;
-  $$('[id^="fgFilter"]').forEach(b=>b.classList.remove('btn-brand')||b.classList.add('btn-outline'));
-  const activeBtn=$(`#fgFilter${fgFilterSeason==='all'?'All':fgFilterSeason}`);if(activeBtn){activeBtn.classList.remove('btn-outline');activeBtn.classList.add('btn-brand');}
+  $$('[id^="fgFilter"]').forEach(b=>{if(b.tagName==='BUTTON'){b.classList.remove('btn-brand');b.classList.add('btn-outline');}});
+  const activeBtn=$(`#fgFilter${fgFilterSeason==='all'?'All':fgFilterSeason}`);if(activeBtn&&activeBtn.tagName==='BUTTON'){activeBtn.classList.remove('btn-outline');activeBtn.classList.add('btn-brand');}
+  const ageSel=$('#fgAgeFilter');if(ageSel&&ageSel.value!==fgFilterAge)ageSel.value=fgFilterAge;
 }
 function filterFGStock(season){fgFilterSeason=season;renderFGStock()}
+function filterFGAge(band){fgFilterAge=band;renderFGStock()}
 function downloadFGStock(){
   if(!canAccessFinishedGoodsStock()){alert('Access denied: Only Sales, Coordinators, GM, Planning, and Master can download stock.');return}
   const filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK:FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
@@ -6903,24 +6928,8 @@ function renderAgingChart(rows){
 }
 function downloadAgingChartPNG(){if(!agingChart)return;const a=document.createElement('a');a.href=agingChart.toBase64Image();a.download='party-aging-'+todayISO()+'.png';a.click();}
 
-// ── Stock aging (uses FINISHED_GOODS_STOCK.lastUpdate as the movement date) ──
+// ── Stock aging (uses FINISHED_GOODS_STOCK.lastUpdate as the movement date) — rendered inside the Finished Goods Stock view (renderFGStock) ──
 function stockAgeDays(s){return s.lastUpdate?Math.max(0,daysBetween(new Date(s.lastUpdate),new Date())):null;}
-function renderStockAging(){
-  const tbl=$('#saTbl');if(!tbl)return;
-  const rows=FINISHED_GOODS_STOCK.map(s=>{const age=stockAgeDays(s);return {...s,age,bucket:age==null?'—':bucketOf(age)};}).sort((a,b)=>(b.age||0)-(a.age||0));
-  const bkPairs={'0-30':0,'31-60':0,'61-90':0,'90+':0};
-  rows.forEach(s=>{if(s.bucket!=='—')bkPairs[s.bucket]+=+s.stockPairs||0;});
-  const totPairs=rows.reduce((s,r)=>s+(+r.stockPairs||0),0);
-  const kpi=(l,v,sub,c)=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${c}"><div style="font-size:11px;color:#64748b;font-weight:600">${l}</div><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:11px;color:#94a3b8">${sub}</div></div>`;
-  $('#saKpiStrip').innerHTML=
-    kpi('Total FG Stock',fmtN(totPairs)+' prs',rows.length+' articles','#1b3187')+
-    AGING_BUCKETS.map(b=>kpi(BUCKET_LABEL[b],fmtN(bkPairs[b])+' prs',b==='90+'?'slow-moving':'',BUCKET_COLOR[b])).join('');
-  tbl.innerHTML='<thead><tr><th>Article</th><th>Category</th><th>Machine</th><th style="text-align:right">Cartons</th><th style="text-align:right">Pairs</th><th>Last Update</th><th style="text-align:right">Age</th><th>Status</th></tr></thead><tbody>'+
-    rows.map(s=>{const red=s.bucket==='90+',amber=s.bucket==='61-90';
-      const status=s.age==null?'<span class="pill pill-slate">no date</span>':red?'<span class="pill pill-red">🔴 Slow-moving</span>':amber?'<span class="pill pill-amber">⚠️ Aging</span>':'<span class="pill pill-green">✅ Fresh</span>';
-      return `<tr style="${red?'background:#fef2f2;border-left:3px solid #dc2626':''}"><td><b>${s.article}</b></td><td style="font-size:11px">${s.category||'—'}</td><td style="font-size:11px">${s.machine||'—'}</td><td style="text-align:right">${fmtN(s.stockCtns)}</td><td style="text-align:right;font-weight:700">${fmtN(s.stockPairs)}</td><td style="font-size:11px">${s.lastUpdate?fmtFull(s.lastUpdate):'—'}</td><td style="text-align:right;${s.age>90?'color:#dc2626;font-weight:700':''}">${s.age==null?'—':s.age+'d'}</td><td>${status}</td></tr>`;
-    }).join('')+'</tbody>';
-}
 
 // ── Busy Receivables import (maps the feed described in Busy-Integration-Request) ──
 function parseXLDate(v){
