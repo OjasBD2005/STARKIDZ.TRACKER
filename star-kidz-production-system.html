@@ -200,6 +200,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Pending Order</div>
       <div class="sb-item" data-view="fg-stock" onclick="go('fg-stock')">📦 Finished Goods Stock</div>
+      <div class="sb-item" data-view="stock-catalogue" onclick="go('stock-catalogue')">🗂️ Stock Catalogue</div>
       <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Party Performance</div>
       <div class="sb-item" data-view="state-perf" onclick="go('state-perf')">📊 State Performance</div>
     </div>
@@ -1061,6 +1062,38 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   </div>
 </section>
 
+<!-- ===== STOCK CATALOGUE — photo + colour x size grid, modelled on the NOVA catalogue ===== -->
+<section id="view-stock-catalogue" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">🗂️ Stock Catalogue — Article / Colour / Size</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Live stock laid out like the sample catalogue — article photo, colour-wise rows and size-wise quantities with MRP. Salespersons can browse, search and print/save as PDF while taking orders.</p>
+      <p id="scSourceNote" style="font-size:11px;color:#94a3b8;margin-top:4px"></p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="scBadge" class="pill pill-green"></span>
+      <button class="btn btn-outline" style="font-size:12px" onclick="printStockCatalogue()">🖨️ Catalogue PDF</button>
+      <button class="btn btn-outline" style="font-size:12px" onclick="downloadCatalogueCSV()">⬇️ CSV</button>
+      <button class="btn btn-brand" style="font-size:12px" onclick="syncCatalogueToFG()">🔄 Sync to FG Stock</button>
+    </div>
+  </div>
+
+  <div id="scKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px"></div>
+
+  <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px">
+    <div style="flex:1;min-width:180px"><label class="lbl">🔍 Search article / colour</label>
+      <input id="scSearch" class="inp" placeholder="e.g. CRETA, BLK, 5X8…" oninput="renderStockCatalogue()"></div>
+    <div><label class="lbl">Series</label><select id="scFamily" class="inp" style="width:auto" onchange="renderStockCatalogue()"></select></div>
+    <div><label class="lbl">Machine</label><select id="scMachine" class="inp" style="width:auto" onchange="renderStockCatalogue()"></select></div>
+    <div><label class="lbl">Size</label><select id="scSize" class="inp" style="width:auto" onchange="renderStockCatalogue()"></select></div>
+    <div><label class="lbl">Show</label><select id="scStock" class="inp" style="width:auto" onchange="renderStockCatalogue()">
+      <option value="all">All articles</option><option value="in">In stock only</option><option value="low">Low (&lt; 25 prs)</option>
+    </select></div>
+  </div>
+
+  <div id="scList"></div>
+</section>
+
 <!-- ===== PAYMENT & STOCK AGING ===== -->
 <section id="view-payment-aging" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
@@ -1563,6 +1596,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <script src="sheets-config.js"></script>
 <script src="store.js"></script>
 <script src="articles-data.js"></script>
+<script src="star-kidz-stock-catalogue-data.js"></script>
 <!-- PDF engine for Job Cards -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Excel engine for professional, bordered, logo'd exports (graceful CSV fallback if offline) -->
@@ -2350,6 +2384,10 @@ function go(view){
   else if(view==='fg-stock'){
     if(!canAccessFinishedGoodsStock()){renderBlocked(view,'Only Sales, RENU/SHUBHAMI, Komal Jain, Sushil, and Master can view Finished Goods Stock.');return;}
     renderFGStock();
+  }
+  else if(view==='stock-catalogue'){
+    if(!canAccessFinishedGoodsStock()){renderBlocked(view,'Only Sales, RENU/SHUBHAMI, Komal Jain, Sushil, and Master can view the Stock Catalogue.');return;}
+    renderStockCatalogue();
   }
   else if(view==='stock-log')renderStockLog();
   else if(view==='my-queue')renderMyQueue();
@@ -4673,6 +4711,187 @@ function renderFGStock(){
 }
 function filterFGStock(season){fgFilterSeason=season;renderFGStock()}
 function filterFGAge(band){fgFilterAge=band;renderFGStock()}
+
+// ═══════════════════════════════════════════════════════════════════════
+// STOCK CATALOGUE — article photo + colour x size quantity grid + MRP.
+// Laid out like the NOVA/DREAM/PEARL/MERYCO sample catalogue so a salesperson
+// can browse stock (and print it) the same way while booking an order.
+// Data: star-kidz-stock-catalogue-data.js, parsed row-wise from the Busy
+// stock report; its total matches the report's own Grand Total.
+// ═══════════════════════════════════════════════════════════════════════
+const CAT_PHOTO_DIR='article-photos/';
+function catData(){return (window.STOCK_CATALOGUE||[]);}
+function catDate(){return window.STOCK_CATALOGUE_DATE||'';}
+let _scBuilt=false;
+function fillCatalogueFilters(){
+  const d=catData();
+  const fams=[...new Set(d.map(a=>a.f).filter(Boolean))].sort();
+  const machs=[...new Set(d.map(a=>a.mc).filter(Boolean))].sort();
+  const sizes=[...new Set(d.flatMap(a=>a.s||[]).filter(Boolean))].sort();
+  const set=(id,opts,label)=>{const el=$(id);if(el)el.innerHTML=`<option value="all">${label}</option>`+opts.map(o=>`<option>${o}</option>`).join('');};
+  set('#scFamily',fams,'All series');
+  set('#scMachine',machs,'All machines');
+  set('#scSize',sizes,'All sizes');
+}
+function catalogueFiltered(){
+  const q=($('#scSearch')?$('#scSearch').value:'').trim().toUpperCase();
+  const fam=$('#scFamily')?$('#scFamily').value:'all';
+  const mach=$('#scMachine')?$('#scMachine').value:'all';
+  const size=$('#scSize')?$('#scSize').value:'all';
+  const stock=$('#scStock')?$('#scStock').value:'all';
+  return catData().filter(a=>{
+    if(fam!=='all'&&a.f!==fam)return false;
+    if(mach!=='all'&&a.mc!==mach)return false;
+    if(size!=='all'&&!(a.s||[]).includes(size))return false;
+    if(stock==='in'&&!(a.t>0))return false;
+    if(stock==='low'&&!(a.t>0&&a.t<25))return false;
+    if(q){
+      const inArt=(a.a||'').toUpperCase().includes(q);
+      const inCol=(a.c||[]).some(r=>(r.c||'').toUpperCase().includes(q));
+      const inSize=(a.s||[]).some(s=>(s||'').toUpperCase().includes(q));
+      if(!inArt&&!inCol&&!inSize)return false;
+    }
+    return true;
+  });
+}
+function mrpLabel(a){
+  const m=(a.m||[]).filter(Boolean);
+  if(!m.length)return '—';
+  return m.length===1?('₹'+m[0]):('₹'+m[0]+' – ₹'+m[m.length-1]);
+}
+// One catalogue card: photo on the left, colour x size grid on the right.
+function catalogueCardHTML(a,forPrint){
+  const sizes=(a.s||[]).slice();
+  const img=a.p?`<img src="${CAT_PHOTO_DIR}${a.p}" alt="${a.a}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px\\'>no photo</div>'">`
+    :`<div style="display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px">no photo</div>`;
+  const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num">Total</th></tr>`;
+  const body=(a.c||[]).map(r=>{
+    const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
+    const cells=sizes.map(s=>{
+      const v=(r.q||{})[s];
+      return `<td class="num" style="${v?'font-weight:700':'color:#cbd5e1'}">${v||'·'}</td>`;
+    }).join('');
+    return `<tr><td style="font-weight:600;white-space:nowrap">${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td></tr>`;
+  }).join('');
+  const colTot=sizes.map(s=>{
+    const t=(a.c||[]).reduce((sum,r)=>sum+(+((r.q||{})[s])||0),0);
+    return `<td class="num" style="font-weight:700">${t||'·'}</td>`;
+  }).join('');
+  return `<div class="card" style="${forPrint?'break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;border:1px solid #cbd5e1':''}">
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="width:150px;height:150px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0">${img}</div>
+      <div style="flex:1;min-width:260px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">
+          <span style="font-size:17px;font-weight:800;color:#0f172a">${a.a}</span>
+          <span class="pill pill-blue">${a.f}</span>
+          ${a.mc?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.mc}</span>`:''}
+          ${a.sn?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.sn}</span>`:''}
+          <span class="pill ${a.t>0?'pill-green':'pill-red'}">${fmtN(a.t)} prs</span>
+        </div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:8px">MRP <b style="color:#0f172a">${mrpLabel(a)}</b> · sizes ${sizes.join(', ')||'—'} · ${(a.c||[]).length} colour(s)</div>
+        <div style="overflow:auto"><table class="tbl" style="font-size:12px">
+          <thead>${head}</thead><tbody>${body}
+          <tr style="background:#eef3ff"><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(a.t)}</td></tr>
+          </tbody></table></div>
+      </div>
+    </div>
+  </div>`;
+}
+function renderStockCatalogue(){
+  const d=catData();
+  if(!_scBuilt&&d.length){fillCatalogueFilters();_scBuilt=true;}
+  const badge=$('#scBadge');
+  if(!d.length){
+    if(badge){badge.className='pill pill-red';badge.textContent='⚠ catalogue data not loaded';}
+    $('#scList').innerHTML='<div class="card" style="text-align:center;color:#94a3b8;padding:20px">Catalogue data file missing — <b>star-kidz-stock-catalogue-data.js</b> should sit next to this app.</div>';
+    return;
+  }
+  const rows=catalogueFiltered();
+  const totalPairs=d.reduce((s,a)=>s+(+a.t||0),0);
+  const shownPairs=rows.reduce((s,a)=>s+(+a.t||0),0);
+  const colours=new Set(d.flatMap(a=>(a.c||[]).map(r=>r.c))).size;
+  const sizes=new Set(d.flatMap(a=>a.s||[])).size;
+  if(badge){badge.className='pill pill-green';badge.textContent='✅ '+fmtN(totalPairs)+' pairs · '+d.length+' articles';}
+  $('#scSourceNote').textContent='Source: Busy stock report '+(catDate()||'')+' — colour, size, MRP and quantity read row-wise from that report; photos from the article catalogue folder.';
+  const k=[['Articles shown',fmtN(rows.length)+' / '+d.length,'#1b3187'],['Pairs shown',fmtN(shownPairs),'#059669'],
+           ['Colours',colours,'#7c3aed'],['Size runs',sizes,'#d97706'],['Total stock',fmtN(totalPairs)+' prs','#0f172a']];
+  $('#scKpis').innerHTML=k.map(x=>`<div class="card" style="padding:10px 14px;border-left:4px solid ${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:19px;font-weight:800">${x[1]}</div></div>`).join('');
+  $('#scList').innerHTML=rows.length
+    ? rows.map(a=>catalogueCardHTML(a,false)).join('')
+    : '<div class="card" style="text-align:center;color:#94a3b8;padding:20px">No articles match these filters.</div>';
+}
+// Print / save-as-PDF: same cards, laid out for A4.
+function printStockCatalogue(){
+  const rows=catalogueFiltered();
+  if(!rows.length){toast('Nothing to print','⚠️','');return}
+  const w=window.open('','_blank','width=900,height=1000');
+  if(!w){toast('Allow pop-ups to print','⚠️','');return}
+  const cards=rows.map(a=>catalogueCardHTML(a,true)).join('');
+  w.document.write(`<html><head><meta charset="utf-8"><title>STAR Kidz Stock Catalogue ${catDate()}</title>
+  <style>
+    body{margin:16px;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#0f172a}
+    .card{background:#fff;border-radius:10px;padding:12px}
+    .tbl{width:100%;border-collapse:collapse}
+    .tbl th,.tbl td{border:1px solid #e2e8f0;padding:4px 7px;font-size:11px}
+    .tbl th{background:#f1f5f9;font-size:10px;text-transform:uppercase;letter-spacing:.03em}
+    .num{text-align:right}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}
+    .pill-blue{background:#dbeafe;color:#1e40af}.pill-green{background:#dcfce7;color:#15803d}.pill-red{background:#fee2e2;color:#b91c1c}
+    .hdr{display:flex;align-items:center;gap:12px;background:#0c1733;color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:14px}
+    @media print{body{margin:8mm}.card{border:1px solid #cbd5e1!important}}
+  </style></head><body>
+  <div class="hdr"><div style="flex:1">
+    <div style="font-size:20px;font-weight:800">STAR <span style="color:#5b8cff">Kidz</span> — Stock Catalogue</div>
+    <div style="font-size:11px;opacity:.85">Ojas Footwear India Pvt. Ltd. · Article / Colour / Size · stock as on ${catDate()}</div></div>
+    <div style="text-align:right;font-size:11px;opacity:.85">${rows.length} articles<br>${fmtN(rows.reduce((s,a)=>s+(+a.t||0),0))} pairs</div></div>
+  ${cards}
+  <div style="text-align:center;font-size:10px;color:#94a3b8;margin-top:10px">Generated ${nowFull()} · STAR Kidz Production &amp; Sales System</div>
+  <scr`+`ipt>window.onload=function(){setTimeout(function(){window.print()},600)}<\/scr`+`ipt></body></html>`);
+  w.document.close();
+}
+function downloadCatalogueCSV(){
+  const rows=catalogueFiltered();
+  if(!rows.length){toast('Nothing to export','⚠️','');return}
+  const head=['Article','Series','Machine','Season','Colour','Size','Qty (pairs)','MRP'];
+  const lines=[head.join(',')];
+  let n=0;
+  rows.forEach(a=>{
+    (a.c||[]).forEach(r=>{
+      Object.entries(r.q||{}).forEach(([size,qty])=>{
+        lines.push([a.a,a.f,a.mc||'',a.sn||'',r.c,size,qty,mrpLabel(a).replace(/₹/g,'')].map(csvEscape).join(','));n++;
+      });
+    });
+  });
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const el=document.createElement('a');el.href=URL.createObjectURL(blob);el.download='stock-catalogue-'+todayISO()+'.csv';el.click();
+  toast('Exported','⬇️',n+' colour/size rows');
+}
+// Push catalogue totals into Finished Goods Stock (article-level pairs).
+function syncCatalogueToFG(){
+  if(!canAccessFinishedGoodsStock()){toast('Access denied','🚫','');return}
+  const d=catData();
+  if(!d.length){toast('No catalogue data','⚠️','');return}
+  const date=catDate()||todayISO();
+  let added=0,updated=0;
+  d.forEach(a=>{
+    const pairs=+a.t||0;
+    let s=FINISHED_GOODS_STOCK.find(x=>(x.article||'').toUpperCase()===(a.a||'').toUpperCase());
+    if(!s){
+      s={article:a.a,category:a.mc||'',machine:a.mc||'',series:a.f||a.a,stockCtns:0,stockPairs:0,lastUpdate:date,
+         season:/CLOSE/i.test(a.sn||'')?'Winter':'Summer'};
+      FINISHED_GOODS_STOCK.push(s);added++;
+    }else updated++;
+    s.stockPairs=pairs;
+    s.stockCtns=Math.floor(pairs/12);
+    s.lastUpdate=date;
+    if(!s.series)s.series=a.f||a.a;
+    if(!s.machine)s.machine=a.mc||'';
+  });
+  FINISHED_GOODS_STOCK.sort((x,y)=>(x.article||'').localeCompare(y.article||''));
+  saveFGStock();
+  toast('Synced to FG Stock','🔄',added+' new · '+updated+' updated · '+fmtN(d.reduce((s,a)=>s+(+a.t||0),0))+' prs');
+  renderFGStock();
+}
 function downloadFGStock(){
   if(!canAccessFinishedGoodsStock()){alert('Access denied: Only Sales, Coordinators, GM, Planning, and Master can download stock.');return}
   const filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK:FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
