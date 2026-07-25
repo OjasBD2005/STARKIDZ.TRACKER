@@ -839,7 +839,14 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
   <!-- Sales Rating — who grew, party-wise & month-wise vs last year -->
   <div class="card" style="margin-top:16px">
-    <div style="font-weight:800;margin-bottom:4px">⭐ Sales Person Rating — Growth vs Previous Year</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <div style="font-weight:800">⭐ Sales Person Rating — Growth vs Previous Year</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="dlSalespersonComparison()">⬇️ Salesperson Comparison</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="dlSalesPerformance()">⬇️ Sales Performance</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="dlSalespersonStateSale()">⬇️ Salesperson-wise State Sale</button>
+      </div>
+    </div>
     <div id="salesRatingNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
     <div style="overflow:auto"><table class="tbl" id="salesRatingTbl"></table></div>
   </div>
@@ -7500,6 +7507,141 @@ function renderSalesRating(){
   const growPill=g=>`<span class="pill" style="${g>=0?'background:#dcfce7;color:#15803d':'background:#fee2e2;color:#b91c1c'}">${g>=0?'▲':'▼'} ${Math.abs(g).toFixed(1)}%</span>`;
   el.innerHTML='<thead><tr><th>Salesperson</th><th style="text-align:right">This Year</th><th style="text-align:right">Last Year</th><th>Growth</th><th></th></tr></thead><tbody>'+
     rows.map(r=>`<tr style="cursor:pointer" onclick="openSalesRatingDetail('${r.sp.name.replace(/'/g,"\\'")}')"><td><b>${r.sp.id}</b> ${r.sp.name}</td><td style="text-align:right">${fmtN(r.curVal)}</td><td style="text-align:right">${fmtN(r.prevVal)}</td><td>${growPill(r.growth)}</td><td style="color:#94a3b8;font-size:11px">view parties ↗</td></tr>`).join('')+'</tbody>';
+}
+// ── SALES REPORTS (CSV) — salesperson comparison / performance / state-wise ──
+// Content mirrors the party-wise FY analysis workbook; download mechanism matches
+// the app's other CSV exports (csvEscape + Blob + dated filename). Reports use the
+// current & previous FY sale uploads (🔗 Link & Configure), attributed to each
+// salesperson via the party master. Role-scoped: a state-locked rep gets only their own.
+function _repFYLabels(){
+  const y=new Date().getMonth()>=3?new Date().getFullYear():new Date().getFullYear()-1;
+  return {cur:'FY '+y+'-'+String(y+1).slice(2), prev:'FY '+(y-1)+'-'+String(y).slice(2)};
+}
+function _repScopedSPs(){
+  let sps=SALESPERSONS.filter(s=>Array.isArray(s.states));
+  if(hasStateLock())sps=sps.filter(s=>s.name===currentUser.name);
+  return sps;
+}
+function _repRows(which){
+  const arr=(which==='cur'?LINK.saleCur:LINK.salePrev)||[];
+  return hasStateLock()?arr.filter(r=>attributeSP(r.party)===currentUser.name):arr;
+}
+function partyStateOf(party){
+  const n=String(party||'').toUpperCase().trim();if(!n)return '—';
+  const hit=PARTY_SP_MASTER.find(p=>n.includes(p.firm.toUpperCase())||p.firm.toUpperCase().includes(n));
+  return hit?hit.state:'—';
+}
+function _repHaveData(){return (LINK.saleCur||[]).length && (LINK.salePrev||[]).length;}
+function _repNoData(){toast('No linked sale data','⚠️','Upload current & previous FY sale files via 🔗 Link & Configure first.');}
+function _csvRow(a){return a.map(csvEscape).join(',');}
+function _gpct(c,p){const g=p?((c-p)/p*100):(c?100:0);return (g>=0?'+':'')+g.toFixed(1)+'%';}
+function _sharePct(part,whole){return whole?((part/whole*100).toFixed(1)+'%'):'0%';}
+function _csvDL(name,lines,count){
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name+'-'+todayISO()+'.csv';a.click();
+  toast('Exported','⬇️',(count!=null?count+' rows':'downloaded'));
+}
+// Per-salesperson aggregate: qty + value + distinct billing-party sets.
+function _spAgg(){
+  return _repScopedSPs().map(sp=>{
+    const cur=(LINK.saleCur||[]).filter(r=>attributeSP(r.party)===sp.name);
+    const prev=(LINK.salePrev||[]).filter(r=>attributeSP(r.party)===sp.name);
+    const sum=(rows,f)=>rows.reduce((s,r)=>s+(+r[f]||0),0);
+    const curQty=sum(cur,'qty'),prevQty=sum(prev,'qty'),curVal=sum(cur,'value'),prevVal=sum(prev,'value');
+    const cp=new Set(cur.filter(r=>(+r.qty||+r.value)).map(r=>r.party));
+    const pp=new Set(prev.filter(r=>(+r.qty||+r.value)).map(r=>r.party));
+    let newP=0,lostP=0;cp.forEach(p=>{if(!pp.has(p))newP++});pp.forEach(p=>{if(!cp.has(p))lostP++});
+    const status=prevQty===0&&curQty>0?'New':curQty===0&&prevQty>0?'Lost':curQty>prevQty?'Growth':curQty<prevQty?'Decline':'Flat';
+    return {sp,curQty,prevQty,curVal,prevVal,curParties:cp.size,prevParties:pp.size,newP,lostP,status};
+  });
+}
+// Report 1 — Salesperson Comparison (this FY vs last FY)
+function dlSalespersonComparison(){
+  if(!_repHaveData())return _repNoData();
+  const fy=_repFYLabels(), rows=_spAgg().sort((a,b)=>b.curQty-a.curQty);
+  const totCur=rows.reduce((s,r)=>s+r.curQty,0);
+  const L=[];
+  L.push(_csvRow(['STAR KIDZ — SALES PERSON COMPARISON  |  '+fy.cur+'  vs  '+fy.prev]));
+  L.push(_csvRow(['Party sale attributed to each salesperson. Full year Apr–Mar, this year vs last year.']));
+  L.push('');
+  L.push(_csvRow(['S.No','Salesperson','Emp ID','States','Sale Qty '+fy.cur,'Sale Qty '+fy.prev,'Growth (Qty)','Growth %','Sale Value '+fy.cur,'Sale Value '+fy.prev,'Share of Qty','Status','Parties Billed '+fy.cur,'Parties Billed '+fy.prev,'New Parties','Lost Parties']));
+  rows.forEach((r,i)=>L.push(_csvRow([i+1,r.sp.name,r.sp.id,(r.sp.states||[]).join(' / '),r.curQty,r.prevQty,r.curQty-r.prevQty,_gpct(r.curQty,r.prevQty),r.curVal,r.prevVal,_sharePct(r.curQty,totCur),r.status,r.curParties,r.prevParties,r.newP,r.lostP])));
+  const t=rows.reduce((a,r)=>({cq:a.cq+r.curQty,pq:a.pq+r.prevQty,cv:a.cv+r.curVal,pv:a.pv+r.prevVal}),{cq:0,pq:0,cv:0,pv:0});
+  L.push(_csvRow(['','TOTAL','','',t.cq,t.pq,t.cq-t.pq,_gpct(t.cq,t.pq),t.cv,t.pv,'100%','','','','','']));
+  _csvDL('salesperson-comparison',L,rows.length);
+}
+// Report 2 — Sales Performance (headline + salesperson snapshot + party count + state snapshot)
+function dlSalesPerformance(){
+  if(!_repHaveData())return _repNoData();
+  const fy=_repFYLabels(), rows=_spAgg().sort((a,b)=>b.curQty-a.curQty);
+  const t=rows.reduce((a,r)=>({cq:a.cq+r.curQty,pq:a.pq+r.prevQty,cv:a.cv+r.curVal,pv:a.pv+r.prevVal}),{cq:0,pq:0,cv:0,pv:0});
+  const L=[];
+  L.push(_csvRow(['STAR KIDZ — SALES PERFORMANCE  |  '+fy.cur+'  vs  '+fy.prev]));
+  L.push(_csvRow(['Company sales performance with salesperson snapshot. Full year comparison.']));
+  L.push('');
+  L.push(_csvRow(['HEADLINE']));
+  L.push(_csvRow(['Total sale (Qty) '+fy.cur,t.cq]));
+  L.push(_csvRow(['Total sale (Qty) '+fy.prev,t.pq]));
+  L.push(_csvRow(['Growth over last year (Qty)',t.cq-t.pq]));
+  L.push(_csvRow(['Growth over last year (%)',_gpct(t.cq,t.pq)]));
+  L.push(_csvRow(['Monthly average '+fy.cur,Math.round(t.cq/12)]));
+  L.push(_csvRow(['Monthly average '+fy.prev,Math.round(t.pq/12)]));
+  L.push(_csvRow(['Total sale value '+fy.cur,t.cv]));
+  L.push(_csvRow(['Total sale value '+fy.prev,t.pv]));
+  L.push('');
+  L.push(_csvRow(['SALESPERSON SNAPSHOT']));
+  L.push(_csvRow(['Salesperson','Emp ID','Sale Qty '+fy.cur,'Sale Qty '+fy.prev,'Growth (Qty)','Growth %','Share of Qty','Status']));
+  rows.forEach(r=>L.push(_csvRow([r.sp.name,r.sp.id,r.curQty,r.prevQty,r.curQty-r.prevQty,_gpct(r.curQty,r.prevQty),_sharePct(r.curQty,t.cq),r.status])));
+  L.push(_csvRow(['TOTAL','',t.cq,t.pq,t.cq-t.pq,_gpct(t.cq,t.pq),'100%','']));
+  L.push('');
+  L.push(_csvRow(['PARTY COUNT']));
+  L.push(_csvRow(['Parties billed '+fy.cur,rows.reduce((s,r)=>s+r.curParties,0)]));
+  L.push(_csvRow(['Parties billed '+fy.prev,rows.reduce((s,r)=>s+r.prevParties,0)]));
+  L.push(_csvRow(['New parties this year',rows.reduce((s,r)=>s+r.newP,0)]));
+  L.push(_csvRow(['Lost parties this year',rows.reduce((s,r)=>s+r.lostP,0)]));
+  L.push('');
+  L.push(_csvRow(['CONCENTRATION']));
+  const top5=rows.slice(0,5).reduce((s,r)=>s+r.curQty,0);
+  L.push(_csvRow(['Top 5 salespersons — sale qty '+fy.cur,top5]));
+  L.push(_csvRow(['Top 5 salespersons — share of total',_sharePct(top5,t.cq)]));
+  L.push('');
+  L.push(_csvRow(['STATE SNAPSHOT']));
+  L.push(_csvRow(['State','Sale Qty '+fy.cur,'Sale Qty '+fy.prev,'Growth (Qty)','Growth %']));
+  const stCur={},stPrev={};
+  _repRows('cur').forEach(r=>{const st=partyStateOf(r.party);stCur[st]=(stCur[st]||0)+(+r.qty||0);});
+  _repRows('prev').forEach(r=>{const st=partyStateOf(r.party);stPrev[st]=(stPrev[st]||0)+(+r.qty||0);});
+  const stKeys=[...new Set([...Object.keys(stCur),...Object.keys(stPrev)])].sort((a,b)=>(stCur[b]||0)-(stCur[a]||0));
+  stKeys.forEach(st=>L.push(_csvRow([st,stCur[st]||0,stPrev[st]||0,(stCur[st]||0)-(stPrev[st]||0),_gpct(stCur[st]||0,stPrev[st]||0)])));
+  L.push(_csvRow(['TOTAL',t.cq,t.pq,t.cq-t.pq,_gpct(t.cq,t.pq)]));
+  _csvDL('sales-performance',L,rows.length);
+}
+// Report 3 — Salesperson-wise State Sale (each salesperson split state-wise)
+function dlSalespersonStateSale(){
+  if(!_repHaveData())return _repNoData();
+  const fy=_repFYLabels(), sps=_repScopedSPs();
+  const L=[];
+  L.push(_csvRow(['STAR KIDZ — SALES PERSON WISE STATE SALE  |  '+fy.cur+'  vs  '+fy.prev]));
+  L.push(_csvRow(["Each salesperson's sale split state-wise (state from party master). Full year comparison."]));
+  L.push('');
+  L.push(_csvRow(['S.No','Salesperson','State','Sale Qty '+fy.cur,'Sale Qty '+fy.prev,'Growth (Qty)','Growth %','Sale Value '+fy.cur,'Sale Value '+fy.prev,'Share within Salesperson']));
+  let sn=0; const g={cq:0,pq:0,cv:0,pv:0};
+  sps.forEach(sp=>{
+    const bys={};
+    const acc=(rows,ck)=>rows.filter(r=>attributeSP(r.party)===sp.name).forEach(r=>{
+      const st=partyStateOf(r.party);(bys[st]=bys[st]||{cq:0,pq:0,cv:0,pv:0});
+      bys[st][ck?'cq':'pq']+=(+r.qty||0);bys[st][ck?'cv':'pv']+=(+r.value||0);
+    });
+    acc(LINK.saleCur||[],true);acc(LINK.salePrev||[],false);
+    const states=Object.keys(bys).sort((a,b)=>bys[b].cq-bys[a].cq);
+    if(!states.length)return;
+    const spCurQty=states.reduce((s,st)=>s+bys[st].cq,0);
+    states.forEach(st=>{const v=bys[st];sn++;L.push(_csvRow([sn,sp.name,st,v.cq,v.pq,v.cq-v.pq,_gpct(v.cq,v.pq),v.cv,v.pv,_sharePct(v.cq,spCurQty)]));});
+    const sub=states.reduce((a,st)=>({cq:a.cq+bys[st].cq,pq:a.pq+bys[st].pq,cv:a.cv+bys[st].cv,pv:a.pv+bys[st].pv}),{cq:0,pq:0,cv:0,pv:0});
+    L.push(_csvRow(['',sp.name+' — TOTAL','',sub.cq,sub.pq,sub.cq-sub.pq,_gpct(sub.cq,sub.pq),sub.cv,sub.pv,'100%']));
+    g.cq+=sub.cq;g.pq+=sub.pq;g.cv+=sub.cv;g.pv+=sub.pv;
+  });
+  L.push(_csvRow(['','GRAND TOTAL','',g.cq,g.pq,g.cq-g.pq,_gpct(g.cq,g.pq),g.cv,g.pv,'']));
+  _csvDL('salesperson-state-sale',L,sn);
 }
 function openSalesRatingDetail(spName){
   const {curRows,prevRows}=spYoY(spName);
