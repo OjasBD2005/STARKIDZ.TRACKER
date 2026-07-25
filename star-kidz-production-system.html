@@ -198,7 +198,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <div class="sb-item" data-view="sales-push" onclick="go('sales-push')">📤 Push Sale</div>
       <div class="sb-item" data-view="sales-pull" onclick="go('sales-pull')">📥 Pull Sale</div>
       <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
-      <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Enter Order</div>
+      <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Pending Order</div>
       <div class="sb-item" data-view="fg-stock" onclick="go('fg-stock')">📦 Finished Goods Stock</div>
       <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Party Performance</div>
       <div class="sb-item" data-view="state-perf" onclick="go('state-perf')">📊 State Performance</div>
@@ -746,16 +746,18 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
 <!-- ===== ENTER ORDER (Sales) — same pending-order pipeline as ojas-dispatch-tracker.html ===== -->
 <section id="view-sales-order-entry" class="view">
-  <h2 style="font-size:20px;font-weight:800;color:#0f172a">📝 Enter Order</h2>
+  <h2 style="font-size:20px;font-weight:800;color:#0f172a">📝 Pending Order</h2>
   <p style="font-size:12px;color:#64748b;margin:2px 0 14px">Logs straight into the same Pending Orders queue GM sees — no separate app needed.</p>
   <div class="card" style="max-width:640px">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div style="grid-column:1/-1"><label class="lbl">Party / Distributor Name</label><input id="soParty" class="inp" placeholder="e.g. Sachdeva Enterprises - Subhash Nagar"></div>
+      <div style="grid-column:1/-1"><label class="lbl">Party / Distributor Name</label><input id="soParty" class="inp" list="soPartyList" autocomplete="off" placeholder="type to search your distributors…"><datalist id="soPartyList"></datalist></div>
       <div><label class="lbl">Article</label><select id="soArticle" class="inp" onchange="soOnArticle()"><option value="">— select —</option></select></div>
       <div><label class="lbl">Category</label><select id="soCategory" class="inp"><option>PU</option><option>PVC</option><option>STUCKON</option><option>EVA</option></select></div>
       <div><label class="lbl">Size</label><select id="soSize" class="inp" disabled><option value="">— size —</option></select></div>
       <div><label class="lbl">Colour</label><select id="soColour" class="inp" disabled><option value="">— colour —</option></select></div>
-      <div><label class="lbl">Qty (pairs)</label><input id="soQty" type="number" min="1" class="inp" placeholder="e.g. 120"></div>
+      <div><label class="lbl">Qty (cartons)</label><input id="soCartons" type="number" min="1" step="1" class="inp" placeholder="e.g. 10" oninput="soCalcPairs()"></div>
+      <div><label class="lbl">Pairs / carton (assortment)</label><input id="soPPC" type="number" min="1" step="1" class="inp" value="12" oninput="soCalcPairs()"></div>
+      <div style="grid-column:1/-1"><label class="lbl">Qty (pairs) — auto</label><input id="soQty" type="number" class="inp" readonly style="background:#f8fafc;font-weight:700" placeholder="enter cartons above"><div id="soPairsNote" style="font-size:11px;color:#059669;font-weight:600;margin-top:3px"></div></div>
       <div><label class="lbl">Order Date</label><input id="soDate" type="date" class="inp"></div>
     </div>
     <button class="btn btn-brand" style="margin-top:16px" onclick="submitSalesOrder()">📥 Submit to Production</button>
@@ -1129,6 +1131,17 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div style="font-weight:800;margin-bottom:6px">🗺️ State-wise Sales Growth — this year vs last year</div>
     <div style="height:320px;position:relative;margin-bottom:12px"><canvas id="spfChartCanvas"></canvas></div>
     <div style="overflow:auto"><table class="tbl" id="spfStateTbl"></table></div>
+  </div>
+
+  <!-- Quarterly sales (FY Apr–Mar) + YoY — respects the state dropdown above -->
+  <div class="card" style="margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+      <div style="font-weight:800">📅 Quarterly Sales — this year vs last year <span id="spfQtrScope" style="font-weight:500;font-size:11px;color:#64748b"></span></div>
+      <span id="spfQtrNote" style="font-size:11px;color:#94a3b8"></span>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Pick a state above to drill into party-wise quarters within it. Each cell shows <b>this year</b> over <span style="color:#94a3b8">last year</span> with growth. FY = Apr–Mar.</div>
+    <div style="height:260px;position:relative;margin-bottom:12px"><canvas id="spfQtrCanvas"></canvas></div>
+    <div style="overflow:auto"><table class="tbl" id="spfQtrTbl"></table></div>
   </div>
 
   <!-- Parties not performing -->
@@ -4536,8 +4549,9 @@ function renderPending(){
         <b>${o.customer}</b><span style="font-size:11px;color:#94a3b8">#${o.order_no}</span>
         ${o.plan.planned?'<span class="pill pill-green">✅ PLANNED</span>':'<span class="pill pill-amber">⏳ Awaiting</span>'}
         ${o.allottedRole?`<span class="pill pill-blue">🏷️ ${o.allottedDept}</span>`:'<span class="pill pill-red">⚠ No dept</span>'}
+        <button class="btn btn-outline" style="font-size:11px;padding:3px 10px;margin-left:auto" onclick="showPendingJobCard('${o.order_no}')">🪪 Job Card</button>
       </div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:8px">${o.article_code} · ${o.qty} prs · by <b>${o.enteredBy||o.salesPerson||'Sales'}</b>${spBadge(o.salesPerson)}</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px">${o.article_code} · ${o.cartons?fmtN(o.cartons)+' ctn · ':''}${fmtN(o.qty)} prs · by <b>${o.enteredBy||o.salesPerson||'Sales'}</b>${spBadge(o.salesPerson)}</div>
       ${o.plan.committedDate?`<div style="font-size:12px;font-weight:600;color:#0369a1;margin-bottom:8px">🎯 Committed: ${fmt(o.plan.committedDate)}</div>`:''}
       ${canP?`<div style="display:flex;flex-wrap:wrap;gap:8px">
         <div style="display:flex;gap:6px;align-items:center;font-size:12px;background:#eef3ff;border:1px solid #bdd0ff;border-radius:8px;padding:6px 10px">
@@ -5549,7 +5563,7 @@ function showJobCard(planId,type){
 function printJobCard(){
   if(!CURRENT_JOBCARD)return;
   const jc=CURRENT_JOBCARD;
-  const html=jc.type==='upper'?upperJobCardHTML(jc):jc.type==='moulding'?mouldingJobCardHTML(jc):jc.type==='cutting'?cuttingIssueJobCardHTML(jc):jc.type==='article-group'?articleGroupJobCardHTML(jc):jobCardHTML(jc);
+  const html=jc.type==='upper'?upperJobCardHTML(jc):jc.type==='moulding'?mouldingJobCardHTML(jc):jc.type==='cutting'?cuttingIssueJobCardHTML(jc):jc.type==='article-group'?articleGroupJobCardHTML(jc):jc.type==='sales-order'?salesOrderJobCardHTML(jc):jobCardHTML(jc);
   const title='Job Card '+(jc.cardNo||jc.planNo||'');
   const w=window.open('','_blank','width=820,height=940');
   if(!w){toast('Allow pop-ups to print','⚠️','');return}
@@ -5564,8 +5578,8 @@ function drawStarPDF(doc,cx,cy,ro,ri,rgb){
 }
 function downloadJobCardPDF(){
   const jc=CURRENT_JOBCARD;if(!jc)return;
-  if(jc.type==='upper'||jc.type==='moulding'||jc.type==='cutting'||jc.type==='article-group'){
-    const html=jc.type==='upper'?upperJobCardHTML(jc):jc.type==='moulding'?mouldingJobCardHTML(jc):jc.type==='article-group'?articleGroupJobCardHTML(jc):cuttingIssueJobCardHTML(jc);
+  if(jc.type==='upper'||jc.type==='moulding'||jc.type==='cutting'||jc.type==='article-group'||jc.type==='sales-order'){
+    const html=jc.type==='upper'?upperJobCardHTML(jc):jc.type==='moulding'?mouldingJobCardHTML(jc):jc.type==='article-group'?articleGroupJobCardHTML(jc):jc.type==='sales-order'?salesOrderJobCardHTML(jc):cuttingIssueJobCardHTML(jc);
     const w=window.open('','_blank','width=820,height=960');
     if(!w){toast('Allow pop-ups to print','⚠️','');return;}
     w.document.write(`<html><head><title>${jc.cardNo}</title><meta charset="utf-8"><style>@media print{body{margin:0}}</style></head><body style="margin:12px;background:#fff">${html}<scr`+`ipt>window.onload=function(){setTimeout(function(){window.print()},300)}<\/scr`+`ipt></body></html>`);
@@ -7153,6 +7167,8 @@ function renderStatePerf(){
         scales:{y:{ticks:{callback:v=>v+'%'}},x:{ticks:{autoSkip:false,maxRotation:60,minRotation:45,font:{size:10}}}}}
     });
   }
+  // quarterly this-year vs last-year (state-wise, or party-wise when a state is picked)
+  renderStateQuarterly(pick);
   // parties not performing
   let drops=droppedParties();if(pick!=='all')drops=drops.filter(r=>stateEq(r.state,pick));
   $('#spfDropNote').textContent=(live?'':'Comparing last-period vs current billing (sample) — ')+'parties down 40%+ or gone silent. '+(hasStateLock()?'Your states only.':'');
@@ -7164,6 +7180,96 @@ function renderStatePerf(){
   $('#spfLateTbl').innerHTML='<thead><tr><th>Party</th><th>State</th><th style="text-align:right">Overdue</th><th style="text-align:right">Oldest bill</th><th>Salesperson</th></tr></thead><tbody>'+
     (late.length?late.map(r=>`<tr style="background:#fef2f2"><td><b>${r.party}</b></td><td style="font-size:11px">${r.state}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtN(r.overdue)}</td><td style="text-align:right;${r.oldest>90?'color:#dc2626;font-weight:700':''}">${r.oldest}d</td><td style="font-size:11px">${r.sp}</td></tr>`).join('')
     :'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px">No overdue parties in scope. 👍</td></tr>')+'</tbody>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// QUARTERLY SALES (FY Apr–Mar) with YoY — state-wise, drills to party-wise
+// when a single state is picked in the spfState dropdown. Live from dated
+// LINK.saleCur/salePrev; falls back to a labelled seasonal split of the seed.
+// ══════════════════════════════════════════════════════════════════════
+const FY_Q=[['Q1','Apr–Jun'],['Q2','Jul–Sep'],['Q3','Oct–Dec'],['Q4','Jan–Mar']];
+function fyQuarter(d){
+  const dt=new Date(d);if(isNaN(dt))return null;
+  const m=dt.getMonth(); // 0=Jan … FY starts Apr(3)
+  if(m>=3&&m<=5)return 'Q1';if(m>=6&&m<=8)return 'Q2';if(m>=9&&m<=11)return 'Q3';return 'Q4';
+}
+function hashStr(s){let h=0;s=String(s||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+function seedQtrSplit(total,offset){ // deterministic seasonal split so sample quarters vary a little
+  const base=[0.27,0.21,0.31,0.21];
+  const w=base.map((x,i)=>x*(1+(((offset+i*37)%11)-5)/100));
+  const s=w.reduce((a,b)=>a+b,0)||1;
+  return {Q1:total*w[0]/s,Q2:total*w[1]/s,Q3:total*w[2]/s,Q4:total*w[3]/s};
+}
+function quarterlyData(pick){
+  const dated=[...(LINK.saleCur||[]),...(LINK.salePrev||[])].some(r=>r&&r.date&&!isNaN(new Date(r.date)));
+  const live=(LINK.saleCur||[]).length&&(LINK.salePrev||[]).length&&dated;
+  const byParty=!!(pick&&pick!=='all');
+  const blank=()=>({Q1:0,Q2:0,Q3:0,Q4:0});
+  const m={};
+  if(live){
+    const add=(arr,side)=>{(arr||[]).forEach(r=>{
+      let st=stateOfCustomer(r.party);if(!st||st==='—')return;st=String(st).toUpperCase();
+      if(byParty){if(!stateEq(st,pick))return;}
+      else if(hasStateLock()&&!(currentUser.states||[]).some(s=>stateEq(s,st)))return;
+      const q=fyQuarter(r.date);if(!q)return;
+      const k=byParty?r.party:st;if(!k)return;
+      (m[k]=m[k]||{key:k,state:st,sp:attributeSP(r.party)||'—',cur:blank(),prev:blank()});
+      m[k][side][q]+=+r.value||0;
+    });};
+    add(LINK.saleCur,'cur');add(LINK.salePrev,'prev');
+  }else if(!byParty){
+    let seed=STATE_PERF_SEED.map(r=>({...r}));
+    if(hasStateLock())seed=seed.filter(r=>(currentUser.states||[]).some(s=>stateEq(s,r.state)));
+    seed.forEach(r=>{const off=hashStr(r.state);
+      m[r.state]={key:r.state,state:r.state,sp:r.sp,cur:seedQtrSplit(r.cur,off),prev:seedQtrSplit(r.last,off+3)};});
+  }
+  const rows=Object.values(m).map(r=>{
+    r.curTot=r.cur.Q1+r.cur.Q2+r.cur.Q3+r.cur.Q4;
+    r.prevTot=r.prev.Q1+r.prev.Q2+r.prev.Q3+r.prev.Q4;
+    r.grow=r.prevTot?((r.curTot-r.prevTot)/r.prevTot*100):(r.curTot?100:0);
+    return r;
+  }).sort((a,b)=>b.curTot-a.curTot);
+  return {rows,live,byParty};
+}
+let spfQtrChart=null;
+function renderStateQuarterly(pick){
+  const tbl=$('#spfQtrTbl');if(!tbl)return;
+  const {rows,live,byParty}=quarterlyData(pick);
+  const scope=$('#spfQtrScope');if(scope)scope.textContent=byParty?('— parties in '+pick):'— all states in scope';
+  const note=$('#spfQtrNote');
+  if(note)note.textContent=live?'FY Apr–Mar quarters · live from uploaded sale data'
+    :(byParty?'Party-wise quarters need live dated sale data — upload Sale (This/Last FY) in Link & Configure'
+             :'⏳ Sample seasonal split — upload dated sale data for real quarters');
+  const tot={cur:{Q1:0,Q2:0,Q3:0,Q4:0},prev:{Q1:0,Q2:0,Q3:0,Q4:0}};
+  rows.forEach(r=>FY_Q.forEach(([q])=>{tot.cur[q]+=r.cur[q];tot.prev[q]+=r.prev[q];}));
+  const totCur=FY_Q.reduce((s,[q])=>s+tot.cur[q],0),totPrev=FY_Q.reduce((s,[q])=>s+tot.prev[q],0);
+  const qGrow=(c,p)=>growPillHTML(p?((c-p)/p*100):(c?100:0));
+  const cell=(c,p)=>`<td style="text-align:right;line-height:1.35"><div style="font-weight:600">${fmtCr(c)}</div><div style="font-size:10px;color:#94a3b8">${fmtCr(p)}</div><div>${qGrow(c,p)}</div></td>`;
+  const head='<thead><tr><th>'+(byParty?'Party':'State')+'</th>'+
+    FY_Q.map(([q,mon])=>`<th style="text-align:right">${q} <span style="font-weight:400;color:#94a3b8;font-size:10px">${mon}</span></th>`).join('')+
+    '<th style="text-align:right">Total</th><th>YoY</th></tr></thead>';
+  const body='<tbody>'+(rows.length?rows.map(r=>
+    `<tr><td><b>${r.key}</b>${byParty?'':`<div style="font-size:10px;color:#94a3b8">${r.sp||''}</div>`}</td>`+
+    FY_Q.map(([q])=>cell(r.cur[q],r.prev[q])).join('')+
+    `<td style="text-align:right;font-weight:700">${fmtCr(r.curTot)}<div style="font-size:10px;color:#94a3b8;font-weight:400">${fmtCr(r.prevTot)}</div></td><td>${growPillHTML(r.grow)}</td></tr>`
+  ).join('')+
+    `<tr style="background:#f1f5f9;font-weight:700"><td>TOTAL</td>`+
+    FY_Q.map(([q])=>`<td style="text-align:right">${fmtCr(tot.cur[q])}<div style="font-size:10px;color:#64748b;font-weight:400">${fmtCr(tot.prev[q])}</div><div>${qGrow(tot.cur[q],tot.prev[q])}</div></td>`).join('')+
+    `<td style="text-align:right">${fmtCr(totCur)}<div style="font-size:10px;color:#64748b;font-weight:400">${fmtCr(totPrev)}</div></td><td>${qGrow(totCur,totPrev)}</td></tr>`
+  :`<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:16px">No quarterly data in scope.</td></tr>`)+'</tbody>';
+  tbl.innerHTML=head+body;
+  const cv=document.getElementById('spfQtrCanvas');
+  if(cv&&typeof Chart!=='undefined'){
+    if(spfQtrChart){spfQtrChart.destroy();spfQtrChart=null;}
+    spfQtrChart=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:FY_Q.map(([q,mon])=>q+' · '+mon),datasets:[
+        {label:'This Year',data:FY_Q.map(([q])=>+(tot.cur[q]/1e7).toFixed(2)),backgroundColor:'#1b3187',borderWidth:0},
+        {label:'Last Year',data:FY_Q.map(([q])=>+(tot.prev[q]/1e7).toFixed(2)),backgroundColor:'#c7d2fe',borderWidth:0}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': ₹'+c.parsed.y+' Cr'}}},scales:{y:{ticks:{callback:v=>'₹'+v+'Cr'}}}}
+    });
+  }
 }
 
 let PUSH_FACT=[]; // populated by real Busy Consolidated_report import (line-item grain)
@@ -7783,8 +7889,24 @@ function exportPartiesCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-parties-'+todayISO()+'.csv';a.click();
   toast('Exported','⬇️',rows.length+' parties');
 }
+function fillPartyDatalist(){
+  const dl=$('#soPartyList');if(!dl)return;
+  const names=[...new Set(myPartyMaster().map(p=>p.firm).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  dl.innerHTML=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}"></option>`).join('');
+}
+// Cartons × pairs-per-carton (assortment) → auto pairs
+function soCalcPairs(){
+  const ctn=+($('#soCartons')||{}).value||0, ppc=+($('#soPPC')||{}).value||0;
+  const pairs=ctn*ppc;
+  if($('#soQty'))$('#soQty').value=pairs||'';
+  const note=$('#soPairsNote');
+  if(note)note.textContent=(ctn&&ppc)?`= ${fmtN(pairs)} pairs  (${fmtN(ctn)} ctn × ${ppc}/ctn)`:'';
+}
 function renderOrderEntry(){
   buildArticleSelect($('#soArticle'));
+  fillPartyDatalist();
+  if($('#soPPC')&&!$('#soPPC').value)$('#soPPC').value=12;
+  soCalcPairs();
   if(!$('#soDate').value)$('#soDate').value=todayISO();
   const today=todayISO();
   const mine=(SALES_ENTERED_TODAY||[]).filter(o=>o.order_date===today&&o.salesperson===currentUser.name);
@@ -7796,14 +7918,19 @@ function submitSalesOrder(){
   if(!(currentUser.role==='SALES'||IS_MASTER)){toast('Only Sales can enter orders','⚠️','');return}
   const party=$('#soParty').value.trim();
   const article=$('#soArticle').value;
-  const qty=+$('#soQty').value||0;
+  const cartons=Math.max(0,Math.round(+$('#soCartons').value||0));
+  const ppc=Math.max(0,Math.round(+$('#soPPC').value||0));
+  const qty=cartons*ppc;
   if(!party){toast('Enter party name','⚠️','');return}
   if(!article){toast('Select an article','⚠️','');return}
-  if(!qty||qty<1){toast('Enter a valid quantity','⚠️','');return}
+  if(!cartons||cartons<1){toast('Enter cartons','⚠️','');return}
+  if(!ppc||ppc<1){toast('Enter pairs / carton','⚠️','');return}
   const orderId='PS'+uid().toUpperCase();
+  const cat=$('#soCategory').value||'PU';
   const newOrder={
-    order_id:orderId, party_name:party, article_no:article, colour:$('#soColour').value||null,
-    quantity:qty, order_date:$('#soDate').value||todayISO(), category:$('#soCategory').value||'PU',
+    order_id:orderId, party_name:party, article_no:article, colour:$('#soColour').value||null, size:$('#soSize').value||null,
+    quantity:qty, cartons:cartons, pairs_per_carton:ppc,
+    order_date:$('#soDate').value||todayISO(), category:cat,
     production_status:'Pending', dispatch_status:'Awaiting Clearance',
     salesperson:currentUser.name, created_by:currentUser.name, created_stamp:nowFull(), source:'production-system'
   };
@@ -7812,9 +7939,82 @@ function submitSalesOrder(){
   list.push(newOrder);
   Store.setItem(SHARED_KEY, JSON.stringify({updated:Date.now(), orders:list}));
   SALES_ENTERED_TODAY.push(newOrder);
-  toast('Order submitted','📥',party+' — '+qty+' pairs → Production');
-  $('#soParty').value='';$('#soQty').value='';$('#soColour').value='';
-  if(importSharedOrders())refresh(); else renderOrderEntry();
+  toast('Order submitted','📥',party+' — '+cartons+' ctn / '+fmtN(qty)+' prs → '+cat+' Dept');
+  importSharedOrders(); // route into Komal Jain's Pending Orders window + department
+  // Generate the Job Card for this order
+  showSalesOrderJobCard(newOrder);
+  $('#soParty').value='';$('#soCartons').value='';$('#soQty').value='';$('#soColour').value='';
+  if($('#soPairsNote'))$('#soPairsNote').textContent='';
+  refresh();
+}
+// ── PENDING-ORDER JOB CARD (issued at sales entry → Komal Jain → department) ──
+function catDeptName(cat){const r=catRoleOf(cat);const u=USERS.find(x=>x.role===r);return u?u.title:(cat||'—');}
+function buildSalesOrderJobCard(s){
+  const cat=s.category||'PU';
+  return{
+    type:'sales-order', cardNo:s.order_id||s.order_no, planNo:s.order_id||s.order_no,
+    date:s.order_date||todayISO(), party:s.party_name||s.customer||'—',
+    article:s.article_no||s.article_code||'—', category:cat, dept:catDeptName(cat),
+    size:s.size||'—', colour:s.colour||'—',
+    cartons:s.cartons||(s.pairs_per_carton?Math.round((s.quantity||s.qty||0)/s.pairs_per_carton):'—'),
+    ppc:s.pairs_per_carton||'—', qty:s.quantity||s.qty||0,
+    salesperson:s.salesperson||'Sales', committedDate:s.committedDate||'',
+    createdBy:s.created_by||s.salesperson||currentUser.name, issuedAt:nowFull()
+  };
+}
+function salesOrderJobCardHTML(jc){
+  const cell=(l,v)=>`<div style="padding:6px 10px;border:1px solid #e2e8f0"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;font-weight:700">${l}</div><div style="font-size:13px;font-weight:700;color:#0f172a">${(v==null||v==='')?'—':v}</div></div>`;
+  return`<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;background:#fff;max-width:720px;margin:auto;border:2px solid #0c1733;border-radius:10px;overflow:hidden">
+    <div style="background:#0c1733;color:#fff;display:flex;align-items:center;gap:12px;padding:14px 18px">
+      ${JC_STAR}
+      <div style="flex:1"><div style="font-size:20px;font-weight:800;line-height:1">STAR <span style="color:#5b8cff">Kidz</span></div>
+      <div style="font-size:11px;opacity:.8">Ojas Footwear India Pvt. Ltd. · Pending Order</div></div>
+      <div style="text-align:right"><div style="font-size:11px;opacity:.8;letter-spacing:.08em">JOB CARD</div>
+      <div style="font-size:18px;font-weight:800;color:#ffd24a">${jc.cardNo}</div></div>
+    </div>
+    <div style="padding:14px 18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:800;background:#eef3ff;color:#1b3187;border-radius:6px;padding:4px 12px">🏭 ${jc.category} · ${jc.dept}</div>
+        <div style="font-size:11px;color:#64748b">Issued: ${jc.issuedAt}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);border-radius:8px;overflow:hidden;margin-bottom:14px">
+        ${cell('Order / Job No',jc.cardNo)}${cell('Order Date',fmtFull(jc.date))}${cell('Salesperson',jc.salesperson)}
+        ${cell('Party / Distributor',jc.party)}${cell('Article',jc.article)}${cell('Category',jc.category)}
+        ${cell('Cartons',jc.cartons)}${cell('Pairs / Carton',jc.ppc)}${cell('Total Pairs',fmtN(jc.qty))}
+        ${cell('Size',jc.size)}${cell('Colour',jc.colour)}${cell('Committed Date',jc.committedDate?fmtFull(jc.committedDate):'To be set by GM')}
+      </div>
+      <div style="border:1px solid #bdd0ff;border-radius:8px;overflow:hidden;margin-bottom:12px">
+        <div style="background:#1b3187;color:#fff;font-size:12px;font-weight:800;padding:6px 10px">➡️ ROUTED TO — ${jc.dept}</div>
+        <div style="padding:8px 10px;font-size:12px;line-height:1.9">
+          <div><b>Department:</b> ${jc.dept} (${jc.category})</div>
+          <div><b>Quantity:</b> ${jc.cartons} cartons · ${fmtN(jc.qty)} pairs (${jc.ppc}/ctn assortment)</div>
+          <div><b>Flows to:</b> Komal Jain (GM) — Pending Orders window → allots &amp; commits date</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:26px;font-size:11px;color:#475569">
+        <div style="border-top:1px solid #94a3b8;padding-top:4px;text-align:center">Entered By<br><b style="color:#0f172a">${jc.createdBy}</b></div>
+        <div style="border-top:1px solid #94a3b8;padding-top:4px;text-align:center">GM — Komal Jain</div>
+        <div style="border-top:1px solid #94a3b8;padding-top:4px;text-align:center">${jc.dept} Incharge</div>
+      </div>
+    </div>
+    <div style="background:#f1f5f9;text-align:center;font-size:10px;color:#94a3b8;padding:6px">STAR Kidz · Ojas Footwear India Pvt. Ltd. — Generated ${jc.issuedAt}</div>
+  </div>`;
+}
+function showSalesOrderJobCard(src){
+  const jc=buildSalesOrderJobCard(src);
+  CURRENT_JOBCARD=jc;
+  $('#jobCardBody').innerHTML=salesOrderJobCardHTML(jc);
+  $('#jobCardModal').style.display='grid';
+}
+// Open the job card for an order already in Komal's window (uses live allotment/commit)
+function showPendingJobCard(orderNo){
+  const o=find(orderNo);if(!o){toast('Order not found','⚠️','');return}
+  showSalesOrderJobCard({
+    order_id:o.order_no, party_name:o.customer, article_no:o.article_code,
+    colour:o.colour, size:o.size, quantity:o.qty, cartons:o.cartons, pairs_per_carton:o.ppc,
+    order_date:o.order_date, category:o.category, salesperson:o.salesPerson||o.enteredBy,
+    committedDate:o.plan&&o.plan.committedDate, created_by:o.enteredBy||o.salesPerson
+  });
 }
 
 // ── PERSISTENCE ──
@@ -8021,7 +8221,10 @@ function importSharedOrders(){
       const del=new Date(s.order_date||todayISO());del.setDate(del.getDate()+15);
       const o=mkOrder(s.order_id,s.party_name||'Customer',(s.article_no||'')+(s.colour?' '+s.colour:''),s.article_no||'-',s.category||'PU',qty,s.order_date||todayISO(),del.toISOString().slice(0,10),'Medium');
       o.fromSales=true;o.salesPerson=s.salesperson||'Sales';o.enteredBy=s.created_by||s.salesperson||'Sales';
-      o.allottedRole=null;o.allottedDept='Unassigned';mergeBilling(o,s);
+      o.cartons=s.cartons||(s.pairs_per_carton?Math.round(qty/s.pairs_per_carton):Math.round(qty/12));
+      o.ppc=s.pairs_per_carton||12;o.size=s.size||'';o.colour=s.colour||'';
+      // Department auto-routed from category (mkOrder → catRoleOf); GM (Komal Jain) can re-allot in the Pending window.
+      mergeBilling(o,s);
       ORDERS.unshift(o);changed=true;importSawNewOrder=true;
     });
   }catch(e){}
