@@ -7941,8 +7941,7 @@ function submitSalesOrder(){
   SALES_ENTERED_TODAY.push(newOrder);
   toast('Order submitted','📥',party+' — '+cartons+' ctn / '+fmtN(qty)+' prs → '+cat+' Dept');
   importSharedOrders(); // route into Komal Jain's Pending Orders window + department
-  // Generate the Job Card for this order
-  showSalesOrderJobCard(newOrder);
+  // Job Card is NOT shown to the salesperson — it is generated in Komal Jain's window only.
   $('#soParty').value='';$('#soCartons').value='';$('#soQty').value='';$('#soColour').value='';
   if($('#soPairsNote'))$('#soPairsNote').textContent='';
   refresh();
