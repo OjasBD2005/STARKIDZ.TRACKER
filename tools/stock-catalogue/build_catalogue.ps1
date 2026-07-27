@@ -70,7 +70,10 @@ $json=$list | ConvertTo-Json -Depth 8 -Compress
 Set-Content "$out\catalogue.json" $json -Encoding utf8
 
 # emit the JS data file the app loads
-$stamp='2026-07-25'
+# stock date taken from the report title (STOCK-DD-MM-YYYY) so it always matches the source
+$stamp='unknown'
+$titleLine = Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-(\d{2})-(\d{2})-(\d{4})' | Select-Object -First 1
+if($titleLine){ $m=[regex]::Match($titleLine.Line,'STOCK-(\d{2})-(\d{2})-(\d{4})'); $stamp="$($m.Groups[3].Value)-$($m.Groups[2].Value)-$($m.Groups[1].Value)" }
 $js=@"
 /* STAR Kidz — Finished Goods Stock Catalogue
    Source : STOCK-25-07-2026.pdf (Busy stock report), parsed row-wise.

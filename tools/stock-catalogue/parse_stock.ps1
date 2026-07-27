@@ -12,7 +12,7 @@ $rows=New-Object System.Collections.ArrayList
 foreach($ln in $lines){
   if(-not $ln.Trim()){continue}
   if($ln -match 'Season\s+MACHINE'){continue}
-  if($ln -match 'STOCK-25-07-2026'){continue}
+  if($ln -match 'STOCK-\d{2}-\d{2}-\d{4}'){continue}   # report title, repeats per page
   if($ln -match '(?i)\bTotal\b'){continue}   # subtotal / grand total rows
 
   # Stable tail: MRP  SP  QTY
