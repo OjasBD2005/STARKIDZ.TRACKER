@@ -1597,6 +1597,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <script src="store.js"></script>
 <script src="articles-data.js"></script>
 <script src="star-kidz-stock-catalogue-data.js"></script>
+<script src="star-kidz-photo-index.js"></script>
 <!-- PDF engine for Job Cards -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Excel engine for professional, bordered, logo'd exports (graceful CSV fallback if offline) -->
@@ -1809,14 +1810,14 @@ let FINISHED_GOODS_STOCK=[
     if(Array.isArray(saved)&&saved.length){
       FINISHED_GOODS_STOCK=saved.map(r=>({
         article:r.article||'',category:r.category||'',machine:r.machine||'',series:r.series||r.article||'',
-        stockCtns:+r.stock_ctns||0,stockPairs:+r.stock_pairs||0,lastUpdate:r.last_update||'',
+        stockCtns:+r.stock_ctns||0,stockPairs:+r.stock_pairs||0,lastUpdate:r.last_update||'',src:r.src||'',
         season:/SHOE|SPORT|SCHOOL|SCUBA/i.test(r.category||'')?'Winter':'Summer'
       }));
     }
   }catch(e){}
 })();
 function saveFGStock(){
-  const out=FINISHED_GOODS_STOCK.map(s=>({article:s.article,category:s.category,machine:s.machine,series:s.series,stock_ctns:s.stockCtns,stock_pairs:s.stockPairs,last_update:s.lastUpdate}));
+  const out=FINISHED_GOODS_STOCK.map(s=>({article:s.article,category:s.category,machine:s.machine,series:s.series,stock_ctns:s.stockCtns,stock_pairs:s.stockPairs,last_update:s.lastUpdate,src:s.src||''}));
   localStorage.setItem('starkidz_inventory',JSON.stringify(out));
 }
 
@@ -4722,6 +4723,25 @@ function filterFGAge(band){fgFilterAge=band;renderFGStock()}
 const CAT_PHOTO_DIR='article-photos/';
 function catData(){return (window.STOCK_CATALOGUE||[]);}
 function catDate(){return window.STOCK_CATALOGUE_DATE||'';}
+// Photo lookup, most specific first: this article in this colour → this article →
+// the series photo. The index is built from the article name + colour printed inside
+// each catalogue photo (see star-kidz-photo-index.js).
+function photoFor(article,colour){
+  const idx=window.PHOTO_INDEX||{};
+  const a=String(article||'').toUpperCase(), c=String(colour||'').toUpperCase();
+  if(c&&idx[a+'|'+c])return {file:idx[a+'|'+c],exact:true};
+  if(idx[a])return {file:idx[a],exact:false};
+  return null;
+}
+function catPhotoFor(a){
+  const hit=photoFor(a.a,null);
+  if(hit)return {file:hit.file,exact:hit.exact};
+  return a.p?{file:a.p,exact:false}:null;
+}
+function photoIndexCount(){
+  const idx=window.PHOTO_INDEX||{};
+  return Object.keys(idx).filter(k=>k.indexOf('|')>0).length;
+}
 let _scBuilt=false;
 function fillCatalogueFilters(){
   const d=catData();
@@ -4762,7 +4782,8 @@ function mrpLabel(a){
 // One catalogue card: photo on the left, colour x size grid on the right.
 function catalogueCardHTML(a,forPrint){
   const sizes=(a.s||[]).slice();
-  const img=a.p?`<img src="${CAT_PHOTO_DIR}${a.p}" alt="${a.a}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px\\'>no photo</div>'">`
+  const main=catPhotoFor(a);
+  const img=main?`<img src="${CAT_PHOTO_DIR}${main.file}" alt="${a.a}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px\\'>no photo</div>'">`
     :`<div style="display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px">no photo</div>`;
   const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num">Total</th></tr>`;
   const body=(a.c||[]).map(r=>{
@@ -4771,7 +4792,10 @@ function catalogueCardHTML(a,forPrint){
       const v=(r.q||{})[s];
       return `<td class="num" style="${v?'font-weight:700':'color:#cbd5e1'}">${v||'·'}</td>`;
     }).join('');
-    return `<tr><td style="font-weight:600;white-space:nowrap">${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td></tr>`;
+    // show the colour's own photo when one has been identified for this exact shade
+    const cp=photoFor(a.a,r.c);
+    const swatch=(cp&&cp.exact)?`<img src="${CAT_PHOTO_DIR}${cp.file}" alt="${a.a} ${r.c}" title="${a.a} · ${r.c}" style="width:26px;height:26px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;vertical-align:middle;margin-right:6px">`:'';
+    return `<tr><td style="font-weight:600;white-space:nowrap">${swatch}${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td></tr>`;
   }).join('');
   const colTot=sizes.map(s=>{
     const t=(a.c||[]).reduce((sum,r)=>sum+(+((r.q||{})[s])||0),0);
@@ -4814,7 +4838,8 @@ function renderStockCatalogue(){
   if(badge){badge.className='pill pill-green';badge.textContent='✅ '+fmtN(totalPairs)+' pairs · '+d.length+' articles';}
   $('#scSourceNote').textContent='Source: Busy stock report '+(catDate()||'')+' — colour, size, MRP and quantity read row-wise from that report; photos from the article catalogue folder.';
   const k=[['Articles shown',fmtN(rows.length)+' / '+d.length,'#1b3187'],['Pairs shown',fmtN(shownPairs),'#059669'],
-           ['Colours',colours,'#7c3aed'],['Size runs',sizes,'#d97706'],['Total stock',fmtN(totalPairs)+' prs','#0f172a']];
+           ['Colours',colours,'#7c3aed'],['Size runs',sizes,'#d97706'],['Total stock',fmtN(totalPairs)+' prs','#0f172a'],
+           ['Colour-matched photos',fmtN(photoIndexCount()),'#0891b2']];
   $('#scKpis').innerHTML=k.map(x=>`<div class="card" style="padding:10px 14px;border-left:4px solid ${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:19px;font-weight:800">${x[1]}</div></div>`).join('');
   $('#scList').innerHTML=rows.length
     ? rows.map(a=>catalogueCardHTML(a,false)).join('')
@@ -4872,6 +4897,16 @@ function syncCatalogueToFG(){
   const d=catData();
   if(!d.length){toast('No catalogue data','⚠️','');return}
   const date=catDate()||todayISO();
+  const live={};d.forEach(a=>live[(a.a||'').toUpperCase()]=1);
+  // Drop articles a PREVIOUS catalogue sync created that today's report no longer has.
+  // Only catalogue-sourced rows (src==='catalogue') are eligible, so stock added by
+  // hand or uploaded from Excel is never touched. Without this the FG list keeps
+  // rows under old article spellings and double-counts.
+  let removed=0;
+  for(let i=FINISHED_GOODS_STOCK.length-1;i>=0;i--){
+    const s=FINISHED_GOODS_STOCK[i];
+    if(s.src==='catalogue'&&!live[(s.article||'').toUpperCase()]){FINISHED_GOODS_STOCK.splice(i,1);removed++;}
+  }
   let added=0,updated=0;
   d.forEach(a=>{
     const pairs=+a.t||0;
@@ -4884,12 +4919,13 @@ function syncCatalogueToFG(){
     s.stockPairs=pairs;
     s.stockCtns=Math.floor(pairs/12);
     s.lastUpdate=date;
+    s.src='catalogue';
     if(!s.series)s.series=a.f||a.a;
     if(!s.machine)s.machine=a.mc||'';
   });
   FINISHED_GOODS_STOCK.sort((x,y)=>(x.article||'').localeCompare(y.article||''));
   saveFGStock();
-  toast('Synced to FG Stock','🔄',added+' new · '+updated+' updated · '+fmtN(d.reduce((s,a)=>s+(+a.t||0),0))+' prs');
+  toast('Synced to FG Stock','🔄',added+' new · '+updated+' updated'+(removed?' · '+removed+' stale removed':'')+' · '+fmtN(d.reduce((s,a)=>s+(+a.t||0),0))+' prs');
   renderFGStock();
 }
 function downloadFGStock(){
