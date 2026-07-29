@@ -1,6 +1,7 @@
+param([string]$out=$env:SC_WORKDIR)
+if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR); photomap.json is written there"}
 $root="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\Article photos"
 $dest="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA\article-photos"
-$out ="C:\Users\VINAY\AppData\Local\Temp\claude\C--Users-VINAY-OneDrive---Ojas-Footwear-India-Private-Limited-Desktop-CLAUDE-DATA\2913ead1-0722-4ed7-98d5-ecf0be6986f3\scratchpad"
 New-Item -ItemType Directory -Force $dest | Out-Null
 
 $alias=@{'STANLAY'='Stanley series';'TODDLER'='TOODLER';'GIRL'='SCHOOL SHOES';'DLX'='SCHOOL SHOES';

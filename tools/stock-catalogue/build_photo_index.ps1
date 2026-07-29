@@ -5,7 +5,7 @@ $roots=@(
  "C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\Article photos",
  "C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\PRODUCT PHOTOS\Article photos"
 )
-$out="C:\Users\VINAY\AppData\Local\Temp\claude\C--Users-VINAY-OneDrive---Ojas-Footwear-India-Private-Limited-Desktop-CLAUDE-DATA\2913ead1-0722-4ed7-98d5-ecf0be6986f3\scratchpad"
+$out=if($env:SC_WORKDIR){$env:SC_WORKDIR}else{$PSScriptRoot}
 $app="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA"
 $dest="$app\article-photos"
 New-Item -ItemType Directory -Force $dest | Out-Null

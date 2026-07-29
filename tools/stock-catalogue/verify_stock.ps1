@@ -1,4 +1,5 @@
-$out="C:\Users\VINAY\AppData\Local\Temp\claude\C--Users-VINAY-OneDrive---Ojas-Footwear-India-Private-Limited-Desktop-CLAUDE-DATA\2913ead1-0722-4ed7-98d5-ecf0be6986f3\scratchpad"
+param([string]$out=$env:SC_WORKDIR)
+if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR); it must hold stock_table_full.txt + stock_parsed.csv"}
 $lines=Get-Content "$out\stock_table_full.txt"
 $rows=Import-Csv "$out\stock_parsed.csv"
 
@@ -18,7 +19,11 @@ foreach($ln in $lines){
 $grand=0
 foreach($ln in $lines){ $m=[regex]::Match($ln,'Grand\s+Total\s+(\d+)'); if($m.Success){$grand=[int]$m.Groups[1].Value} }
 
-"=========== STOCK CALCULATION CHECK - STOCK-27-07-2026 ==========="
+# report title (STOCK-DD-MM-YYYY) read from the export, so the banner can't go stale
+$reportId='STOCK-?'
+$tl=Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-\d{2}-\d{2}-\d{4}' | Select-Object -First 1
+if($tl){ $reportId=[regex]::Match($tl.Line,'STOCK-\d{2}-\d{2}-\d{4}').Value }
+"=========== STOCK CALCULATION CHECK - $reportId ==========="
 ""
 $parsedGrand=($rows|Measure-Object Qty -Sum).Sum
 "GRAND TOTAL   report={0}   parsed={1}   {2}" -f $grand,$parsedGrand,$(if($grand -eq $parsedGrand){'MATCH'}else{'MISMATCH'})

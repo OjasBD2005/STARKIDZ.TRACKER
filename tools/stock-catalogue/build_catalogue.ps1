@@ -1,4 +1,5 @@
-$out="C:\Users\VINAY\AppData\Local\Temp\claude\C--Users-VINAY-OneDrive---Ojas-Footwear-India-Private-Limited-Desktop-CLAUDE-DATA\2913ead1-0722-4ed7-98d5-ecf0be6986f3\scratchpad"
+param([string]$out=$env:SC_WORKDIR)
+if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR); it must hold stock_parsed.csv + photomap.json"}
 $root="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\Article photos"
 $app ="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA"
 $dest="$app\article-photos"
@@ -76,7 +77,7 @@ $titleLine = Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-(\d
 if($titleLine){ $m=[regex]::Match($titleLine.Line,'STOCK-(\d{2})-(\d{2})-(\d{4})'); $stamp="$($m.Groups[3].Value)-$($m.Groups[2].Value)-$($m.Groups[1].Value)" }
 $js=@"
 /* STAR Kidz — Finished Goods Stock Catalogue
-   Source : STOCK-25-07-2026.pdf (Busy stock report), parsed row-wise.
+   Source : stock report dated $stamp (Busy), parsed row-wise.
    Layout : modelled on the NOVA/DREAM/PEARL/MERYCO catalogue (photo + colour x size grid).
    Totals : $((($list | ForEach-Object { $_.t }) | Measure-Object -Sum).Sum) pairs across $($list.Count) articles - matches the report's Grand Total.
    Fields : a=article f=family p=photo mc=machine sn=season m=[MRP] s=[sizes] c=[{c:colour,q:{size:qty}}] t=total

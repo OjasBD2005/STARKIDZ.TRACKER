@@ -2,7 +2,7 @@ $roots=@(
  "C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\Article photos",
  "C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\PRODUCT PHOTOS\Article photos"
 )
-$out="C:\Users\VINAY\AppData\Local\Temp\claude\C--Users-VINAY-OneDrive---Ojas-Footwear-India-Private-Limited-Desktop-CLAUDE-DATA\2913ead1-0722-4ed7-98d5-ecf0be6986f3\scratchpad"
+$out=if($env:SC_WORKDIR){$env:SC_WORKDIR}else{throw "Set SC_WORKDIR to the folder holding stock_parsed.csv"}
 $alias=@{'STANLAY'='Stanley series';'TODDLER'='TOODLER';'GIRL'='SCHOOL SHOES';'DLX'='SCHOOL SHOES';
  'GOLA'='SCHOOL SHOES';'EVA'='SCHOOL SHOES';'PLAIN'='SCHOOL SHOES';'SS'='SCHOOL SHOES';'SKID'='SCHOOL SHOES';
  'GSD'='ksd';'GCS'='ksd';'GSL'='ksd';'GSJ'='ksj';'KIARA'='kiaraa';'FIRE'='fire bolt';'BOLT'='fire bolt';

@@ -1,4 +1,5 @@
-$out="C:\Users\VINAY\AppData\Local\Temp\claude\C--Users-VINAY-OneDrive---Ojas-Footwear-India-Private-Limited-Desktop-CLAUDE-DATA\2913ead1-0722-4ed7-98d5-ecf0be6986f3\scratchpad"
+param([string]$out=$env:SC_WORKDIR)
+if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR); it must hold stock_table_full.txt"}
 $lines=Get-Content "$out\stock_table_full.txt"
 
 # Words that belong to the Mould/Upper description, never a colour
