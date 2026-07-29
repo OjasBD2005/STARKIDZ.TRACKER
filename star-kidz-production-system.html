@@ -1114,6 +1114,10 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <button class="btn btn-outline" onclick="toggleEl('fgImportForm')" style="font-size:12px">📤 Upload Stock</button>
     </div>
   </div>
+  <!-- Catalogue-out-of-sync banner. The Busy stock catalogue is the authoritative
+       article stock, but it only reaches this table when someone syncs it — which used
+       to mean finding a button in a different view. Surface it here instead. -->
+  <div id="fgCatalogueBanner" style="display:none;margin-bottom:14px"></div>
   <!-- Stock aging KPI strip -->
   <div id="fgAgeKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px"></div>
   <div class="card" style="padding:14px 16px;overflow:auto">
@@ -1812,7 +1816,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-07-29.2';
+window.STARKIDZ_BUILD='2026-07-29.3';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -4981,7 +4985,38 @@ function populateInvLocationSelect(){
 // ── FINISHED GOODS STOCK FUNCTIONS ──
 let fgFilterSeason='all', fgFilterAge='all';
 // stockAgeDays / bucketOf / AGING_BUCKETS / BUCKET_COLOR / BUCKET_LABEL are defined in the aging module below
+// Show, in this view, when the Busy stock catalogue holds stock this table doesn't.
+// Syncing overwrites catalogue-sourced rows, so it stays a deliberate click — but the
+// prompt now appears where the stock is actually being read.
+function renderFGCatalogueBanner(){
+  const el=$('#fgCatalogueBanner');if(!el)return;
+  const cat=(typeof catData==='function')?catData():[];
+  if(!cat.length||!canAccessFinishedGoodsStock()){el.style.display='none';return}
+  const catPairs=cat.reduce((s,a)=>s+(+a.t||0),0);
+  const fgPairs=FINISHED_GOODS_STOCK.reduce((s,a)=>s+(+a.stockPairs||0),0);
+  const date=(typeof catDate==='function')?catDate():'';
+  // In sync when every catalogue article is present and the CATALOGUE-SOURCED pairs
+  // agree. Comparing against the table total instead would keep the banner up forever,
+  // since a sync deliberately preserves manually added rows on top of the catalogue.
+  const live={};FINISHED_GOODS_STOCK.forEach(s=>live[(s.article||'').toUpperCase()]=1);
+  const missing=cat.filter(a=>!live[(a.a||'').toUpperCase()]).length;
+  const syncedPairs=FINISHED_GOODS_STOCK.filter(s=>s.src==='catalogue').reduce((s,a)=>s+(+a.stockPairs||0),0);
+  if(!missing&&syncedPairs===catPairs){el.style.display='none';return}
+  el.style.display='block';
+  el.innerHTML=`<div class="card" style="border-left:4px solid #d97706;background:#fffbeb;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <div style="flex:1;min-width:260px">
+      <div style="font-weight:800;color:#b45309">📦 Stock catalogue is ahead of this table</div>
+      <div style="font-size:12px;color:#475569;margin-top:3px">
+        Busy stock report <b>${date||'—'}</b> holds <b>${fmtN(catPairs)} prs</b> across <b>${fmtN(cat.length)} articles</b>;
+        this table shows <b>${fmtN(fgPairs)} prs</b> across <b>${fmtN(FINISHED_GOODS_STOCK.length)} articles</b>${missing?` · <b>${fmtN(missing)}</b> article(s) missing here`:''}.
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px">Syncing replaces stock that came from a previous catalogue sync. Manually added rows are kept.</div>
+    </div>
+    <button class="btn btn-brand" style="font-size:12px" onclick="syncCatalogueToFG()">🔄 Sync ${fmtN(catPairs)} prs from catalogue</button>
+  </div>`;
+}
 function renderFGStock(){
+  renderFGCatalogueBanner();
   let filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK.slice():FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
   const withAge=filtered.map(s=>{const age=stockAgeDays(s);return {...s,age,bucket:age==null?'—':bucketOf(age)};});
   // aging KPI strip (over the season-filtered set, before the age filter narrows it)
