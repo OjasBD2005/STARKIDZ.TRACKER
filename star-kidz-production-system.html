@@ -188,31 +188,36 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sb-section">
-    <div class="sb-item active" data-view="dash" onclick="go('dash')">📊 Dashboard</div>
-  </div>
-
   <div class="sb-section" id="salesDashNav">
     <div class="sb-title" onclick="toggleSub(this)">📈 Sales Dashboard <span class="sb-chevron open">▶</span></div>
     <div class="sb-sub" style="max-height:260px">
       <div class="sb-item" data-view="sales-push" onclick="go('sales-push')">📤 Push Sale</div>
+      <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Party Performance</div>
+      <div class="sb-item" data-view="state-perf" onclick="go('state-perf')">📊 State Performance</div>
       <div class="sb-item" data-view="sales-pull" onclick="go('sales-pull')">📥 Pull Sale</div>
       <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Pending Order</div>
       <div class="sb-item" data-view="fg-stock" onclick="go('fg-stock')">📦 Finished Goods Stock</div>
       <div class="sb-item" data-view="stock-catalogue" onclick="go('stock-catalogue')">🗂️ Stock Catalogue</div>
-      <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Party Performance</div>
-      <div class="sb-item" data-view="state-perf" onclick="go('state-perf')">📊 State Performance</div>
     </div>
   </div>
 
   <div class="sb-section">
     <div class="sb-title" onclick="toggleSub(this)">🏭 Production Planning <span class="sb-chevron open">▶</span></div>
-    <div class="sb-sub" style="max-height:300px">
+    <div class="sb-sub" style="max-height:520px">
       <div class="sb-item" data-view="machine-plan" onclick="go('machine-plan')">⚙️ Machine Running Plan</div>
       <div class="sb-item" data-view="upper-plan" onclick="go('upper-plan')">🧵 Upper Planning</div>
       <div class="sb-item" data-view="article-plan" onclick="go('article-plan')">📋 Article Planning</div>
+      <div class="sb-item" id="upperApprovalNav" data-view="upper-approval" onclick="go('upper-approval')" style="display:none">
+        🧵 Upper Approval Queue
+        <span id="upperApprovalBadge" style="margin-left:auto;font-size:9px;font-weight:700;background:#d97706;color:#fff;border-radius:100px;padding:1px 6px;display:none"></span>
+      </div>
+      <div class="sb-item" id="deptQueueNav" data-view="dept-queue" onclick="go('dept-queue')" style="display:none">
+        🏭 Dept Planning Queue
+        <span id="deptQueueBadge" style="margin-left:auto;font-size:9px;font-weight:700;background:#2563eb;color:#fff;border-radius:100px;padding:1px 6px;display:none"></span>
+      </div>
       <div class="sb-item" data-view="packing-plan" onclick="go('packing-plan')">📦 Packing Planning</div>
+      <div class="sb-item active" id="prodDashNav" data-view="dash" onclick="go('dash')" style="border-top:1px solid #1f2937;margin-top:4px;padding-top:9px">📊 Production Dashboard</div>
     </div>
   </div>
 
@@ -572,6 +577,82 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <button class="btn btn-outline" onclick="exportArticleExcel(false)" title="Download the article plans as a formatted Excel file">📥 Export Excel</button>
   </div>
   <div id="articlePlanList"></div>
+</section>
+
+<!-- ===== UPPER MANAGER — PLANNING APPROVAL QUEUE ===== -->
+<section id="view-upper-approval" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+    <h2 style="font-size:20px;font-weight:800;color:#0f172a">🧵 Upper Approval Queue</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="uaFilter" class="inp" style="width:auto" onchange="renderUpperApproval()">
+        <option value="open">Awaiting Upper</option>
+        <option value="all">All Plans</option>
+        <option value="released">Released to Dept</option>
+      </select>
+      <select id="uaCat" class="inp" style="width:auto" onchange="renderUpperApproval()">
+        <option value="all">All Machines</option><option value="PU">PU</option><option value="PVC">PVC</option><option value="Stuckon">STUCKON</option><option value="Eva Crocs Injection">EVA INJECTION</option>
+      </select>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.6">Every plan issued by Planning lands here <b>first</b>. For each mould: enter the <b>upper stock in hand</b> → if short, <b>allot the balance</b> in-house or to a job worker with a deadline → mark the upper <b>received</b> → then <b>Approve &amp; Release</b> so the plan drops into the PU / PVC / STUCKON / EVA supervisor's queue.</p>
+  <div id="upperApprovalList"></div>
+</section>
+
+<!-- ===== UPPER ALLOTMENT MODAL ===== -->
+<div id="upAllotModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:90;place-items:center;padding:16px;overflow:auto">
+  <div class="card" style="max-width:540px;width:100%;margin:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h3 style="font-weight:800;font-size:16px">🧵 Allot Upper to Fabricator</h3>
+      <button class="btn btn-outline" style="font-size:12px" onclick="closeUpperAllot()">✕ Close</button>
+    </div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:12px">Plan <b id="uaPlanRef">—</b></div>
+    <form onsubmit="saveUpperAllot(event)">
+      <div style="margin-bottom:10px">
+        <label class="lbl">Produce In-house or send to Job Worker?</label>
+        <select id="uaMode" class="inp" onchange="uaOnMode()">
+          <option value="In-house">🏠 In-house Fabrication</option>
+          <option value="Job Worker">🔧 Job Worker (outside)</option>
+        </select>
+      </div>
+      <div id="uaJWWrap" style="margin-bottom:10px;display:none">
+        <label class="lbl">Job Worker</label>
+        <select id="uaJW" class="inp"><option value="">— select job worker —</option></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div><label class="lbl">Article Name</label><input id="uaArticle" class="inp" required></div>
+        <div><label class="lbl">Article Colour</label><input id="uaColour" class="inp" placeholder="e.g. BLACK / RED"></div>
+        <div><label class="lbl">Pair Quantity</label><input id="uaQty" type="number" min="1" class="inp" required></div>
+        <div><label class="lbl">Deadline of Order</label><input id="uaDeadline" type="date" class="inp" required></div>
+      </div>
+      <div style="margin-bottom:12px"><label class="lbl">Remarks</label><input id="uaNotes" class="inp" placeholder="Optional note for the fabricator"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-outline" onclick="closeUpperAllot()">Cancel</button>
+        <button type="submit" class="btn btn-brand">✓ Allot Upper</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== DEPARTMENT PLANNING QUEUE (PU / PVC / STUCKON / EVA supervisors) ===== -->
+<section id="view-dept-queue" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+    <h2 style="font-size:20px;font-weight:800;color:#0f172a">🏭 Department Planning Queue</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="dqStatus" class="inp" style="width:auto" onchange="renderDeptQueue()">
+        <option value="open">Open Work</option>
+        <option value="queued">In Queue</option>
+        <option value="rm_arranged">RM Arranged</option>
+        <option value="in_production">In Production</option>
+        <option value="completed">Completed</option>
+        <option value="all">All</option>
+      </select>
+      <select id="dqCat" class="inp" style="width:auto" onchange="renderDeptQueue()">
+        <option value="all">All Machines</option><option value="PU">PU</option><option value="PVC">PVC</option><option value="Stuckon">STUCKON</option><option value="Eva Crocs Injection">EVA INJECTION</option>
+      </select>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.6">Plans appear here only after the <b>Upper Manager has approved</b> them. Arrange the raw material for each mould, then move it through <b>RM Arranged → In Production → Completed</b> so Planning and the GM can track it live.</p>
+  <div id="deptQueueList"></div>
 </section>
 
 <!-- ===== PACKING PLANNING ===== -->
@@ -1171,6 +1252,20 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div style="font-weight:800;margin-bottom:6px">🗺️ State-wise Sales Growth — this year vs last year</div>
     <div style="height:320px;position:relative;margin-bottom:12px"><canvas id="spfChartCanvas"></canvas></div>
     <div style="overflow:auto"><table class="tbl" id="spfStateTbl"></table></div>
+  </div>
+
+  <!-- Department (mould) wise sales — PU / PVC / STUCKON / EVA, state by state -->
+  <div class="card" style="margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:4px">
+      <div style="font-weight:800">🏭 Department-wise Sales by State — PU / PVC / STUCKON / EVA</div>
+      <span id="spfDeptNote" style="font-size:11px;color:#94a3b8"></span>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Every mould belongs to a moulding department. This shows which department — and which mould article — sells most in each state. Pick a state above to drill in.</div>
+    <div id="spfDeptTiles" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px"></div>
+    <div style="height:300px;position:relative;margin-bottom:12px"><canvas id="spfDeptCanvas"></canvas></div>
+    <div style="overflow:auto"><table class="tbl" id="spfDeptStateTbl"></table></div>
+    <div style="font-weight:800;margin:16px 0 6px">🥇 Which Mould Article Sells More <span id="spfMouldScope" style="font-weight:500;font-size:11px;color:#64748b"></span></div>
+    <div style="overflow:auto"><table class="tbl" id="spfMouldTbl"></table></div>
   </div>
 
   <!-- Quarterly sales (FY Apr–Mar) + YoY — respects the state dropdown above -->
@@ -1935,6 +2030,88 @@ let FABRICATORS_STITCHING=[
   {id:'FS-08',name:'MR. SHRI SHYAM ENTERPRISES',phone:'',specialty:'General',active:true}
 ];
 
+// ══════════════════════════════════════════════════════════════════
+//  PLANNING FLOW:  Planning ➜ Upper Manager ➜ Department Supervisor
+//  A plan issued by Planning (Sushil / Komal) does NOT go straight to
+//  the shop floor. It lands in the Upper Manager's queue first. He
+//  checks upper stock, allots any shortfall in-house or to a job
+//  worker, marks it received, then approves — only then does the plan
+//  drop into the PU / PVC / STUCKON / EVA supervisor's queue.
+// ══════════════════════════════════════════════════════════════════
+// {id,planNo,planItemId,category,article,colour,size,qty,mode:'In-house'|'Job Worker',
+//  jobWorker,deadline,notes,status:'pending'|'received',receivedQty,allottedBy,allottedAt,receivedBy,receivedAt}
+let UPPER_ALLOT=[];
+
+// ── TOMBSTONES: records deleted on purpose ────────────────────────
+// The dataset syncs as one blob and the merge re-adds anything a peer still holds,
+// so a plain delete comes straight back from whichever device is still open. A
+// deletion therefore has to be recorded as its own fact and travel with the data.
+// Entry: {id:'<field>|<key>', f:<MERGE_SPECS field>, k:<key value>, at, by}
+let DELETED_RECS=[];
+function tombId(f,k){return f+'|'+k}
+function addTombstone(f,k){
+  if(k==null)return;
+  const id=tombId(f,k);
+  if(DELETED_RECS.some(t=>t.id===id))return;
+  DELETED_RECS.push({id,f,k,at:nowFull(),by:currentUser.name});
+}
+// Drop every tombstoned record from the in-memory arrays. Returns true if it removed
+// anything, which means a peer sent us records we have since deleted.
+function applyTombstones(){
+  if(!DELETED_RECS.length)return false;
+  const dead=new Set(DELETED_RECS.map(t=>t.id));
+  let removed=false;
+  MERGE_SPECS.forEach(([f,key])=>{
+    if(f==='deletedRecs')return;
+    const get=MERGE_VARS[f];if(!get)return;
+    const cur=get()||[];
+    const kept=cur.filter(x=>!(x&&x[key]!=null&&dead.has(tombId(f,x[key]))));
+    if(kept.length!==cur.length){setMergeVar(f,kept);removed=true;}
+  });
+  return removed;
+}
+
+const PLAN_FLOW={
+  upper_review:  {label:'Awaiting Upper',   cls:'pill-amber',  icon:'🧵'},
+  upper_allotted:{label:'Upper Allotted',   cls:'pill-violet', icon:'📤'},
+  upper_received:{label:'Upper Ready',      cls:'pill-blue',   icon:'📥'},
+  released:      {label:'Released to Dept', cls:'pill-green',  icon:'✅'}
+};
+const DEPT_STATUS={
+  queued:       {label:'In Queue',      cls:'pill-amber',  icon:'⏳'},
+  rm_arranged:  {label:'RM Arranged',   cls:'pill-blue',   icon:'📦'},
+  in_production:{label:'In Production', cls:'pill-violet', icon:'⚙️'},
+  completed:    {label:'Completed',     cls:'pill-green',  icon:'✅'}
+};
+const DEPT_ROLE={'PU':'PU','PVC':'PVC','Stuckon':'STUCKON','Eva Crocs Injection':'EVA'};
+function roleForDept(d){return DEPT_ROLE[d]||''}
+function deptSupervisor(d){const r=roleForDept(d),u=USERS.find(x=>x.role===r);return u?`${u.name} (${u.title})`:'—'}
+function planFlow(p){return p.flowStatus||'released'}   // legacy plans (pre-flow) count as already released
+function deptStatusOf(p){return p.deptStatus||'queued'}
+function flowBadge(s){const f=PLAN_FLOW[s]||PLAN_FLOW.released;return`<span class="pill ${f.cls}">${f.icon} ${f.label}</span>`}
+function deptBadge(s){const f=DEPT_STATUS[s]||DEPT_STATUS.queued;return`<span class="pill ${f.cls}">${f.icon} ${f.label}</span>`}
+function canActUpperApproval(){return IS_MASTER||currentUser.role==='UPPER'||currentUser.role==='GM'}
+function canSeeUpperApproval(){return canActUpperApproval()||currentUser.role==='PLANNING'}
+function canSeeDeptQueue(){return IS_MASTER||['GM','PLANNING','PU','PVC','STUCKON','EVA'].includes(currentUser.role)}
+// Identity of one issued plan. `groupId` is stamped per issue, so it stays unique even
+// if two devices ever mint the same plan number; older records fall back to planNo/id.
+function planKey(p){return p.groupId||p.planNo||p.id}
+function planItems(key){return ARTICLE_PLANS.filter(p=>planKey(p)===key)}
+function itemAllots(p){return UPPER_ALLOT.filter(a=>a.planItemId===p.id)}
+function upperCovered(p){
+  return(+p.upperStock||0)+itemAllots(p).filter(a=>a.status==='received').reduce((s,a)=>s+(+a.receivedQty||0),0);
+}
+function upperShort(p){return Math.max(0,(+p.qty||0)-upperCovered(p))}
+// Recompute the flow stage of every item of a plan from its upper coverage.
+function syncPlanFlow(key){
+  const items=planItems(key);if(!items.length)return;
+  if(items.some(p=>planFlow(p)==='released'))return;      // already approved — never downgrade
+  const anyAllot=items.some(p=>itemAllots(p).length);
+  const allReady=items.every(p=>upperShort(p)===0);
+  const st=allReady?'upper_received':(anyAllot?'upper_allotted':'upper_review');
+  items.forEach(p=>p.flowStatus=st);
+}
+
 function createAllotment(orderId,matId,qty,toStage){
   if(!canAllotMaterial()){toast('Access Denied','🚫','Only Store (Supervisor 7) can allot materials');return;}
   const o=ORDERS.find(x=>x.order_no===orderId);
@@ -2307,7 +2484,18 @@ function mouldInfo(machineId,article){
          sizes:[...new Set(rows.map(a=>a.sizes))].join('  |  ')||'—'};
 }
 // Auto plan / job-card number
-function nextPlanNo(){PLAN_SEQ++;return'PLN-'+String(PLAN_SEQ).padStart(4,'0')}
+// The counter alone is not enough: a cloud merge can bring in plans issued on another
+// device without raising PLAN_SEQ, which would reissue a number already in use. Take the
+// highest number actually present as the floor before handing out the next one.
+function highestPlanNo(){
+  let hi=0;
+  [ARTICLE_PLANS,MACHINE_PLANS].forEach(list=>(list||[]).forEach(p=>{
+    const m=/^PLN-(\d+)$/.exec(String(p.planNo||''));
+    if(m)hi=Math.max(hi,+m[1]);
+  }));
+  return hi;
+}
+function nextPlanNo(){PLAN_SEQ=Math.max(PLAN_SEQ,highestPlanNo())+1;return'PLN-'+String(PLAN_SEQ).padStart(4,'0')}
 
 // ── DATA: PLANS ──
 let MACHINE_PLANS=[
@@ -2358,7 +2546,7 @@ function hasStateLock(){return isRestrictedSales() && Array.isArray(currentUser.
 function isRestrictedProduction(){return !IS_MASTER && currentUser.role!=='SALES'}
 function canAccessProductionDashboard(){return IS_MASTER || currentUser.role==='PLANNING' || currentUser.role==='GM' || ['UPPER','PU','PVC','STUCKON','EVA','RMSTORE','RMDISP','CUTTING'].includes(currentUser.role)}
 function canAccessFinishedGoodsStock(){return IS_MASTER || currentUser.role==='SALES' || currentUser.role==='PLANNING' || currentUser.role==='GM' || currentUser.name==='RENU' || currentUser.name==='SHUBHAMI' || currentUser.name==='KOMAL JAIN' || currentUser.name==='SUSHIL'}
-const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
+const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','upper-approval','dept-queue','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
 const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties','payment-aging','state-perf'];
 function renderBlocked(view,reason){
   const el=$('#view-'+view);if(!el)return;
@@ -2399,6 +2587,8 @@ function go(view){
   else if(view==='machine-plan')renderMachinePlan();
   else if(view==='upper-plan')renderUpperPlan();
   else if(view==='article-plan')renderArticlePlan();
+  else if(view==='upper-approval')renderUpperApproval();
+  else if(view==='dept-queue')renderDeptQueue();
   else if(view==='packing-plan')renderPackingPlan();
   else if(view==='sales-pull')renderAgent();
   else if(view==='sales-push')renderPushSale();
@@ -2482,6 +2672,7 @@ function renderDash(){
     kpi('Out of Stock',outItems.length,'🚫','#fee2e2','outOfStock'),
     kpi('Total Units in Stock',totalStock.toLocaleString(),'📊','#eef3ff','allStock'),
     kpi("Today's Machine Plans",MACHINE_PLANS.filter(p=>p.date===todayISO()).length,'⚙️','#ede9fe','machinePlans'),
+    kpi('Plans by Planning',planningManagerPlans().length,'📋','#e0e7ff','planningPlans'),
   ].join('');
 
   $('#dashOrders').innerHTML=ORDERS.slice(0,8).map(o=>{
@@ -2539,11 +2730,77 @@ function updateDashTabCount(tab){
   el.textContent=counts[tab]||'';
 }
 
+// Article plans issued by the Planning Manager, grouped by plan number and
+// scoped to the viewer's department. Feeds the Dashboard "Planning Tracking" tab.
+function planningManagerPlans(){
+  const supDept=supervisorDept();
+  let plans=ARTICLE_PLANS.slice();
+  if(supDept)plans=plans.filter(p=>(p.category||p.machine)===supDept);
+  if(['PU','PVC','STUCKON','EVA'].includes(currentUser.role))plans=plans.filter(p=>planFlow(p)==='released');
+  const groups={},order=[];
+  plans.forEach(p=>{const k=planKey(p);if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(p)});
+  return order.map(key=>{
+    const items=groups[key],first=items[0];
+    const done=items.filter(p=>deptStatusOf(p)==='completed').length;
+    return{
+      key,items,first,
+      no:first.planNo||key,
+      dept:first.category||first.machine,
+      date:first.date,
+      by:first.createdBy,
+      flow:planFlow(first),
+      qty:items.reduce((s,p)=>s+(+p.qty||0),0),
+      // a released plan is past the upper stage — never report a phantom shortfall for it
+      short:items.filter(p=>planFlow(p)!=='released').reduce((s,p)=>s+upperShort(p),0),
+      done,
+      pct:items.length?Math.round(done/items.length*100):0
+    };
+  }).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.key).localeCompare(String(a.key)));
+}
+
 function renderDashPlanning(){
   const el=document.getElementById('dashPlanningContent');if(!el)return;
   const todayPlans=MACHINE_PLANS.filter(p=>p.date===todayISO());
   const upcomingPlans=MACHINE_PLANS.filter(p=>p.date>todayISO()).slice(0,10);
   const unplannedOrders=ORDERS.filter(o=>!o.closed&&!o.plan.planned);
+
+  // ── Plans entered by the Planning Manager (article plans) ──
+  const apPlans=planningManagerPlans();
+  const apAwaitUpper=apPlans.filter(g=>g.flow!=='released').length;
+  const apReleased=apPlans.filter(g=>g.flow==='released'&&g.pct<100).length;
+  const apDone=apPlans.filter(g=>g.pct===100&&g.flow==='released').length;
+  const apPairs=apPlans.reduce((s,g)=>s+g.qty,0);
+  const apTile=(lbl,val,sub,bg,br,fg)=>`<div style="background:${bg};border:1px solid ${br};border-radius:12px;padding:12px 14px">
+    <div style="font-size:10px;font-weight:700;color:${fg};letter-spacing:.05em">${lbl}</div>
+    <div style="font-size:26px;font-weight:800;color:${fg};margin:2px 0">${val}</div>
+    <div style="font-size:10px;color:${fg};opacity:.75">${sub}</div></div>`;
+
+  const apCard=g=>`<div class="card card-hover" style="padding:12px 16px;margin-bottom:8px;border-left:4px solid ${g.flow!=='released'?'#d97706':(g.pct===100?'#10b981':'#2563eb')}">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <b style="color:#1b3187">${g.no}</b> ${catBadge(g.dept)} ${flowBadge(g.flow)}
+        ${g.flow==='released'?deptBadge(g.items.every(p=>deptStatusOf(p)==='completed')?'completed':deptStatusOf(g.first)):''}
+      </div>
+      <span style="font-size:11px;font-weight:600;color:#64748b">${fmtFull(g.date)}</span>
+    </div>
+    <div style="font-size:12px;color:#64748b;margin-top:4px">
+      Planned by <b>${g.by}</b> · ${g.items.length} mould(s) · <b>${g.qty}</b> pairs · to <b>${deptSupervisor(g.dept)}</b>
+      ${g.short>0?`<span class="pill pill-red" style="margin-left:6px">🧵 ${g.short} prs upper short</span>`:''}
+    </div>
+    <div style="font-size:11px;color:#475569;margin-top:4px">${g.items.slice(0,6).map(p=>`${p.article}${p.colour?' · '+p.colour:''} <b>${p.qty}</b>`).join('  |  ')}${g.items.length>6?`  |  +${g.items.length-6} more`:''}</div>
+    <div style="margin-top:6px">${barHTML('Department completion',g.pct,false)}</div>
+  </div>`;
+
+  const apHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+      ${apTile("PLANS BY PLANNING",apPlans.length,apPairs.toLocaleString('en-IN')+' pairs planned','#eef2ff','#c7d2fe','#3730a3')}
+      ${apTile("AWAITING UPPER",apAwaitUpper,'with Upper Manager','#fef3c7','#fde68a','#92400e')}
+      ${apTile("RUNNING IN DEPT",apReleased,'approved & released','#dbeafe','#bfdbfe','#1e40af')}
+      ${apTile("COMPLETED",apDone,'all moulds done','#dcfce7','#bbf7d0','#15803d')}
+    </div>
+    <h4 style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:8px">📋 Plans Entered by Planning Manager${apPlans.length>12?' (latest 12)':''}</h4>
+    ${apPlans.length?apPlans.slice(0,12).map(apCard).join(''):'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;font-size:13px;color:#64748b;margin-bottom:16px">No article plans entered yet. Planning issues them from <b>Production Planning → Article Planning</b>.</div>'}
+  `;
 
   const mpRow=p=>`<div class="card card-hover" style="padding:14px 16px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
@@ -2558,8 +2815,8 @@ function renderDashPlanning(){
     ${p.notes?`<div style="font-size:11px;color:#7c3aed;margin-top:3px;font-style:italic">📝 ${p.notes}</div>`:''}
   </div>`;
 
-  el.innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+  el.innerHTML=apHTML+`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0 16px">
       <div style="background:#dbeafe;border-radius:12px;padding:14px 16px;border:1px solid #bfdbfe">
         <div style="font-size:11px;font-weight:700;color:#1d4ed8;letter-spacing:.05em">TODAY'S MACHINE PLANS</div>
         <div style="font-size:32px;font-weight:800;color:#1e40af;margin:4px 0">${todayPlans.length}</div>
@@ -2983,6 +3240,26 @@ function showKpiDetail(key){
           <div style="font-size:11px;color:#64748b;margin-top:4px">Article: <b>${p.article||'—'}</b> · Series: <b>${p.series||'—'}</b></div>
           <div style="font-size:11px;color:#64748b">Target: <b>${p.target||'—'}</b> pairs · Mould: <b>${p.mould||'—'}</b></div>
           ${p.notes?`<div style="font-size:11px;color:#7c3aed;margin-top:4px;font-style:italic">📝 ${p.notes}</div>`:''}
+        </div>`).join('');
+      }
+    },
+    planningPlans:{
+      title:'📋 Plans Entered by Planning Manager',
+      build:()=>{
+        const list=planningManagerPlans();
+        if(!list.length)return`<div class="kpi-empty">📋 No article plans issued by Planning yet.</div>`;
+        const pairs=list.reduce((s,g)=>s+g.qty,0);
+        return`<div style="font-size:12px;color:#64748b;margin-bottom:10px">${list.length} plans · <b>${pairs.toLocaleString('en-IN')}</b> pairs · newest first</div>`+
+        list.map(g=>`<div class="kpi-detail-row">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+              <span style="font-weight:800;font-size:13px;color:#1b3187">${g.no}</span>
+              ${catBadge(g.dept)} ${flowBadge(g.flow)}
+            </div>
+            <span style="font-size:11px;font-weight:600;color:#64748b">${fmtFull(g.date)}</span>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">By <b>${g.by}</b> · ${g.items.length} mould(s) · <b>${g.qty}</b> pairs · ${g.done}/${g.items.length} completed${g.short>0?` · <span style="color:#b91c1c;font-weight:700">${g.short} prs upper short</span>`:''}</div>
+          <div style="font-size:11px;color:#475569;margin-top:3px">${g.items.map(p=>`${p.article}${p.size?' ('+p.size+')':''} — ${p.qty}`).join(' · ')}</div>
         </div>`).join('');
       }
     }
@@ -5592,6 +5869,277 @@ function addUpperPlan(e){
   f.reset();toast('Upper Plan Added','🧵','');renderUpperPlan();saveData();
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  UPPER MANAGER — PLANNING APPROVAL QUEUE
+//  Step 2 of the flow: check upper stock → allot shortfall to
+//  in-house / job worker → receive → approve → release to department.
+// ══════════════════════════════════════════════════════════════════
+function uaDenied(msg){return`<div class="card" style="text-align:center;padding:48px 20px">
+  <div style="font-size:38px;margin-bottom:10px">🚫</div>
+  <div style="font-size:17px;font-weight:800;color:#b91c1c;margin-bottom:6px">Access Restricted</div>
+  <div style="color:#64748b">${msg}</div></div>`}
+
+function renderUpperApproval(){
+  const box=$('#upperApprovalList');if(!box)return;
+  if(!canSeeUpperApproval()){box.innerHTML=uaDenied('Only the Upper Manager (Supervisor 1), Komal Jain, Sushil and Master can open the Upper Approval Queue.');return}
+  const filter=$('#uaFilter')?$('#uaFilter').value:'open';
+  const cat=$('#uaCat')?$('#uaCat').value:'all';
+  const ro=!canActUpperApproval();
+  const plans=ARTICLE_PLANS.filter(p=>{
+    if(cat!=='all'&&(p.category||p.machine)!==cat)return false;
+    const fs=planFlow(p);
+    if(filter==='open')return fs!=='released';
+    if(filter==='released')return fs==='released';
+    return true;
+  });
+  const groups={},order=[];
+  plans.forEach(p=>{const k=planKey(p);if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(p)});
+  order.sort((a,b)=>String(groups[b][0].date||'').localeCompare(String(groups[a][0].date||''))||String(b).localeCompare(String(a)));
+  const banner=ro?`<div class="lock-banner">🔒 View-only — <span>${currentUser.title}</span> · Only the Upper Manager (or GM / Master) can allot upper and approve plans.</div>`:'';
+  if(!order.length){box.innerHTML=banner+'<div class="card" style="text-align:center;color:#94a3b8">Nothing in the upper queue for this filter.</div>';return}
+
+  box.innerHTML=banner+order.map(key=>{
+    const items=groups[key],first=items[0],dept=first.category||first.machine;
+    const fs=planFlow(first),released=fs==='released';
+    const ready=items.filter(p=>upperShort(p)===0).length;
+    const totalQty=items.reduce((s,p)=>s+(+p.qty||0),0);
+    const allReady=ready===items.length;
+
+    const rows=items.map(p=>{
+      const short=upperShort(p),cov=upperCovered(p),allots=itemAllots(p);
+      const allotHTML=allots.length?`<div style="margin-top:6px;display:flex;flex-direction:column;gap:5px">${allots.map(a=>`
+        <div style="background:${a.status==='received'?'#f0fdf4':'#faf5ff'};border:1px solid ${a.status==='received'?'#86efac':'#d8b4fe'};border-radius:7px;padding:6px 9px;font-size:11px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+          <span style="font-weight:700">${a.mode==='Job Worker'?'🔧 '+a.jobWorker:'🏠 In-house'}</span>
+          <span>${a.qty} prs${a.colour?' · '+a.colour:''}</span>
+          <span style="color:#64748b">deadline <b>${fmtFull(a.deadline)}</b></span>
+          ${a.notes?`<span style="color:#64748b">· ${a.notes}</span>`:''}
+          ${a.status==='received'
+            ?`<span class="pill pill-green" style="font-size:9px">📥 Received ${a.receivedQty} prs · ${a.receivedBy}</span>`
+            :(ro?'<span class="pill pill-amber" style="font-size:9px">⏳ Pending</span>'
+                :`<span style="margin-left:auto;display:flex;gap:5px;align-items:center">
+                    <input id="uarq_${a.id}" type="number" min="1" class="inp" value="${a.qty}" style="width:78px;padding:3px 6px;font-size:11px" title="Pairs received">
+                    <button class="btn btn-brand" style="font-size:10px;padding:3px 9px" onclick="receiveUpperAllot('${a.id}')">📥 Received</button>
+                    <button class="btn btn-outline" style="font-size:10px;padding:3px 8px" onclick="cancelUpperAllot('${a.id}')">✕</button>
+                  </span>`)}
+        </div>`).join('')}</div>`:'';
+      return`<tr>
+        <td style="vertical-align:top"><b>${p.article}</b>${allotHTML}</td>
+        <td style="vertical-align:top">${p.size||'—'}</td>
+        <td style="vertical-align:top">${p.colour||'—'}</td>
+        <td style="vertical-align:top;text-align:right"><b>${p.qty}</b></td>
+        <td style="vertical-align:top">${(released||ro)
+          ?`<b>${+p.upperStock||0}</b>`
+          :`<input type="number" min="0" class="inp" style="width:92px;padding:4px 7px" value="${p.upperStock==null?'':p.upperStock}" placeholder="0" onchange="setUpperStock('${p.id}',this.value)" title="Upper pairs already lying in stock">`}</td>
+        <td style="vertical-align:top">${short>0
+          ?`<span class="pill pill-red">⚠️ ${short} short</span>`
+          :`<span class="pill pill-green">✅ covered (${cov})</span>`}</td>
+        <td style="vertical-align:top">${(released||ro)?'—':`<button class="btn ${short>0?'btn-brand':'btn-outline'}" style="font-size:11px;padding:4px 10px;white-space:nowrap" onclick="openUpperAllot('${p.id}')">🧵 Allot Upper</button>`}</td>
+      </tr>`;
+    }).join('');
+
+    return`<div class="card" style="margin-bottom:14px;border-left:4px solid ${released?'#10b981':(allReady?'#3b82f6':'#d97706')}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#1b3187">${first.planNo||key} ${catBadge(dept)} ${flowBadge(fs)}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:3px">Plan date ${fmtFull(first.date)} · by <b>${first.createdBy}</b> · ${items.length} mould(s) · <b>${totalQty}</b> pairs · goes to <b>${deptSupervisor(dept)}</b></div>
+          ${released?`<div style="font-size:11px;color:#15803d;margin-top:3px">✅ Approved by <b>${first.approvedBy||'—'}</b> on ${first.approvedAt||'—'}</div>`:''}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="pill ${allReady?'pill-green':'pill-amber'}">${ready}/${items.length} upper ready</span>
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="showArticleJobCard('${key}')">🪪 Job Card</button>
+          ${released?'':(ro?'':`<button class="btn btn-brand" style="font-size:12px;padding:6px 14px;${allReady?'':'opacity:.5'}" onclick="approvePlanToDept('${key}')">✅ Approve &amp; Release to ${dept}</button>`)}
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl" style="min-width:760px"><thead><tr>
+        <th style="width:32%">Mould / Article</th><th>Size</th><th>Colour</th><th style="text-align:right">Plan Qty</th><th>Upper in Stock</th><th>Balance</th><th>Action</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+  }).join('');
+}
+
+function setUpperStock(itemId,val){
+  if(!canActUpperApproval()){toast('Not authorized','🔒','Only the Upper Manager can update upper stock');return}
+  const p=ARTICLE_PLANS.find(x=>x.id===itemId);if(!p)return;
+  p.upperStock=Math.max(0,+val||0);p.upperStockBy=currentUser.name;p.upperStockAt=nowStr();
+  syncPlanFlow(planKey(p));saveData();renderUpperApproval();updateQueueBadges();
+}
+
+// ── Allotment modal ──
+let UA_TARGET=null;
+function openUpperAllot(itemId){
+  if(!canActUpperApproval()){toast('Not authorized','🔒','Only the Upper Manager can allot upper');return}
+  const p=ARTICLE_PLANS.find(x=>x.id===itemId);if(!p)return;
+  UA_TARGET=p;
+  $('#uaPlanRef').textContent=`${p.planNo||p.id} · ${p.category||p.machine} · ${p.article}`;
+  $('#uaArticle').value=p.article;
+  $('#uaColour').value=p.colour||'';
+  $('#uaQty').value=upperShort(p)||p.qty;
+  $('#uaDeadline').value=p.eta||'';
+  $('#uaNotes').value='';
+  $('#uaMode').value='In-house';
+  buildJobWorkerOptions();uaOnMode();
+  $('#upAllotModal').style.display='grid';
+}
+function closeUpperAllot(){$('#upAllotModal').style.display='none';UA_TARGET=null}
+function uaOnMode(){const jw=$('#uaMode').value==='Job Worker';$('#uaJWWrap').style.display=jw?'':'none';$('#uaJW').required=jw}
+function buildJobWorkerOptions(){
+  const sel=$('#uaJW');if(!sel)return;
+  const jw=FABRICATORS_JOBWORK.filter(x=>x.active).map(x=>`<option value="${x.name}">${x.name} — Job Work</option>`).join('');
+  const st=FABRICATORS_STITCHING.filter(x=>x.active).map(x=>`<option value="${x.name}">${x.name} — Stitching</option>`).join('');
+  sel.innerHTML='<option value="">— select job worker —</option>'+jw+st;
+}
+function saveUpperAllot(e){
+  e.preventDefault();
+  if(!UA_TARGET)return;
+  if(!canActUpperApproval()){toast('Not authorized','🔒','Only the Upper Manager can allot upper');return}
+  const p=UA_TARGET;
+  const mode=$('#uaMode').value,jw=$('#uaJW').value;
+  if(mode==='Job Worker'&&!jw){toast('Select job worker','⚠️','Pick the job worker who will make this upper');return}
+  const qty=+$('#uaQty').value||0;
+  if(qty<=0){toast('Enter quantity','⚠️','Pair quantity must be more than 0');return}
+  const deadline=$('#uaDeadline').value;
+  if(!deadline){toast('Enter deadline','⚠️','Give the fabricator a delivery deadline');return}
+  const article=$('#uaArticle').value.trim()||p.article,colour=$('#uaColour').value.trim();
+  const worker=mode==='Job Worker'?jw:'In-house Fabrication';
+  UPPER_ALLOT.push({id:'UA'+uid(),planNo:p.planNo||p.id,planKey:planKey(p),planItemId:p.id,category:p.category||p.machine,
+    article,colour,size:p.size||'',qty,mode,jobWorker:worker,deadline,notes:$('#uaNotes').value.trim(),
+    status:'pending',receivedQty:0,allottedBy:currentUser.name,allottedAt:nowFull(),receivedBy:'—',receivedAt:'—'});
+  // Mirror into the Upper Planning register so that report stays complete
+  UPPER_PLANS.push({id:'UP'+uid(),date:todayISO(),article,qty,type:mode==='Job Worker'?'Jobwork':'In-house',
+    vendor:mode==='Job Worker'?jw:'',orderRef:p.planNo||'',eta:deadline,status:'In Progress',
+    createdBy:currentUser.name,createdAt:nowStr()});
+  closeUpperAllot();syncPlanFlow(planKey(p));saveData();renderUpperApproval();updateQueueBadges();
+  toast('Upper Allotted','🧵',`${qty} pairs · ${worker} · due ${fmtFull(deadline)}`);
+  notify('upper',`${p.planNo}: ${qty} prs upper of ${article}${colour?' ('+colour+')':''} allotted to ${worker} — deadline ${fmtFull(deadline)} · by ${currentUser.name}`);
+}
+function cancelUpperAllot(id){
+  if(!canActUpperApproval()){toast('Not authorized','🔒','');return}
+  const i=UPPER_ALLOT.findIndex(x=>x.id===id);if(i<0)return;
+  const a=UPPER_ALLOT[i];
+  const up=UPPER_PLANS.find(u=>u.orderRef===a.planNo&&u.article===a.article&&u.qty===a.qty&&u.status!=='Completed');
+  if(up)UPPER_PLANS.splice(UPPER_PLANS.indexOf(up),1);
+  UPPER_ALLOT.splice(i,1);
+  syncPlanFlow(a.planKey||a.planNo);saveData();renderUpperApproval();updateQueueBadges();
+  toast('Allotment Removed','🗑️',`${a.qty} prs · ${a.jobWorker}`);
+}
+function receiveUpperAllot(id){
+  if(!canActUpperApproval()){toast('Not authorized','🔒','Only the Upper Manager can mark upper received');return}
+  const a=UPPER_ALLOT.find(x=>x.id===id);if(!a)return;
+  const el=document.getElementById('uarq_'+id);
+  const q=el?(+el.value||0):a.qty;
+  if(q<=0){toast('Enter received qty','⚠️','How many pairs of upper came in?');return}
+  a.receivedQty=q;a.status='received';a.receivedBy=currentUser.name;a.receivedAt=nowFull();
+  const up=UPPER_PLANS.find(u=>u.orderRef===a.planNo&&u.article===a.article&&u.status!=='Completed');
+  if(up&&q>=a.qty)up.status='Completed';
+  syncPlanFlow(a.planKey||a.planNo);saveData();renderUpperApproval();updateQueueBadges();
+  toast('Upper Received','📥',`${q} prs of ${a.article} from ${a.jobWorker}`);
+  notify('upper',`${a.planNo}: ${q} prs upper of ${a.article} received from ${a.jobWorker} · by ${currentUser.name}`);
+}
+function approvePlanToDept(key){
+  if(!canActUpperApproval()){toast('Not authorized','🔒','Only the Upper Manager (or GM / Master) can approve a plan');return}
+  const all=planItems(key);if(!all.length)return;
+  // Only gate on what is still awaiting upper. Legacy plans migrated straight to
+  // 'released' carry no upper stock figure, so counting them would block approval forever.
+  const items=all.filter(p=>planFlow(p)!=='released');
+  if(!items.length){toast('Already released','✅','This plan is already with the department');return}
+  const short=items.filter(p=>upperShort(p)>0);
+  if(short.length){toast('Upper not ready','⚠️',`${short.length} mould(s) still short — enter upper stock or allot the balance first`);return}
+  const dept=items[0].category||items[0].machine;
+  items.forEach(p=>{
+    p.flowStatus='released';p.deptStatus=p.deptStatus||'queued';p.deptRole=roleForDept(p.category||p.machine);
+    p.approvedBy=currentUser.name;p.approvedAt=nowFull();
+  });
+  saveData();renderUpperApproval();updateQueueBadges();
+  toast('Plan Released','✅',`${key} → ${dept} supervisor queue`);
+  notify('planning',`${key} upper approved by ${currentUser.name} — released to ${dept} · ${deptSupervisor(dept)}`);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DEPARTMENT PLANNING QUEUE (PU / PVC / STUCKON / EVA)
+//  Step 3: the supervisor sees only approved plans of his own
+//  department, arranges raw material and tracks it to completion.
+// ══════════════════════════════════════════════════════════════════
+function renderDeptQueue(){
+  const box=$('#deptQueueList');if(!box)return;
+  if(!canSeeDeptQueue()){box.innerHTML=uaDenied('Only the PU / PVC / Stuckon / EVA supervisors, Komal Jain, Sushil and Master can open the Department Planning Queue.');return}
+  const myDept=supervisorDept(),catSel=$('#dqCat');
+  const isSup=['PU','PVC','STUCKON','EVA'].includes(currentUser.role);
+  if(catSel)catSel.style.display=isSup?'none':'';
+  const cat=isSup?myDept:(catSel?catSel.value:'all');
+  const st=$('#dqStatus')?$('#dqStatus').value:'open';
+  let plans=ARTICLE_PLANS.filter(p=>planFlow(p)==='released');
+  if(cat&&cat!=='all')plans=plans.filter(p=>(p.category||p.machine)===cat);
+  if(st==='open')plans=plans.filter(p=>deptStatusOf(p)!=='completed');
+  else if(st!=='all')plans=plans.filter(p=>deptStatusOf(p)===st);
+  const canAct=IS_MASTER||currentUser.role==='GM'||isSup;
+
+  const groups={},order=[];
+  plans.forEach(p=>{const k=planKey(p);if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(p)});
+  order.sort((a,b)=>String(groups[b][0].date||'').localeCompare(String(groups[a][0].date||''))||String(b).localeCompare(String(a)));
+
+  const head=`<div class="card" style="margin-bottom:12px;display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+    ${['queued','rm_arranged','in_production','completed'].map(s=>{
+      const n=ARTICLE_PLANS.filter(p=>planFlow(p)==='released'&&(!cat||cat==='all'||(p.category||p.machine)===cat)&&deptStatusOf(p)===s).length;
+      return`<div><div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em">${DEPT_STATUS[s].icon} ${DEPT_STATUS[s].label.toUpperCase()}</div><div style="font-size:20px;font-weight:800;color:#0f172a">${n}</div></div>`;
+    }).join('')}
+    <div style="margin-left:auto;font-size:11px;color:#64748b">${isSup?`Showing <b>${myDept}</b> only — your department`:'Showing all departments'}</div>
+  </div>`;
+
+  if(!order.length){box.innerHTML=head+'<div class="card" style="text-align:center;color:#94a3b8">No approved plans in this queue yet. Plans appear here once the Upper Manager approves them.</div>';return}
+
+  box.innerHTML=head+order.map(key=>{
+    const items=groups[key],first=items[0],dept=first.category||first.machine;
+    const totalQty=items.reduce((s,p)=>s+(+p.qty||0),0);
+    const rows=items.map(p=>{
+      const ds=deptStatusOf(p),allots=itemAllots(p);
+      const src=allots.length
+        ?allots.map(a=>`${a.mode==='Job Worker'?'🔧 '+a.jobWorker:'🏠 In-house'} · ${a.status==='received'?a.receivedQty+' prs received':a.qty+' prs pending'}`).join('<br>')
+        :`📦 From upper stock (${+p.upperStock||0} prs)`;
+      const btn=(s,label)=>`<button class="btn ${ds===s?'btn-brand':'btn-outline'}" style="font-size:10px;padding:3px 8px;white-space:nowrap" onclick="setDeptStatus('${p.id}','${s}')">${label}</button>`;
+      return`<tr>
+        <td><b>${p.article}</b></td>
+        <td>${p.size||'—'}</td>
+        <td>${p.colour||'—'}</td>
+        <td style="text-align:right"><b>${p.qty}</b></td>
+        <td>${fmt(p.eta)}</td>
+        <td style="font-size:11px;color:#475569">${src}</td>
+        <td>${deptBadge(ds)}${p.deptStatusBy?`<div style="font-size:10px;color:#94a3b8;margin-top:2px">${p.deptStatusBy} · ${p.deptStatusAt||''}</div>`:''}</td>
+        <td>${canAct?`<div style="display:flex;gap:4px;flex-wrap:wrap">${btn('rm_arranged','📦 RM')}${btn('in_production','⚙️ Start')}${btn('completed','✅ Done')}</div>`:'—'}</td>
+      </tr>`;
+    }).join('');
+    return`<div class="card" style="margin-bottom:14px;border-left:4px solid #2563eb">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#1b3187">${first.planNo||key} ${catBadge(dept)}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:3px">Plan date ${fmtFull(first.date)} · ${items.length} mould(s) · <b>${totalQty}</b> pairs · planned by <b>${first.createdBy}</b></div>
+          <div style="font-size:11px;color:#15803d;margin-top:3px">✅ Upper approved by <b>${first.approvedBy||'—'}</b>${first.approvedAt?' on '+first.approvedAt:''}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="showArticleJobCard('${key}')">🪪 Job Card</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="go('rm-store')">📦 Raw Material</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl" style="min-width:900px"><thead><tr>
+        <th>Mould / Article</th><th>Size</th><th>Colour</th><th style="text-align:right">Qty</th><th>ETA</th><th>Upper Source</th><th>Status</th><th>Update</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+  }).join('');
+}
+function setDeptStatus(itemId,status){
+  const p=ARTICLE_PLANS.find(x=>x.id===itemId);if(!p||!DEPT_STATUS[status])return;
+  const myDept=supervisorDept();
+  if(!(IS_MASTER||currentUser.role==='GM'||['PU','PVC','STUCKON','EVA'].includes(currentUser.role))){
+    toast('Not authorized','🔒','Only the department supervisor can update production status');return;}
+  if(myDept&&myDept!==(p.category||p.machine)){toast('Not your department','🔒',`${p.article} belongs to ${p.category||p.machine}`);return}
+  p.deptStatus=status;p.deptStatusBy=currentUser.name;p.deptStatusAt=nowFull();
+  if(status==='completed')p.status='Completed';
+  else if(status==='in_production')p.status='In Progress';
+  else p.status='Planned';
+  saveData();renderDeptQueue();updateQueueBadges();
+  toast('Status Updated','🏭',`${p.article} → ${DEPT_STATUS[status].label}`);
+  notify('production',`${p.planNo}: ${p.article} marked ${DEPT_STATUS[status].label} by ${currentUser.name}`);
+}
+
 // ── ARTICLE PLAN ──
 function renderArticlePlan(){
   const period=$('#apPeriod')?$('#apPeriod').value:'monthly';
@@ -5602,12 +6150,14 @@ function renderArticlePlan(){
     return inPeriod(p.date,period,date,dateTo);
   });
   const supDept=supervisorDept();if(supDept)plans=plans.filter(p=>p.category===supDept);
+  // Department supervisors only see a plan once the Upper Manager has approved & released it
+  if(['PU','PVC','STUCKON','EVA'].includes(currentUser.role))plans=plans.filter(p=>planFlow(p)==='released');
   const lockBanner=canPlan()?'':`<div class="lock-banner">🔒 View-only — <span>${currentUser.title}</span> · Only Komal Jain / Sushil can create or edit plans.</div>`;
   ensureMachineOptions('#apMachineSel');
-  // Group plans that were issued together (same planNo) so a multi-mould plan reads as one block
+  // Group plans that were issued together so a multi-mould plan reads as one block
   const groups={},order=[];
-  plans.forEach(p=>{const k=p.planNo||p.id;if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(p)});
-  order.sort((a,b)=>groups[b][0].date.localeCompare(groups[a][0].date)||String(b).localeCompare(String(a)));
+  plans.forEach(p=>{const k=planKey(p);if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(p)});
+  order.sort((a,b)=>String(groups[b][0].date||'').localeCompare(String(groups[a][0].date||''))||String(b).localeCompare(String(a)));
   let totalPairs=0;plans.forEach(p=>totalPairs+=(+p.qty||0));
   const rowsHTML=order.map(k=>{
     const items=groups[k];
@@ -5621,15 +6171,19 @@ function renderArticlePlan(){
         <td>${p.size||'—'}</td><td>${p.colour||'—'}</td><td><b>${p.qty}</b></td>
         <td>${fmt(p.eta)}</td>
         <td><span class="pill ${p.status==='Completed'?'pill-green':'pill-amber'}">${p.status}</span></td>
-        ${first?`<td${span} style="vertical-align:top">${p.createdBy}</td>
-        <td${span} style="vertical-align:top"><button class="btn btn-outline" style="font-size:11px;padding:3px 8px" onclick="showArticleJobCard('${p.planNo||p.id}')">🪪 View</button></td>`:''}
+        ${first?`<td${span} style="vertical-align:top">${flowBadge(planFlow(p))}${planFlow(p)==='released'?`<div style="font-size:10px;color:#64748b;margin-top:3px">${deptBadge(deptStatusOf(p))}</div>`:''}</td>
+        <td${span} style="vertical-align:top">${p.createdBy}</td>
+        <td${span} style="vertical-align:top"><div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-outline" style="font-size:11px;padding:3px 8px" onclick="showArticleJobCard('${planKey(p)}')">🪪 View</button>
+          ${canPlan()?`<button class="btn btn-outline" style="font-size:11px;padding:3px 8px;color:#b91c1c;border-color:#fecaca" onclick="cancelArticlePlan('${planKey(p)}')" title="Cancel this plan">✕ Cancel</button>`:''}
+        </div></td>`:''}
       </tr>`;
     }).join('');
   }).join('');
   $('#articlePlanList').innerHTML=lockBanner+(plans.length?`<table class="tbl"><thead><tr>
-    <th>Plan No</th><th>Date</th><th>Machine</th><th>Mould</th><th>Size</th><th>Colour</th><th>Qty</th><th>ETA</th><th>Status</th><th>By</th><th>Job Card</th></tr></thead><tbody>
+    <th>Plan No</th><th>Date</th><th>Machine</th><th>Mould</th><th>Size</th><th>Colour</th><th>Qty</th><th>ETA</th><th>Status</th><th>Flow</th><th>By</th><th>Job Card</th></tr></thead><tbody>
     ${rowsHTML}
-  </tbody><tfoot><tr style="font-weight:800;background:#f1f5f9"><td colspan="6" style="text-align:right">Total (${plans.length} items)</td><td>${totalPairs}</td><td colspan="4"></td></tr></tfoot></table>`:'<div class="card" style="text-align:center;color:#94a3b8">No article plans for this period.</div>');
+  </tbody><tfoot><tr style="font-weight:800;background:#f1f5f9"><td colspan="6" style="text-align:right">Total (${plans.length} items)</td><td>${totalPairs}</td><td colspan="5"></td></tr></tfoot></table>`:'<div class="card" style="text-align:center;color:#94a3b8">No article plans for this period.</div>');
 }
 function addArticlePlan(e){
   e.preventDefault();if(!canPlan())return;
@@ -5645,15 +6199,56 @@ function addArticlePlan(e){
   })).filter(it=>it.article&&it.qty>0);
   if(!items.length){toast('Add at least one item','⚠️','Pick a mould and enter a quantity');return}
   const planNo=nextPlanNo(),groupId='APG'+uid(),date=f.date.value;
-  items.forEach(it=>ARTICLE_PLANS.push({id:'AP'+uid(),planNo,groupId,date,category:dept,article:it.article,size:it.size,colour:it.colour,qty:it.qty,machine:dept,eta:it.eta,status:'Planned',createdBy:currentUser.name,createdAt:nowStr()}));
+  items.forEach(it=>ARTICLE_PLANS.push({id:'AP'+uid(),planNo,groupId,date,category:dept,article:it.article,size:it.size,colour:it.colour,qty:it.qty,machine:dept,eta:it.eta,status:'Planned',
+    // → routed to the Upper Manager first; released to the department only after he approves
+    flowStatus:'upper_review',upperStock:null,deptStatus:'queued',deptRole:roleForDept(dept),
+    createdBy:currentUser.name,createdAt:nowStr()}));
   $('#apAddForm').style.display='none';$('#apItemsBody').innerHTML='';
-  renderArticlePlan();saveData();
-  toast('Plan Issued','📋',planNo+' · '+items.length+' mould(s) · Job Card ready');
+  renderArticlePlan();saveData();updateQueueBadges();
+  toast('Sent to Upper Manager','🧵',planNo+' · '+items.length+' mould(s) · awaiting upper check');
+  notify('planning',`${planNo}: ${items.length} mould(s) · ${dept} — sent to Upper Manager for upper stock check by ${currentUser.name}`);
   showArticleJobCard(planNo);
 }
+
+// ── CANCEL AN ISSUED PLAN ──────────────────────────────────────────
+// Removes the whole issued plan (every mould of it) plus the upper allotments it
+// created and their mirrored Upper Planning entries. Recorded as tombstones so the
+// deletion survives the cloud merge instead of being re-added by another device.
+function cancelArticlePlan(key){
+  if(!canPlan()){toast('Not authorized','🔒','Only Komal Jain / Sushil can cancel a plan');return}
+  const items=planItems(key);
+  if(!items.length){toast('Plan not found','⚠️','');return}
+  const first=items[0],no=first.planNo||key,dept=first.category||first.machine;
+  const qty=items.reduce((s,p)=>s+(+p.qty||0),0);
+  const allots=UPPER_ALLOT.filter(a=>items.some(p=>p.id===a.planItemId));
+  const busy=items.filter(p=>['in_production','completed'].includes(deptStatusOf(p)));
+
+  let msg=`Cancel plan ${no}?\n\n${dept} · ${items.length} mould(s) · ${qty} pairs\n${items.map(p=>'  • '+p.article+' — '+p.qty).join('\n')}`;
+  if(allots.length)msg+=`\n\n${allots.length} upper allotment(s) will be withdrawn too.`;
+  if(busy.length)msg+=`\n\n⚠️ ${busy.length} mould(s) are already In Production / Completed — that progress will be erased.`;
+  msg+='\n\nThis cannot be undone.';
+  if(!confirm(msg))return;
+
+  // withdraw the mirrored Upper Planning rows first, then the allotments
+  allots.forEach(a=>{
+    const up=UPPER_PLANS.find(u=>u.orderRef===a.planNo&&u.article===a.article&&u.qty===a.qty);
+    if(up){addTombstone('upperPlans',up.id);UPPER_PLANS.splice(UPPER_PLANS.indexOf(up),1);}
+    addTombstone('upperAllot',a.id);
+  });
+  UPPER_ALLOT=UPPER_ALLOT.filter(a=>!allots.some(x=>x.id===a.id));
+  items.forEach(p=>addTombstone('articlePlans',p.id));
+  ARTICLE_PLANS=ARTICLE_PLANS.filter(p=>!items.some(x=>x.id===p.id));
+
+  saveData();renderArticlePlan();updateQueueBadges();
+  toast('Plan Cancelled','🗑️',`${no} · ${items.length} mould(s) removed`);
+  notify('planning',`${no} (${dept}, ${qty} prs) cancelled by ${currentUser.name}`);
+}
+
 // ── Consolidated (multi-mould) Article Job Card ──
 function showArticleJobCard(key){
-  const items=ARTICLE_PLANS.filter(p=>p.planNo===key||p.id===key);
+  // accept a groupId (one issued plan), a plan number, or a single item id
+  const items=ARTICLE_PLANS.filter(p=>p.groupId===key)
+    .concat(ARTICLE_PLANS.filter(p=>!p.groupId&&(p.planNo===key||p.id===key)));
   if(!items.length){toast('Plan not found','⚠️','');return}
   CURRENT_JOBCARD=buildArticleGroup(items);
   $('#jobCardBody').innerHTML=articleGroupJobCardHTML(CURRENT_JOBCARD);
@@ -7429,6 +8024,8 @@ function renderStatePerf(){
         scales:{y:{ticks:{callback:v=>v+'%'}},x:{ticks:{autoSkip:false,maxRotation:60,minRotation:45,font:{size:10}}}}}
     });
   }
+  // department (mould) wise sales — PU / PVC / STUCKON / EVA
+  renderDeptSales(pick);
   // quarterly this-year vs last-year (state-wise, or party-wise when a state is picked)
   renderStateQuarterly(pick);
   // parties not performing
@@ -7442,6 +8039,169 @@ function renderStatePerf(){
   $('#spfLateTbl').innerHTML='<thead><tr><th>Party</th><th>State</th><th style="text-align:right">Overdue</th><th style="text-align:right">Oldest bill</th><th>Salesperson</th></tr></thead><tbody>'+
     (late.length?late.map(r=>`<tr style="background:#fef2f2"><td><b>${r.party}</b></td><td style="font-size:11px">${r.state}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtN(r.overdue)}</td><td style="text-align:right;${r.oldest>90?'color:#dc2626;font-weight:700':''}">${r.oldest}d</td><td style="font-size:11px">${r.sp}</td></tr>`).join('')
     :'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px">No overdue parties in scope. 👍</td></tr>')+'</tbody>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DEPARTMENT (MOULD) WISE SALES BY STATE — PU / PVC / STUCKON / EVA
+// Busy calls the moulding line a "machine" (Vertical / Rotary / Pu / Stuckon /
+// Eva); production calls it a department. This maps one to the other so Sales
+// can see which department — and which mould article — sells most per state.
+// Live from PUSH_FACT (Busy consolidated import); falls back to a deterministic
+// sample built from the seeded machine mix so the window is usable before import.
+// ══════════════════════════════════════════════════════════════════════
+const SALES_DEPT_ORDER=['PU','PVC','Stuckon','Eva Crocs Injection'];
+const SALES_DEPT_SHORT={'PU':'PU','PVC':'PVC','Stuckon':'STUCKON','Eva Crocs Injection':'EVA','Other':'OTHER'};
+const SALES_DEPT_COLOR={'PU':'#2563eb','PVC':'#7c3aed','Stuckon':'#d97706','Eva Crocs Injection':'#0891b2','Other':'#94a3b8'};
+const SALES_MACHINE_DEPT={'vertical':'PVC','verticle':'PVC','rotary':'PVC','pvc':'PVC','pu':'PU','stuckon':'Stuckon','stukon':'Stuckon','eva':'Eva Crocs Injection','eva crocs injection':'Eva Crocs Injection'};
+// Mould name → department, via the production article/mould map
+function deptOfMould(mould){
+  const key=String(mould||'').trim().toUpperCase();if(!key)return'';
+  let am=ARTICLE_MOULD_MAP.find(x=>x.article.toUpperCase()===key);
+  if(!am&&key.length>=3)am=ARTICLE_MOULD_MAP.find(x=>{const a=x.article.toUpperCase();return a.length>=3&&(key.includes(a)||a.includes(key))});
+  return am?deptForMachine(am.machine):'';
+}
+function salesDeptOf(row){
+  const m=String(row.machine||'').trim().toLowerCase();
+  return SALES_MACHINE_DEPT[m]||deptOfMould(row.mould||row.article)||'Other';
+}
+// Sample fallback: split each seed state's turnover across departments using the
+// real machine mix, then across that department's moulds — deterministic per state.
+function sampleDeptSales(){
+  const mix={};
+  pushStockRows.forEach(r=>{const d=SALES_MACHINE_DEPT[String(r.machine).trim().toLowerCase()];if(!d)return;
+    (mix[d]=mix[d]||{qty:0,val:0});mix[d].qty+=r.qty;mix[d].val+=r.taxpaid;});
+  const totVal=Object.values(mix).reduce((s,x)=>s+x.val,0)||1;
+  const mouldsByDept={};
+  pushTopArticles.forEach(a=>{const d=SALES_MACHINE_DEPT[String(a.machine).trim().toLowerCase()]||deptOfMould(a.mould);if(!d)return;
+    (mouldsByDept[d]=mouldsByDept[d]||[]).push(a);});
+  let seed=STATE_PERF_SEED.map(r=>({...r}));
+  if(hasStateLock())seed=seed.filter(r=>(currentUser.states||[]).some(s=>stateEq(s,r.state)));
+  const rows=[];
+  seed.forEach(st=>{
+    Object.keys(mix).forEach(d=>{
+      const wob=1+(((hashStr(st.state+d)%13)-6)*0.03);          // ±18% deterministic wobble
+      const val=st.cur*(mix[d].val/totVal)*wob;
+      const rate=mix[d].qty?(mix[d].val/mix[d].qty):1;
+      const qty=rate?val/rate:0;
+      const ms=mouldsByDept[d]||[{mould:SALES_DEPT_SHORT[d]||d,qty:1}];
+      const wsum=ms.reduce((s,m)=>s+m.qty,0)||1;
+      ms.forEach(m=>{
+        const w=(m.qty/wsum)*(1+(((hashStr(st.state+m.mould)%9)-4)*0.04));
+        rows.push({state:st.state.toUpperCase(),dept:d,mould:m.mould,qty:Math.round(qty*w),value:Math.round(val*w)});
+      });
+    });
+  });
+  return rows;
+}
+function deptSalesRows(){
+  // scoped by the viewer's own state lock only — this window has its own state picker,
+  // it must not inherit the Push Sale window's filters
+  const allowed=st=>!hasStateLock()||(currentUser.states||[]).some(s=>stateEq(s,st));
+  if(PUSH_FACT.length){
+    const rows=PUSH_FACT.filter(r=>allowed(r.state)).map(r=>({
+      state:String(r.state||'—').toUpperCase(),dept:salesDeptOf(r),
+      mould:r.mould||r.article||'—',qty:+r.qty||0,value:+r.taxpaid||0}));
+    if(rows.length)return{rows,live:true};
+  }
+  return{rows:sampleDeptSales(),live:false};
+}
+let spfDeptChart=null;
+function renderDeptSales(pick){
+  const tiles=$('#spfDeptTiles');if(!tiles)return;
+  const {rows:all,live}=deptSalesRows();
+  const rows=(pick&&pick!=='all')?all.filter(r=>stateEq(r.state,pick)):all;
+  const note=$('#spfDeptNote');
+  if(note)note.textContent=live?'✅ Live from imported Busy sale data'
+    :'⏳ Sample split from the machine mix — import Busy sale data for live figures';
+
+  // ── department totals ──
+  const dTot={},sTot={};
+  rows.forEach(r=>{
+    (dTot[r.dept]=dTot[r.dept]||{qty:0,value:0,moulds:{}});
+    dTot[r.dept].qty+=r.qty;dTot[r.dept].value+=r.value;
+    dTot[r.dept].moulds[r.mould]=(dTot[r.dept].moulds[r.mould]||0)+r.value;
+    (sTot[r.state]=sTot[r.state]||{state:r.state,total:0,depts:{},top:{mould:'—',value:0}});
+    sTot[r.state].total+=r.value;
+    sTot[r.state].depts[r.dept]=(sTot[r.state].depts[r.dept]||0)+r.value;
+    if(r.value>sTot[r.state].top.value)sTot[r.state].top={mould:r.mould,value:r.value,dept:r.dept};
+  });
+  const depts=SALES_DEPT_ORDER.filter(d=>dTot[d]).concat(Object.keys(dTot).filter(d=>!SALES_DEPT_ORDER.includes(d)));
+  const grand=depts.reduce((s,d)=>s+dTot[d].value,0)||1;
+  const bestDept=depts.slice().sort((a,b)=>dTot[b].value-dTot[a].value)[0];
+
+  tiles.innerHTML=depts.length?depts.map(d=>{
+    const t=dTot[d],share=(t.value/grand*100);
+    const topMould=Object.keys(t.moulds).sort((a,b)=>t.moulds[b]-t.moulds[a])[0]||'—';
+    return`<div style="border-left:4px solid ${SALES_DEPT_COLOR[d]||'#94a3b8'};background:#f8fafc;border-radius:10px;padding:11px 13px">
+      <div style="font-size:11px;font-weight:800;color:${SALES_DEPT_COLOR[d]||'#475569'};letter-spacing:.04em">${SALES_DEPT_SHORT[d]||d}${d===bestDept?' 🥇':''}</div>
+      <div style="font-size:19px;font-weight:800;color:#0f172a;margin:2px 0">${fmtCr(t.value)}</div>
+      <div style="font-size:11px;color:#64748b">${fmtN(Math.round(t.qty))} prs · ${share.toFixed(1)}% of sale</div>
+      <div style="font-size:11px;color:#475569;margin-top:3px">Top mould: <b>${topMould}</b></div>
+    </div>`;
+  }).join(''):'<div style="color:#94a3b8;font-size:13px">No department sales in scope.</div>';
+
+  // ── state × department matrix ──
+  const stateRows=Object.values(sTot).sort((a,b)=>b.total-a.total);
+  const tbl=$('#spfDeptStateTbl');
+  if(tbl){
+    const head='<thead><tr><th>State</th>'+depts.map(d=>`<th style="text-align:right">${SALES_DEPT_SHORT[d]||d}</th>`).join('')+
+      '<th style="text-align:right">Total</th><th>Strongest Dept</th><th>Top Mould</th></tr></thead>';
+    const body='<tbody>'+(stateRows.length?stateRows.map(s=>{
+      const best=depts.slice().sort((a,b)=>(s.depts[b]||0)-(s.depts[a]||0))[0];
+      return`<tr><td><b>${s.state}</b></td>`+
+        depts.map(d=>{const v=s.depts[d]||0,p=s.total?(v/s.total*100):0;
+          return`<td style="text-align:right;${d===best&&v?'background:#f0f9ff;font-weight:700':''}">${v?fmtCr(v):'—'}<div style="font-size:10px;color:#94a3b8;font-weight:400">${v?p.toFixed(0)+'%':''}</div></td>`}).join('')+
+        `<td style="text-align:right;font-weight:700">${fmtCr(s.total)}</td>
+         <td>${best?`<span class="pill" style="background:${SALES_DEPT_COLOR[best]||'#e2e8f0'};color:#fff">${SALES_DEPT_SHORT[best]||best}</span>`:'—'}</td>
+         <td style="font-size:11px"><b>${s.top.mould}</b>${s.top.dept?` <span style="color:#94a3b8">· ${SALES_DEPT_SHORT[s.top.dept]||s.top.dept}</span>`:''}</td></tr>`;
+    }).join('')+
+      `<tr style="background:#f1f5f9;font-weight:700"><td>TOTAL</td>`+
+      depts.map(d=>`<td style="text-align:right">${fmtCr(dTot[d].value)}<div style="font-size:10px;color:#64748b;font-weight:400">${(dTot[d].value/grand*100).toFixed(0)}%</div></td>`).join('')+
+      `<td style="text-align:right">${fmtCr(grand)}</td><td colspan="2"></td></tr>`
+    :`<tr><td colspan="${depts.length+4}" style="text-align:center;color:#94a3b8;padding:16px">No department sales in scope.</td></tr>`)+'</tbody>';
+    tbl.innerHTML=head+body;
+  }
+
+  // ── which mould sells more ──
+  const mTot={};
+  rows.forEach(r=>{const k=r.mould||'—';(mTot[k]=mTot[k]||{mould:k,dept:r.dept,qty:0,value:0,states:{}});
+    mTot[k].qty+=r.qty;mTot[k].value+=r.value;mTot[k].states[r.state]=(mTot[k].states[r.state]||0)+r.value;});
+  const moulds=Object.values(mTot).sort((a,b)=>b.value-a.value);
+  const scope=$('#spfMouldScope');
+  if(scope)scope.textContent=(pick&&pick!=='all')?('— in '+pick):'— across all states in scope';
+  const mtbl=$('#spfMouldTbl');
+  if(mtbl){
+    mtbl.innerHTML='<thead><tr><th>#</th><th>Mould / Article</th><th>Department</th><th style="text-align:right">Pairs</th><th style="text-align:right">Value</th><th style="text-align:right">Share</th><th>Best State</th></tr></thead><tbody>'+
+      (moulds.length?moulds.slice(0,25).map((m,i)=>{
+        const bs=Object.keys(m.states).sort((a,b)=>m.states[b]-m.states[a])[0]||'—';
+        return`<tr${i<3?' style="background:#fffbeb"':''}><td style="font-weight:700;color:#94a3b8">${i+1}${i===0?' 🥇':i===1?' 🥈':i===2?' 🥉':''}</td>
+          <td><b>${m.mould}</b></td>
+          <td><span class="pill" style="background:${SALES_DEPT_COLOR[m.dept]||'#e2e8f0'};color:#fff">${SALES_DEPT_SHORT[m.dept]||m.dept}</span></td>
+          <td style="text-align:right">${fmtN(Math.round(m.qty))}</td>
+          <td style="text-align:right;font-weight:600">${fmtCr(m.value)}</td>
+          <td style="text-align:right">${(m.value/grand*100).toFixed(1)}%</td>
+          <td style="font-size:11px">${bs}</td></tr>`;
+      }).join('')
+      :'<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:16px">No mould sales in scope.</td></tr>')+'</tbody>';
+  }
+
+  // ── stacked chart: department value per state ──
+  const cv=document.getElementById('spfDeptCanvas');
+  if(cv&&typeof Chart!=='undefined'){
+    const top=stateRows.slice(0,14);
+    if(spfDeptChart){spfDeptChart.destroy();spfDeptChart=null;}
+    spfDeptChart=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:top.map(s=>s.state),datasets:depts.map(d=>({
+        label:SALES_DEPT_SHORT[d]||d,
+        data:top.map(s=>+(((s.depts[d]||0))/1e7).toFixed(2)),
+        backgroundColor:SALES_DEPT_COLOR[d]||'#94a3b8',borderWidth:0}))},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': ₹'+c.parsed.y+' Cr'}}},
+        scales:{x:{stacked:true,ticks:{autoSkip:false,maxRotation:60,minRotation:45,font:{size:10}}},
+                y:{stacked:true,ticks:{callback:v=>'₹'+v+'Cr'}}}}
+    });
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -8431,7 +9191,8 @@ function saveData(){
       inhousePrinters:INHOUSE_PRINTERS,fabricatorsJobwork:FABRICATORS_JOBWORK,
       fabricatorsStitching:FABRICATORS_STITCHING,
       costingMaster:COSTING_MASTER,costingHistory:COSTING_HISTORY,
-      upperRequirements:UPPER_REQUIREMENTS,salesLeads:SALES_LEADS,
+      upperRequirements:UPPER_REQUIREMENTS,upperAllot:UPPER_ALLOT,salesLeads:SALES_LEADS,
+      deletedRecs:DELETED_RECS,
       agentSettings:AGENT_SETTINGS,agentApprovals:AGENT_APPROVALS};
     const json=JSON.stringify(d);
     if(window.Store&&Store.mode&&Store.mode()==='firebase'&&cloudHydrated){
@@ -8456,14 +9217,16 @@ const MERGE_SPECS=[
   ['log','id'],['pendency','id'],['allotments','id'],['allotQueue','id'],
   ['cuttingContractors','id'],['inhouseStitchers','id'],['inhousePrinters','id'],
   ['fabricatorsJobwork','id'],['fabricatorsStitching','id'],
-  ['costingMaster','id'],['costingHistory','id'],['upperRequirements','id'],['salesLeads','name']
+  ['costingMaster','id'],['costingHistory','id'],['upperRequirements','id'],['upperAllot','id'],['salesLeads','name'],
+  ['deletedRecs','id']   // tombstones union like everything else, so a delete reaches every device
 ];
 const MERGE_VARS={orders:()=>ORDERS,inventory:()=>INVENTORY,stockLog:()=>STOCK_LOG,products:()=>PRODUCTS,
   machinePlans:()=>MACHINE_PLANS,upperPlans:()=>UPPER_PLANS,articlePlans:()=>ARTICLE_PLANS,packingPlans:()=>PACKING_PLANS,
   log:()=>LOG,pendency:()=>PENDENCY,allotments:()=>ALLOTMENTS,allotQueue:()=>ALLOT_QUEUE,
   cuttingContractors:()=>CUTTING_CONTRACTORS,inhouseStitchers:()=>INHOUSE_STITCHERS,inhousePrinters:()=>INHOUSE_PRINTERS,
   fabricatorsJobwork:()=>FABRICATORS_JOBWORK,fabricatorsStitching:()=>FABRICATORS_STITCHING,
-  costingMaster:()=>COSTING_MASTER,costingHistory:()=>COSTING_HISTORY,upperRequirements:()=>UPPER_REQUIREMENTS,salesLeads:()=>SALES_LEADS};
+  costingMaster:()=>COSTING_MASTER,costingHistory:()=>COSTING_HISTORY,upperRequirements:()=>UPPER_REQUIREMENTS,
+  upperAllot:()=>UPPER_ALLOT,salesLeads:()=>SALES_LEADS,deletedRecs:()=>DELETED_RECS};
 function setMergeVar(name,arr){switch(name){
   case'orders':ORDERS=arr;break;case'inventory':INVENTORY=arr;break;case'stockLog':STOCK_LOG=arr;break;case'products':PRODUCTS=arr;break;
   case'machinePlans':MACHINE_PLANS=arr;break;case'upperPlans':UPPER_PLANS=arr;break;case'articlePlans':ARTICLE_PLANS=arr;break;case'packingPlans':PACKING_PLANS=arr;break;
@@ -8471,7 +9234,9 @@ function setMergeVar(name,arr){switch(name){
   case'cuttingContractors':CUTTING_CONTRACTORS=arr;break;case'inhouseStitchers':INHOUSE_STITCHERS=arr;break;case'inhousePrinters':INHOUSE_PRINTERS=arr;break;
   case'fabricatorsJobwork':FABRICATORS_JOBWORK=arr;break;case'fabricatorsStitching':FABRICATORS_STITCHING=arr;break;
   case'costingMaster':COSTING_MASTER=arr;break;case'costingHistory':COSTING_HISTORY=arr;break;case'upperRequirements':UPPER_REQUIREMENTS=arr;break;
+  case'upperAllot':UPPER_ALLOT=arr;break;
   case'salesLeads':SALES_LEADS=arr;break;
+  case'deletedRecs':DELETED_RECS=arr;break;
 }}
 // Apply a cloud payload by MERGING: take the cloud copy, then add back any local
 // records the cloud didn't have. Returns true if this device contributed extras
@@ -8489,6 +9254,10 @@ function adoptCloudData(raw){
     (local[f]||[]).forEach(x=>{const k=x&&x[key];if(k!=null&&!have.has(k)){merged.push(x);have.add(k);extras=true;}});
     if(extras||merged.length!==cur.length)setMergeVar(f,merged);
   });
+  // DELETED_RECS is now the union of both sides' tombstones. Re-apply them: if the
+  // incoming copy still carried a record we deleted, drop it again and push back so
+  // the peer that resurrected it finally learns the record is gone.
+  if(applyTombstones())extras=true;
   // keep the highest running sequence numbers so new IDs never collide
   if(typeof seq==='number'&&cloud.seq&&cloud.seq>seq)seq=cloud.seq;
   if(cloud.planSeq&&cloud.planSeq>PLAN_SEQ)PLAN_SEQ=cloud.planSeq;
@@ -8546,6 +9315,8 @@ function loadData(rawOverride){
     if(d.costingMaster)COSTING_MASTER=d.costingMaster;
     if(d.costingHistory)COSTING_HISTORY=d.costingHistory;
     if(d.upperRequirements)UPPER_REQUIREMENTS=d.upperRequirements;
+    if(d.upperAllot)UPPER_ALLOT=d.upperAllot;
+    if(d.deletedRecs)DELETED_RECS=d.deletedRecs;
     if(d.salesLeads)SALES_LEADS=d.salesLeads;
     if(d.agentSettings)AGENT_SETTINGS=Object.assign({},AGENT_DEFAULTS,d.agentSettings);
     if(d.agentApprovals)AGENT_APPROVALS=d.agentApprovals;
@@ -8565,6 +9336,15 @@ function loadData(rawOverride){
       if(!o.moulding.completionDate)o.moulding.completionDate='';
     });
     INVENTORY.forEach(i=>{if(!i.category)i.category='General';if(!i.dateAdded)i.dateAdded=todayISO();});
+    // Plans saved before the Upper-Manager flow existed are treated as already approved,
+    // so nothing that was live on the shop floor disappears from the department queue.
+    ARTICLE_PLANS.forEach(p=>{
+      if(!p.flowStatus)p.flowStatus='released';
+      if(!p.deptStatus)p.deptStatus=p.status==='Completed'?'completed':'queued';
+      if(!p.deptRole)p.deptRole=roleForDept(p.category||p.machine);
+      if(p.upperStock===undefined)p.upperStock=null;
+    });
+    applyTombstones();   // anything deleted earlier must not come back with this payload
   }catch(e){}
 }
 
@@ -8677,6 +9457,11 @@ function applyRoleVisibility(){
   const uiNav=$('#upperIssuanceNav');if(uiNav)uiNav.style.display=(IS_MASTER||_r==='GM'||_r==='UPPER'||_r==='CUTTING')?'block':'none';
   const ppNav=$('#peopleNav');if(ppNav)ppNav.style.display=(IS_MASTER||_r==='GM'||_r==='PLANNING')?'block':'none';
   const rmNav=$('#rmstoreNav');if(rmNav)rmNav.style.display=(IS_MASTER||_r==='GM'||_r==='RMSTORE')?'block':'none';
+  // Planning-flow queues: Upper Manager approval + department queue
+  const uaNav=$('#upperApprovalNav');if(uaNav)uaNav.style.display=(IS_MASTER||['GM','UPPER','PLANNING'].includes(_r))?'flex':'none';
+  const dqNav=$('#deptQueueNav');if(dqNav)dqNav.style.display=(IS_MASTER||['GM','PLANNING','PU','PVC','STUCKON','EVA'].includes(_r))?'flex':'none';
+  // Production Dashboard now sits inside the Production Planning group — hide it for roles that can't open it
+  const pdNav=$('#prodDashNav');if(pdNav)pdNav.style.display=canAccessProductionDashboard()?'flex':'none';
   updateQueueBadges();
 }
 function logout(){try{localStorage.removeItem('STARKIDZ_USER')}catch(_){}window.location.href='login.html'}
@@ -8696,6 +9481,8 @@ function refresh(){
     else if(vid==='pendency')renderPendencyLog();
     else if(vid==='sales-push')renderPushSale();
     else if(vid==='sales-order-entry')renderOrderEntry();
+    else if(vid==='upper-approval')renderUpperApproval();
+    else if(vid==='dept-queue')renderDeptQueue();
   }
 }
 function updateQueueBadges(){
@@ -8730,6 +9517,18 @@ function updateQueueBadges(){
   // Low stock badge
   const lsCount=INVENTORY.filter(i=>i.stock<=i.minLevel).length;
   const lsBadge=$('#lowStockBadge');if(lsBadge){lsBadge.textContent=lsCount;lsBadge.style.display=lsCount?'inline':'none';}
+  // Upper approval queue — plans waiting on the Upper Manager (grouped by plan no)
+  const uaKeys=new Set(ARTICLE_PLANS.filter(p=>planFlow(p)!=='released').map(p=>planKey(p)));
+  const uaBadge=$('#upperApprovalBadge');if(uaBadge){
+    uaBadge.textContent=uaKeys.size;uaBadge.style.display=uaKeys.size?'inline':'none';
+  }
+  // Department planning queue — approved, not-yet-completed items for this supervisor's dept
+  const myDept=supervisorDept();
+  const dqCount=ARTICLE_PLANS.filter(p=>planFlow(p)==='released'&&deptStatusOf(p)!=='completed'
+    &&(!['PU','PVC','STUCKON','EVA'].includes(r)||(p.category||p.machine)===myDept)).length;
+  const dqBadge=$('#deptQueueBadge');if(dqBadge){
+    dqBadge.textContent=dqCount;dqBadge.style.display=dqCount?'inline':'none';
+  }
 }
 
 // ── INVENTIFY IMPORT ──
