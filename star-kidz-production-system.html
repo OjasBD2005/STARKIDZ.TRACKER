@@ -1809,6 +1809,11 @@ function canRaiseRequirement(){
   return !IS_MASTER&&['UPPER','CUTTING','PU','PVC','STUCKON','EVA','RMDISP','RMSTORE'].includes(currentUser.role)||IS_MASTER||currentUser.role==='GM';
 }
 
+// Build stamp — bump on release. The app installs as a PWA, so this is the only
+// reliable way to tell whether a device is actually running the latest deploy
+// (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
+window.STARKIDZ_BUILD='2026-07-29.2';
+
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
 function fmt(d){if(!d||d==='—')return'—';const x=new Date(d);return isNaN(x)?d:x.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}
@@ -5253,7 +5258,7 @@ function renderStockCatalogue(){
   let agPairs=0,oldPairs=0,datedLines=0;
   d.forEach(a=>{const g=catAging(a);agPairs+=g.aging;oldPairs+=g.old;if(g.dated)datedLines++;});
   if(badge){badge.className='pill pill-green';badge.textContent='✅ '+fmtN(totalPairs)+' pairs · '+d.length+' articles';}
-  $('#scSourceNote').textContent='Source: '+catSourceLabel()+' '+(catDate()||'')+' — colour, size, MRP and quantity read row-wise from that report; photos from the article catalogue folder.';
+  $('#scSourceNote').textContent='Source: '+catSourceLabel()+' '+(catDate()||'')+' — colour, size, MRP and quantity read row-wise from that report; photos from the article catalogue folder. · build '+(window.STARKIDZ_BUILD||'?');
   const note=$('#scAgingNote');
   if(note){
     const kept=oldPairs+agPairs;
