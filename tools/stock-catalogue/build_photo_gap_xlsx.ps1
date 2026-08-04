@@ -55,11 +55,16 @@ foreach($a in $cat){
   $built[$k]=@{ Colours=$cols; Sizes=@($a.s); MRPs=@($a.m); Qty=$q; Photo=$a.p }
 }
 
-# photo coverage is keyed on the normalised article, so raw codes look up through Norm-Article
-$covBy=@{}; foreach($c in $cov){ $covBy[$c.Article]=$c }
+# Coverage may be keyed on the item code exactly as the report writes it (the current
+# builder) or on the normalised form (older ones) — try both before giving up, or every
+# article with a leading zero reads as "no photo".
+$covBy=@{}; $covByN=@{}
+foreach($c in $cov){ $covBy[$c.Article.ToUpper()]=$c; $covByN[(Norm-Article $c.Article)]=$c }
 function Cov($rawArticle){
+  $u="$rawArticle".ToUpper()
+  if($covBy.ContainsKey($u)){ return $covBy[$u] }
   $n=Norm-Article $rawArticle
-  if($covBy.ContainsKey($n)){ return $covBy[$n] }
+  if($covByN.ContainsKey($n)){ return $covByN[$n] }
   return $null
 }
 
@@ -72,7 +77,7 @@ function SetEq($h,$arr){
 
 # ================= Sheet 1: Photos Missing =================
 $s1=@()
-$s1+=,@('Article','Series','Machine','Stock (pairs)','Colours','Sizes','MRP (as in report)','Photo status','Action needed')
+$s1+=,@('Article','Series','Machine','Stock (pairs)','Colours in stock','Sizes','MRP (as in report)','Photo status','Action needed')
 $missing=@()
 foreach($k in ($rep.Keys|Sort-Object)){
   $cv0=Cov $k
@@ -80,10 +85,13 @@ foreach($k in ($rep.Keys|Sort-Object)){
   if($st -eq 'OWN PHOTO'){continue}
   $missing+=[PSCustomObject]@{K=$k;Status=$st;Qty=$rep[$k].Qty}
 }
-foreach($m in ($missing|Sort-Object @{e={$_.Status};d=$true},@{e={$_.Qty};d=$true})){
+# "NO PHOTO" first: those need a shoot, which takes days. "SERIES ONLY" only needs a
+# file renamed. Within each, biggest stock first — that is what is at risk of not being
+# shown to a customer.
+foreach($m in ($missing|Sort-Object @{e={if($_.Status -eq 'NO PHOTO'){0}else{1}}},@{e={$_.Qty};d=$true})){
   $e=$rep[$m.K]
   $act=if($m.Status -eq 'NO PHOTO'){'SHOOT PHOTO - nothing in the archive'}else{'NAME A PHOTO - series folder has photos, none named for this article'}
-  $s1+=,@($e.Raw,$e.Family,$e.Machine,[int]$e.Qty,[int]$e.Colours.Keys.Count,(($e.Sizes.Keys|Sort-Object) -join ', '),
+  $s1+=,@($e.Raw,$e.Family,$e.Machine,[int]$e.Qty,(($e.Colours.Keys|Sort-Object) -join ', '),(($e.Sizes.Keys|Sort-Object) -join ', '),
           (($e.MRPs.Keys|Sort-Object{[double]$_}) -join ', '),$m.Status,$act)
 }
 $s1+=,@('TOTAL','','',[int](($missing|Measure-Object Qty -Sum).Sum),'','','','','')
@@ -200,7 +208,7 @@ $s4=@(
 )
 
 $sheets=[ordered]@{
-  'Photos Missing'        =@{rows=$s1;widths=@(20,14,12,14,10,26,22,14,52)}
+  'Photos Missing'        =@{rows=$s1;widths=@(24,14,12,14,34,26,26,14,58)}
   'Colour Photos Missing' =@{rows=$s2;widths=@(20,12,14,26,22,16,22)}
   'Article Check'         =@{rows=$s3;widths=@(20,14,12,10,42,26,22,14,11,10,9,9,10,14,20)}
   'Duplicate Codes'       =@{rows=$s5;widths=@(22,28,14,14,26,26,22,58)}

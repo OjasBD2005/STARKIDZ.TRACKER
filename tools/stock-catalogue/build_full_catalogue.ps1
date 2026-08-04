@@ -366,6 +366,26 @@ Set-Content "$out\photomap.json" ($photomap|ConvertTo-Json -Compress) -Encoding 
 
 $photos|Export-Csv "$out\archive_matched.csv" -NoTypeInformation -Encoding utf8
 
+# Photo coverage for the articles the report actually carries — this is what
+# build_photo_gap_xlsx.ps1 turns into the "Photos Missing" sheet, so it has to be
+# written from the same run that built the index, never left over from an older one.
+$cov=New-Object System.Collections.ArrayList
+foreach($sq in ($stock.Keys|Sort-Object)){
+  $e=$stock[$sq]; $a=$e.Raw
+  $fam=($a -split '-')[0].Trim()
+  $status=if($index.Contains($a)){'OWN PHOTO'}elseif($photomap.Contains($fam)){'SERIES ONLY'}else{'NO PHOTO'}
+  $cols=@($e.Colours.Keys)
+  $withCol=@($cols|Where-Object{ $index.Contains("$a|$($e.Colours[$_].Raw)") })
+  $missCol=@($cols|Where-Object{ -not $index.Contains("$a|$($e.Colours[$_].Raw)") }|ForEach-Object{$e.Colours[$_].Raw})
+  [void]$cov.Add([PSCustomObject]@{
+    Article=$a; Family=$fam; Status=$status
+    Colours=$cols.Count; ColoursWithPhoto=$withCol.Count
+    ColoursMissingPhoto=($missCol -join ', ')
+  })
+}
+$cov|Export-Csv "$out\photo_coverage_zip.csv" -NoTypeInformation -Encoding utf8
+"ARTICLES WITH NO OWN PHOTO : " + @($cov|Where-Object{$_.Status -ne 'OWN PHOTO'}).Count
+
 "PHOTO FILES IN ARCHIVE : $($photos.Count) usable"
 "FILES WRITTEN          : $($written.Count)"
 "OUTPUT SIZE            : " + [math]::Round($bytesOut/1MB,1) + " MB"
