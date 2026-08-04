@@ -1024,6 +1024,23 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 </div>
 
 <!-- ===== LINK & CONFIGURE MODAL — Push Sale data sync ===== -->
+<!-- Catalogue photo viewer: the article name, colour, sizes and MRP are printed inside
+     the photo, so it has to be readable full-screen, not just as a card thumbnail. -->
+<div id="scPhotoModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,.86);z-index:120;align-items:center;justify-content:center;padding:24px 16px" onclick="if(event.target===this)closeScPhoto()">
+  <div style="max-width:min(96vw,1100px);width:100%;max-height:94vh;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;color:#fff">
+      <div>
+        <div id="scPhotoTitle" style="font-size:19px;font-weight:800"></div>
+        <div id="scPhotoMeta" style="font-size:12.5px;color:#cbd5e1;margin-top:3px"></div>
+      </div>
+      <span onclick="closeScPhoto()" style="cursor:pointer;font-size:26px;line-height:1;color:#cbd5e1;padding:0 4px">✕</span>
+    </div>
+    <div style="flex:1;min-height:0;display:grid;place-items:center;background:#fff;border-radius:12px;overflow:auto">
+      <img id="scPhotoImg" alt="" style="max-width:100%;max-height:78vh;object-fit:contain;display:block">
+    </div>
+    <div id="scPhotoGrid" style="color:#e2e8f0;font-size:12px"></div>
+  </div>
+</div>
 <div id="linkModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
   <div class="card" style="max-width:760px;width:100%;position:relative">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -1189,6 +1206,11 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div><label class="lbl">Series</label><select id="scFamily" class="inp" style="width:auto" onchange="renderStockCatalogue()"></select></div>
     <div><label class="lbl">Machine</label><select id="scMachine" class="inp" style="width:auto" onchange="renderStockCatalogue()"></select></div>
     <div><label class="lbl">Size</label><select id="scSize" class="inp" style="width:auto" onchange="renderStockCatalogue()"></select></div>
+    <div><label class="lbl" title="Stock report = only what the report carries. Photo archive = every article we hold a photo of, in stock or not.">Catalogue</label>
+      <select id="scScope" class="inp" style="width:auto" onchange="_scBuilt=false;renderStockCatalogue()">
+        <option value="stock">In the stock report</option>
+        <option value="all">Every article we have a photo of</option>
+      </select></div>
     <div><label class="lbl">Show</label><select id="scStock" class="inp" style="width:auto" onchange="renderStockCatalogue()">
       <option value="all">All articles</option><option value="in">In stock only</option><option value="low">Low (&lt; 25 prs)</option>
     </select></div>
@@ -1722,6 +1744,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <script src="store.js"></script>
 <script src="articles-data.js"></script>
 <script src="star-kidz-stock-catalogue-data.js"></script>
+<script src="star-kidz-article-catalogue-data.js"></script>
 <script src="star-kidz-photo-index.js"></script>
 <!-- PDF engine for Job Cards -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1816,7 +1839,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-07-29.3';
+window.STARKIDZ_BUILD='2026-08-04.1';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5081,9 +5104,26 @@ function saveCatalogueUpload(){
   const s=JSON.stringify(CAT_UPLOAD);
   if(window.Store)Store.setItem(CAT_UPLOAD_KEY,s);else try{localStorage.setItem(CAT_UPLOAD_KEY,s)}catch(e){}
 }
-function catData(){return (CAT_UPLOAD&&CAT_UPLOAD.rows)||window.STOCK_CATALOGUE||[];}
+// Scope: the stock report (what we can sell today) or the whole photo archive (every
+// article we hold a photo of, in stock or not — same shape, quantities are 0 where the
+// report has none, so a salesperson can still show the range).
+function catScope(){return $('#scScope')?$('#scScope').value:'stock';}
+// A data file or an uploaded sheet can hand us a bare value where a list is expected
+// (one size, one MRP). Coerce once, in one place, so no renderer has to defend itself.
+function catNormalize(rows){
+  if(!Array.isArray(rows)||rows._n)return rows;
+  const arr=v=>Array.isArray(v)?v:(v==null||v===''?[]:[v]);
+  rows.forEach(a=>{a.s=arr(a.s);a.m=arr(a.m);a.c=arr(a.c);});
+  try{Object.defineProperty(rows,'_n',{value:1});}catch(e){}
+  return rows;
+}
+function catData(){
+  if(catScope()==='all'&&Array.isArray(window.ARTICLE_CATALOGUE)&&window.ARTICLE_CATALOGUE.length)return catNormalize(window.ARTICLE_CATALOGUE);
+  return catNormalize((CAT_UPLOAD&&CAT_UPLOAD.rows)||window.STOCK_CATALOGUE||[]);
+}
 function catDate(){return (CAT_UPLOAD&&CAT_UPLOAD.date)||window.STOCK_CATALOGUE_DATE||'';}
 function catSourceLabel(){
+  if(catScope()==='all')return 'photo archive + Busy stock report';
   if(CAT_UPLOAD)return 'uploaded sheet'+(CAT_UPLOAD.file?' ('+CAT_UPLOAD.file+')':'');
   return 'Busy stock report';
 }
@@ -5151,6 +5191,7 @@ function agingAllows(mode,age){
 // Sizes and totals are recomputed so the grid never shows a column it has no stock for.
 function applyAgingView(a,mode){
   if(mode==='all')return a;
+  if(!(+a.t>0))return a;   // no stock, so no lots to age — keep it (photo-archive scope)
   const cols=[];let total=0;const sizeSet={};
   (a.c||[]).forEach(r=>{
     const q={};let any=false;
@@ -5223,6 +5264,36 @@ function mrpLabel(a){
   if(!m.length)return '—';
   return m.length===1?('₹'+m[0]):('₹'+m[0]+' – ₹'+m[m.length-1]);
 }
+function scAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// Full-screen photo viewer. The article name, colour, sizes and MRP are printed inside
+// the photo, so a 26px swatch is unreadable — every photo opens at full size, with the
+// stock for that article (or that one colour) listed under it. MRP always comes from the
+// stock report, never from whatever is printed on the image.
+function openScPhoto(article,colour){
+  const hit=photoFor(article,colour||null);
+  if(!hit)return;
+  const a=(catData()||[]).find(x=>String(x.a).toUpperCase()===String(article).toUpperCase());
+  const img=$('#scPhotoImg');
+  img.src=CAT_PHOTO_DIR+hit.file;
+  img.alt=article+(colour?' · '+colour:'');
+  $('#scPhotoTitle').textContent=article+(colour?' · '+colour:'');
+  const rows=a?(a.c||[]).filter(r=>!colour||String(r.c).toUpperCase()===String(colour).toUpperCase()):[];
+  const prs=rows.reduce((s,r)=>s+Object.values(r.q||{}).reduce((t,v)=>t+(+v||0),0),0);
+  $('#scPhotoMeta').textContent=a
+    ? `MRP ${mrpLabel(a)} · ${(a.s||[]).join(', ')||'—'} · ${fmtN(prs)} prs in stock${hit.exact?'':' · showing the article photo (no photo for this colour yet)'}`
+    : 'not in the current stock report';
+  $('#scPhotoGrid').innerHTML=rows.length
+    ? '<table class="tbl" style="font-size:12px;background:#fff;border-radius:8px;overflow:hidden">'
+      +`<thead><tr><th style="text-align:left">COLOUR</th>${(a.s||[]).map(s=>`<th class="num">${s}</th>`).join('')}<th class="num">Total</th></tr></thead><tbody>`
+      +rows.map(r=>{
+         const t=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
+         return `<tr><td style="font-weight:600">${r.c}</td>${(a.s||[]).map(s=>`<td class="num">${(r.q||{})[s]||'·'}</td>`).join('')}<td class="num" style="font-weight:800">${t}</td></tr>`;
+       }).join('')+'</tbody></table>'
+    : '';
+  $('#scPhotoModal').style.display='flex';
+}
+function closeScPhoto(){const m=$('#scPhotoModal');if(m){m.style.display='none';$('#scPhotoImg').src='';}}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeScPhoto();});
 // One catalogue card: photo on the left, colour x size grid on the right.
 function catalogueCardHTML(a,forPrint){
   const sizes=(a.s||[]).slice();
@@ -5245,7 +5316,7 @@ function catalogueCardHTML(a,forPrint){
     }).join('');
     // show the colour's own photo when one has been identified for this exact shade
     const cp=photoFor(a.a,r.c);
-    const swatch=(cp&&cp.exact)?`<img src="${CAT_PHOTO_DIR}${cp.file}" alt="${a.a} ${r.c}" title="${a.a} · ${r.c}" style="width:26px;height:26px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;vertical-align:middle;margin-right:6px">`:'';
+    const swatch=(cp&&cp.exact)?`<img src="${CAT_PHOTO_DIR}${cp.file}" alt="${a.a} ${r.c}" title="${a.a} · ${r.c} — click to enlarge" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'} style="width:${forPrint?'34px;height:34px':'46px;height:46px;cursor:zoom-in'};object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;vertical-align:middle;margin-right:7px">`:'';
     return `<tr><td style="font-weight:600;white-space:nowrap">${swatch}${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td></tr>`;
   }).join('');
   const colTot=sizes.map(s=>{
@@ -5254,14 +5325,14 @@ function catalogueCardHTML(a,forPrint){
   }).join('');
   return `<div class="card" style="${forPrint?'break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;border:1px solid #cbd5e1':''}">
     <div style="display:flex;gap:14px;flex-wrap:wrap">
-      <div style="width:150px;height:150px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0">${img}</div>
+      <div${forPrint?'':` data-a="${scAttr(a.a)}" onclick="openScPhoto(this.dataset.a,'')" title="click to enlarge"`} style="width:${forPrint?'150px;height:150px':'min(230px,44vw);height:min(230px,44vw);cursor:zoom-in'};flex-shrink:0;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0">${img}</div>
       <div style="flex:1;min-width:260px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">
           <span style="font-size:17px;font-weight:800;color:#0f172a">${a.a}</span>
           <span class="pill pill-blue">${a.f}</span>
           ${a.mc?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.mc}</span>`:''}
           ${a.sn?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.sn}</span>`:''}
-          <span class="pill ${a.t>0?'pill-green':'pill-red'}">${fmtN(a.t)} prs</span>
+          <span class="pill ${a.t>0?'pill-green':'pill-red'}">${a.t>0?fmtN(a.t)+' prs':'no stock'}</span>
           ${ag.dated&&(ag.old||ag.aging)?`<span class="pill ${ag.old?'pill-red':'pill-amber'}">${ag.old?'🔴 '+fmtN(ag.old)+' prs 90+ d':'⚠️ '+fmtN(ag.aging)+' prs 61–90 d'}</span>`:''}
         </div>
         <div style="font-size:12px;color:#64748b;margin-bottom:8px">MRP <b style="color:#0f172a">${mrpLabel(a)}</b> · sizes ${sizes.join(', ')||'—'} · ${(a.c||[]).length} colour(s)${ag.dated?` · oldest lot <b style="color:${ag.maxAge>90?'#b91c1c':ag.maxAge>60?'#b45309':'#0f172a'}">${ag.maxAge} d</b>`:''}</div>
@@ -5415,18 +5486,22 @@ function familyPhotoMap(){
 function buildCatalogueFromSheet(matrix,sheet){
   const norm=v=>String(v==null?'':v).trim();
   const low=v=>norm(v).toLowerCase();
+  // Busy numbers the columns of its detailed export — "7-Item Name", "9-Colour",
+  // "14 STOCK" — so a header has to be matched with that "<n>-" prefix stripped.
+  // Without this the whole file is rejected as "header row not found".
+  const hdr=v=>low(v).replace(/^\s*\d+\s*[-\s]\s*/,'').trim();
   const artNames=['item name','article name','article','item','item sku code','sku'];
   const qtyNames=['total','stock (pairs)','stock pairs','stock','qty','quantity','closing','closing qty','balance','pairs'];
   let hi=-1;
   for(let i=0;i<Math.min(30,matrix.length);i++){
-    const cells=matrix[i].map(low);
+    const cells=matrix[i].map(hdr);
     if(cells.some(c=>artNames.includes(c))&&cells.some(c=>qtyNames.includes(c))){hi=i;break;}
   }
   if(hi<0)throw new Error('Could not find the header row. The sheet needs an Item Name / Article column and a Total / Stock / Qty column.\n\nTop row seen: '+(matrix[0]||[]).map(norm).join(' | ').slice(0,200));
   const rows=XLSX.utils.sheet_to_json(sheet,{range:hi,defval:''});
   if(!rows.length)throw new Error('No data rows found below the header row.');
   const keys=Object.keys(rows[0]);
-  const kfind=c=>{for(const n of c){const k=keys.find(k=>low(k)===n);if(k)return k;}return null;};
+  const kfind=c=>{for(const n of c){const k=keys.find(k=>hdr(k)===n);if(k)return k;}return null;};
   const artKey=kfind(artNames), qtyKey=kfind(qtyNames);
   if(!artKey||!qtyKey)throw new Error('Missing the article or quantity column. Columns seen: '+keys.join(', '));
   const colKey=kfind(['colour','color']), sizeKey=kfind(['size']), mrpKey=kfind(['mrp','m.r.p','m.r.p.']);
@@ -5514,17 +5589,23 @@ function uploadStockCatalogue(){
   reader.onload=e=>{
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-      const sheet=wb.Sheets[wb.SheetNames[0]];
-      const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
-      if(!matrix.length)throw new Error('The file is empty.');
-      const built=buildCatalogueFromSheet(matrix,sheet);
+      // The Busy workbook carries several sheets (modern trade, summaries…) and the
+      // stock report is not always the first, so try each until one parses.
+      let built=null,lastErr=null,usedSheet='';
+      for(const name of wb.SheetNames){
+        const sh=wb.Sheets[name];
+        const mx=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
+        if(!mx.length)continue;
+        try{built=buildCatalogueFromSheet(mx,sh);usedSheet=name;break;}catch(err){lastErr=err;}
+      }
+      if(!built)throw (lastErr||new Error('The file is empty.'));
       const cmp=compareCatalogues(catData(),built.rows);
       CAT_UPLOAD={date,rows:built.rows,updated:Date.now(),updatedBy:currentUser.name,file:file.name};
       saveCatalogueUpload();
       touchCatalogueAging(built.rows,date);      // stamp new lots, expire the ones that left
       _scBuilt=false;                            // series/machine/size dropdowns must rebuild
       renderStockCatalogue();
-      if(res)res.innerHTML=`<div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Catalogue synced from ${file.name} — stock as on ${date}</div>`+catalogueCompareHTML(cmp,built);
+      if(res)res.innerHTML=`<div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Catalogue synced from ${file.name}${usedSheet?' · sheet “'+usedSheet+'”':''} — stock as on ${date}</div>`+catalogueCompareHTML(cmp,built);
       toast('Stock catalogue updated','✅',fmtN(built.pairs)+' prs · '+built.rows.length+' articles');
       logUpdate(null,'Stock catalogue upload',file.name+' · '+fmtN(built.pairs)+' prs · '+built.rows.length+' articles as on '+date);
     }catch(err){

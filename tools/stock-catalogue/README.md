@@ -38,7 +38,40 @@ line reads 0 days, and the bands fill in as daily uploads accumulate.
 
 Run the steps below when a **new stock report** arrives as a PDF.
 
-## 1. Export the text layer
+## 0. Prefer the Excel export over the PDF
+
+```bash
+powershell -File parse_stock_xlsx.ps1 -out "$SC_WORKDIR" -file "STOCK-<date>.xlsx"
+```
+
+Busy's **detailed Excel export is the accurate source** and should be used whenever it
+is available. It is one flat row per item with its own columns, so there is no column
+drift, no grouped cells and no subtotal lines — and it carries the **full item name**
+and the real **machine** column.
+
+The PDF route is lossy in a way its own totals cannot reveal. On STOCK-04-08-2026 both
+routes totalled exactly 17,055, yet the PDF produced 438 articles against the Excel's
+451, because a name split across table cells reads back as its first word only:
+
+| PDF read it as | it is really |
+|---|---|
+| `STAR` (1,523 prs in one lump) | 10 school-shoe articles — `STAR GOLA-L` 249, `STAR BOY DLX-L` 368, `STAR GIRL BUCKLE PLAIN` 239, … |
+| `BOLT-06`, `BOLT-104`, `BOLT-155` | `FIRE BOLT-06`, `FIRE BOLT-104`, `FIRE BOLT-155` |
+| `CANDY-11` (87) | `CANDY-11` (56) + `CANDY-11 L` (31) |
+| `DIYA-02` (29) | `DIYA-02` (15) + `DIYA-02 PLUS` (14) |
+| `ITALY-01` (104) | `ITALY-01` (87) + `ITALY-01 7X10` (17) |
+
+The PDF also has no machine column of its own — machines are inferred from block
+totals, which folded `OUT SIDE` (95 prs) into EVA and `AIR` (1) into ROTARY.
+
+Busy numbers the export's column headers (`7-Item Name`, `9-Colour`, `14 STOCK`), and
+the workbook holds several sheets — the stock report is **not** the first one. Both the
+script and the in-app uploader strip the `<n>-` prefix and try every sheet until one
+parses.
+
+Use the PDF route below only when no Excel export exists.
+
+## 1. Export the text layer (PDF route only)
 
 The Busy report must be read in *table* mode — plain `-layout` misaligns the
 columns and silently mispairs colour/size/quantity.
@@ -69,7 +102,12 @@ Notes on the report's quirks, all handled:
 - Some rows have a blank MRP; the previous MRP is inherited.
 - Subtotal / `Grand Total` lines are excluded.
 
-## 3. Copy photos
+## 3. Copy photos — superseded
+
+**Use `build_photos_from_zip.ps1` (section 3–4c below) instead.** `copy_photos.ps1`
+predates the named photo archive: it only picks one photo per *series* out of the
+loose `Desktop\Article photos` folders, so it can't tell one article from another
+and never produces a colour match. Kept only for those older folders.
 
 ```bash
 powershell -File copy_photos.ps1 -out "$SC_WORKDIR"
@@ -113,27 +151,74 @@ Traps this check has already caught, all now fixed in `parse_stock.ps1`:
   `RABBIT`). Missing one silently rolls its stock onto the previous article. The Item
   Name is now read as the token after the TYPE cell, with the pattern as fallback.
 
-## 4c. Photo index (article + colour)
+## 3–4c. Photos and the photo index — from a named archive
 
-The article name, colour, sizes and MRP are printed **inside** each catalogue photo, and
-the file names don't carry them (there is no EXIF/XMP either). So photos are matched by
-reading the image and recording it in `photo_index.csv`:
-
-```
-SourceFolder,SourceFile,Article,Colour,Verified
-creta,creta (11).jpg,CRETA-3,OLV,yes
-```
+Since **2026-08-04** the photos come from an archive whose **file names carry the
+article and the colour** (`ALL PHOTOS/AIR/AIR-2010 BLK-BLK-WHT.jpeg`). That is the
+"quick win" the older notes asked for, so steps 3 and 4c are now one command that
+reads no images at all:
 
 ```bash
-powershell -File build_photo_index.ps1
+powershell -File build_photos_from_zip.ps1 -out "$SC_WORKDIR" -zip "C:\path\ALL PHOTOS 1.zip"
 ```
 
-Copies each listed photo into `article-photos/` as `ARTICLE__COLOUR.ext` and writes
-`star-kidz-photo-index.js`. The catalogue picks the most specific match available:
-exact article+colour → article → series photo → placeholder.
+It wipes and rebuilds `article-photos/`, and writes `star-kidz-photo-index.js` plus
+`photomap.json` (the series photos `build_catalogue.ps1` needs). Images are resized to
+1000 px on the longest side at JPEG q80 — 3,435 source photos (350 MB) reduce to the
+~500 the current stock actually needs, about 43 MB.
 
-**Renaming the source photos to `CRETA-03 OLV.jpg` would remove this step entirely** —
-the index could then be built from file names with no image reading.
+How a file name is read:
+- **Article = the longest leading run of tokens that is an article in the report.**
+  `KSJ-101 V.jpg` is article `KSJ-101-V`, *not* `KSJ-101` in colour "V" — the `-V`,
+  `-L`, `(L)` suffixes are real Busy article variants. First-token-wins silently
+  merges them, which is why the match is driven by the report, not by the name alone.
+- **Colour = whatever follows**, matched against the colours the report carries for
+  that article: `BLK-GRY-BLK` → `BLK`, `BLK-WHT` → `BLK/WHT`, `11X13 AQUA` → `AQUA`.
+  A colour the report doesn't have for that article is **left out** rather than shown
+  under a wrong label.
+
+The catalogue then picks the most specific match available: exact article+colour →
+article → series photo → placeholder.
+
+**To close a photo gap:** rename the photo `ARTICLE COLOUR.jpg` (e.g. `CRETA-05 OLV.jpg`),
+put it in the archive, rerun. Nothing else.
+
+`build_photo_index.ps1` + `photo_index.csv` remain for hand-identifying a one-off photo
+from an unnamed source folder; the archive route supersedes them for bulk work.
+
+## 4e. The FULL article catalogue (everything we have a photo of)
+
+```bash
+powershell -File build_full_catalogue.ps1 -out "$SC_WORKDIR" -zip "C:\path\ALL PHOTOS 1.zip"
+```
+
+Does everything `build_photos_from_zip.ps1` does **and** writes
+`star-kidz-article-catalogue-data.js` — every article in the archive, in stock or not
+(1,211 articles: 449 with stock on 04-08, 762 without). The catalogue view's
+**Catalogue** dropdown switches between "In the stock report" and "Every article we
+have a photo of"; out-of-stock articles show a red *no stock* pill and an empty grid.
+
+Article names are resolved against the stock report **and** `articles-data.js`, and a
+name that is the tail of exactly one known article is accepted — that is how
+`GOLA V.jpg` (filed under SCHOOL SHOES) reaches `STAR GOLA-V` and `BOLT-06.jpg` reaches
+`FIRE BOLT-06`. A tail matching more than one article is left unmatched rather than
+guessed.
+
+`-SkipPhotos` rebuilds only the data files, reusing the images already in
+`article-photos/` (the image pass takes ~20 minutes; the data pass takes seconds).
+
+## 4d. Photo gaps + report reconciliation
+
+```bash
+powershell -File build_photo_gap_xlsx.ps1 -out "$SC_WORKDIR"
+```
+
+Writes `Article-Photos-Missing.xlsx`: articles with no photo of their own (and whether
+that needs a shoot or just a rename), every article+colour with no colour photo, a
+full reconciliation of the built catalogue against the report (colours, sizes, MRP,
+quantity — **MRP always as written in the report**, never averaged or filled in), and
+articles Busy carries under two codes that differ only by a leading zero
+(`CRETA-09` / `CRETA-9`), whose stock is split across both.
 
 ## 5. Verify in the app
 
