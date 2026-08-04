@@ -334,6 +334,24 @@ foreach($a in ($cat.Keys|Sort-Object)){
     p=$(if($photomap.Contains($e.f)){$photomap[$e.f]}else{''})
   }
 }
+# Prune index entries the catalogue can never look up: an article that is not in the
+# catalogue at all, or a colour that article does not have. These come from the
+# hand-identified photo_index.csv rows, whose article or colour may have left the
+# report since they were recorded. Dead keys are harmless at runtime but they make the
+# index lie about its own coverage.
+$catKeys=@{}; $catCols=@{}
+foreach($e in $list){
+  $catKeys[$e.a.ToUpper()]=$true
+  foreach($c in $e.c){ $catCols[($e.a.ToUpper()+'|'+$c.c.ToUpper())]=$true }
+}
+$dead=@()
+foreach($k in @($index.Keys)){
+  if($k -match '\|'){ if(-not $catCols.ContainsKey($k.ToUpper())){ $dead+=$k } }
+  else { if(-not $catKeys.ContainsKey($k.ToUpper())){ $dead+=$k } }
+}
+foreach($k in $dead){ $index.Remove($k) }
+"DEAD INDEX KEYS DROPPED: $($dead.Count)" + $(if($dead.Count){"  ($($dead -join ', '))"}else{''})
+
 $catJson=$list|ConvertTo-Json -Depth 8 -Compress
 $stamp='unknown'
 $tl=Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-(\d{2})-(\d{2})-(\d{4})'|Select-Object -First 1

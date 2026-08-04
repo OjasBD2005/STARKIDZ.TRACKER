@@ -2,13 +2,18 @@
 /* Bump CACHE on every release. The name change is what makes `activate` purge the old
    cache, and it also changes this file's bytes, which is how the browser notices there
    is a new worker at all — leave it unchanged and installed PWAs keep the old build. */
-var CACHE = 'starkidz-v6';
+var CACHE = 'starkidz-v7';
 var CORE = [
   'index.html', 'login.html',
   'ojas-dispatch-tracker.html', 'star-kidz-production-system.html',
   'star-kidz-sales-crm.html',
   'articles-data.js', 'parties-data.js', 'store.js', 'firebase-config.js', 'sheets-config.js',
   'star-loader.js', 'pwa.js',
+  // Stock Catalogue data — precached so an installed app opens the catalogue offline.
+  // The photos themselves are not precached: article-photos/ is ~125 MB and is cached
+  // per image as it is viewed.
+  'star-kidz-stock-catalogue-data.js', 'star-kidz-article-catalogue-data.js',
+  'star-kidz-photo-index.js',
   'manifest.json', 'icon.svg', 'star-kidz-logo-full.svg'
 ];
 
