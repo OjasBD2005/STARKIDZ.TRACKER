@@ -1839,7 +1839,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-04.1';
+window.STARKIDZ_BUILD='2026-08-04.2';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5200,7 +5200,7 @@ function applyAgingView(a,mode){
       if(!agingAllows(mode,lineAgeDays(a.a,r.c,size)))return;
       q[size]=n;total+=n;sizeSet[size]=1;any=true;
     });
-    if(any)cols.push({c:r.c,q});
+    if(any)cols.push({c:r.c,q,m:r.m});
   });
   if(!cols.length)return null;
   return Object.assign({},a,{c:cols,s:(a.s||[]).filter(s=>sizeSet[s]),t:total});
@@ -5265,6 +5265,18 @@ function mrpLabel(a){
   return m.length===1?('₹'+m[0]):('₹'+m[0]+' – ₹'+m[m.length-1]);
 }
 function scAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// MRP for one colour, straight from the stock report. Older catalogue builds and
+// uploads carry MRP only per article, so fall back to that rather than show nothing —
+// but never to anything printed on a photo.
+function colourMrpList(a,r){
+  const m=(r&&Array.isArray(r.m)&&r.m.length)?r.m:(a.m||[]);
+  return m.filter(Boolean);
+}
+function colourMrp(a,r){
+  const m=colourMrpList(a,r);
+  if(!m.length)return '—';
+  return m.length===1?('₹'+m[0]):('₹'+m[0]+' – ₹'+m[m.length-1]);
+}
 // Full-screen photo viewer. The article name, colour, sizes and MRP are printed inside
 // the photo, so a 26px swatch is unreadable — every photo opens at full size, with the
 // stock for that article (or that one colour) listed under it. MRP always comes from the
@@ -5301,7 +5313,7 @@ function catalogueCardHTML(a,forPrint){
   const main=catPhotoFor(a);
   const img=main?`<img src="${CAT_PHOTO_DIR}${main.file}" alt="${a.a}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px\\'>no photo</div>'">`
     :`<div style="display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px">no photo</div>`;
-  const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num">Total</th></tr>`;
+  const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num">Total</th><th class="num" title="MRP for this colour, exactly as the stock report prices it">MRP</th></tr>`;
   const body=(a.c||[]).map(r=>{
     const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
     const cells=sizes.map(s=>{
@@ -5316,13 +5328,32 @@ function catalogueCardHTML(a,forPrint){
     }).join('');
     // show the colour's own photo when one has been identified for this exact shade
     const cp=photoFor(a.a,r.c);
-    const swatch=(cp&&cp.exact)?`<img src="${CAT_PHOTO_DIR}${cp.file}" alt="${a.a} ${r.c}" title="${a.a} · ${r.c} — click to enlarge" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'} style="width:${forPrint?'34px;height:34px':'46px;height:46px;cursor:zoom-in'};object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;vertical-align:middle;margin-right:7px">`:'';
-    return `<tr><td style="font-weight:600;white-space:nowrap">${swatch}${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td></tr>`;
+    // A shade we hold a photo of but have no stock in is dimmed, so a swatch is never
+    // read as "available" — only the enlarged cards below carry sellable colours.
+    const dim=rowTot>0?'':'opacity:.4;filter:grayscale(.6);';
+    const swatch=(cp&&cp.exact)?`<img src="${CAT_PHOTO_DIR}${cp.file}" alt="${a.a} ${r.c}" title="${a.a} · ${r.c}${rowTot>0?' — click to enlarge':' — no stock'}" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'} style="width:${forPrint?'34px;height:34px':'46px;height:46px;cursor:zoom-in'};${dim}object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;vertical-align:middle;margin-right:7px">`:'';
+    return `<tr><td style="font-weight:600;white-space:nowrap">${swatch}${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td><td class="num" style="font-weight:700;color:#15803d;white-space:nowrap">${colourMrp(a,r)}</td></tr>`;
   }).join('');
   const colTot=sizes.map(s=>{
     const t=(a.c||[]).reduce((sum,r)=>sum+(+((r.q||{})[s])||0),0);
     return `<td class="num" style="font-weight:700">${t||'·'}</td>`;
   }).join('');
+  // One enlarged photo per colour that is actually in stock AND has a photo of that
+  // shade. Colours with no stock, or with only the article photo, are left out — a
+  // salesperson should never be shown a colour they cannot sell, or the wrong shade.
+  const colourShots=(a.c||[]).map(r=>{
+    const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
+    if(rowTot<=0)return '';
+    const cp=photoFor(a.a,r.c);
+    if(!cp||!cp.exact)return '';
+    return `<div style="text-align:center">
+      <img src="${CAT_PHOTO_DIR}${cp.file}" alt="${a.a} ${r.c}" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'}
+           style="width:${forPrint?'150px;height:150px':'190px;height:190px;cursor:zoom-in'};object-fit:contain;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:block">
+      <div style="font-size:12px;font-weight:700;color:#0f172a;margin-top:4px">${r.c}</div>
+      <div style="font-size:11px;color:#15803d;font-weight:700">${colourMrp(a,r)} · ${fmtN(rowTot)} prs</div>
+    </div>`;
+  }).filter(Boolean).join('');
+  const shotStrip=colourShots?`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed #e2e8f0">${colourShots}</div>`:'';
   return `<div class="card" style="${forPrint?'break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;border:1px solid #cbd5e1':''}">
     <div style="display:flex;gap:14px;flex-wrap:wrap">
       <div${forPrint?'':` data-a="${scAttr(a.a)}" onclick="openScPhoto(this.dataset.a,'')" title="click to enlarge"`} style="width:${forPrint?'150px;height:150px':'min(230px,44vw);height:min(230px,44vw);cursor:zoom-in'};flex-shrink:0;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0">${img}</div>
@@ -5338,10 +5369,11 @@ function catalogueCardHTML(a,forPrint){
         <div style="font-size:12px;color:#64748b;margin-bottom:8px">MRP <b style="color:#0f172a">${mrpLabel(a)}</b> · sizes ${sizes.join(', ')||'—'} · ${(a.c||[]).length} colour(s)${ag.dated?` · oldest lot <b style="color:${ag.maxAge>90?'#b91c1c':ag.maxAge>60?'#b45309':'#0f172a'}">${ag.maxAge} d</b>`:''}</div>
         <div style="overflow:auto"><table class="tbl" style="font-size:12px">
           <thead>${head}</thead><tbody>${body}
-          <tr style="background:#eef3ff"><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(a.t)}</td></tr>
+          <tr style="background:#eef3ff"><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(a.t)}</td><td class="num" style="font-weight:800">${mrpLabel(a)}</td></tr>
           </tbody></table></div>
       </div>
     </div>
+    ${shotStrip}
   </div>`;
 }
 function renderStockCatalogue(){
@@ -5448,14 +5480,18 @@ function downloadCatalogueCSV(){
   // like the PDF, the export is the internal copy — aging lots included, with their age
   const rows=catalogueFiltered('all');
   if(!rows.length){toast('Nothing to export','⚠️','');return}
-  const head=['Article','Series','Machine','Season','Colour','Size','Qty (pairs)','MRP','Age (days)','Aging band'];
+  const head=['Article','Series','Machine','Season','Colour','Size','Qty (pairs)','MRP (colour, from stock report)','MRP (article range)','Photo','Stock as on','Age (days)','Aging band'];
   const lines=[head.join(',')];
+  const asOn=catDate()||'';
   let n=0;
   rows.forEach(a=>{
     (a.c||[]).forEach(r=>{
+      const cp=photoFor(a.a,r.c);
+      const photo=cp?(cp.exact?cp.file:cp.file+' (article photo)'):'';
       Object.entries(r.q||{}).forEach(([size,qty])=>{
         const age=lineAgeDays(a.a,r.c,size);
-        lines.push([a.a,a.f,a.mc||'',a.sn||'',r.c,size,qty,mrpLabel(a).replace(/₹/g,''),
+        lines.push([a.a,a.f,a.mc||'',a.sn||'',r.c,size,qty,
+          colourMrp(a,r).replace(/₹/g,''),mrpLabel(a).replace(/₹/g,''),photo,asOn,
           age==null?'':age, age==null?'not tracked yet':bucketOf(age)].map(csvEscape).join(','));n++;
       });
     });
@@ -5524,7 +5560,7 @@ function buildCatalogueFromSheet(matrix,sheet){
     const qty=num(r[qtyKey]);
     if(!lArt||qty<=0){if(!lArt)skipped++;return}
     const a=lArt, family=(a.split('-')[0]||a).trim().toUpperCase();
-    if(!cat[a])cat[a]={a,f:family,p:fam[family]||'',mc:lMach,sn:lSeason,m:[],s:[],c:[],t:0,_m:{},_s:{},_c:{}};
+    if(!cat[a])cat[a]={a,f:family,p:fam[family]||'',mc:lMach,sn:lSeason,m:[],s:[],c:[],t:0,_m:{},_s:{},_c:{},_cm:{}};
     const e=cat[a];
     if(!e.mc&&lMach)e.mc=lMach;
     if(!e.sn&&lSeason)e.sn=lSeason;
@@ -5532,6 +5568,9 @@ function buildCatalogueFromSheet(matrix,sheet){
     const size=lSize||'—', colour=lCol||'—';
     e._s[size]=1;
     if(!e._c[colour])e._c[colour]={};
+    // MRP per colour as well as per article — the report prices colours differently
+    if(!e._cm[colour])e._cm[colour]={};
+    if(lMrp)e._cm[colour][lMrp]=1;
     e._c[colour][size]=(e._c[colour][size]||0)+qty;
     e.t+=qty;pairs+=qty;used++;
   });
@@ -5540,7 +5579,7 @@ function buildCatalogueFromSheet(matrix,sheet){
     const sizes=Object.keys(e._s).sort();
     const cols=Object.keys(e._c).map(c=>{
       const q={};sizes.forEach(s=>{if(e._c[c][s]!=null)q[s]=e._c[c][s]});
-      return {c,q};
+      return {c,q,m:Object.keys(e._cm[c]||{}).sort((x,y)=>parseFloat(x)-parseFloat(y))};
     });
     return {a:e.a,f:e.f,p:e.p,mc:e.mc,sn:e.sn,m:Object.keys(e._m).sort((x,y)=>parseFloat(x)-parseFloat(y)),s:sizes,c:cols,t:e.t};
   });

@@ -70,8 +70,9 @@ foreach($r in $stockRows){
   $e.Qty+=[int]$r.Qty
   if($r.Colour){
     $ck=SquashCol $r.Colour
-    if(-not $e.Colours.ContainsKey($ck)){ $e.Colours[$ck]=@{ Raw=$r.Colour.ToUpper(); Sizes=[ordered]@{}; Qty=0 } }
+    if(-not $e.Colours.ContainsKey($ck)){ $e.Colours[$ck]=@{ Raw=$r.Colour.ToUpper(); Sizes=[ordered]@{}; Qty=0; MRPs=@{} } }
     $c=$e.Colours[$ck]
+    if($r.MRP){ $c.MRPs[$r.MRP]=$true }   # the report prices colours of one article differently
     $s=if($r.Size){$r.Size}else{'—'}
     $c.Sizes[$s]=[int]$c.Sizes[$s]+[int]$r.Qty
     $c.Qty+=[int]$r.Qty
@@ -286,12 +287,15 @@ foreach($p in $photos){
   }
   if($p.Colour -and -not $cat[$a].colours.Contains($p.Colour)){
     $sq=$p.Squash
-    $q=[ordered]@{}
+    $q=[ordered]@{}; $cm=@()
     if($stock.ContainsKey($sq)){
       $ck=SquashCol $p.Colour
-      if($stock[$sq].Colours.ContainsKey($ck)){ $q=$stock[$sq].Colours[$ck].Sizes }
+      if($stock[$sq].Colours.ContainsKey($ck)){
+        $q=$stock[$sq].Colours[$ck].Sizes
+        $cm=@($stock[$sq].Colours[$ck].MRPs.Keys|Sort-Object{[double]$_})
+      }
     }
-    $cat[$a].colours[$p.Colour]=$q
+    $cat[$a].colours[$p.Colour]=@{ q=$q; m=$cm }
   }
 }
 # articles that are in stock but have no photo at all still belong in the catalogue
@@ -309,7 +313,9 @@ foreach($sq in $stock.Keys){
   $a=$stock[$sq].Raw
   foreach($ck in $stock[$sq].Colours.Keys){
     $c=$stock[$sq].Colours[$ck]
-    if(-not $cat[$a].colours.Contains($c.Raw)){ $cat[$a].colours[$c.Raw]=$c.Sizes }
+    if(-not $cat[$a].colours.Contains($c.Raw)){
+      $cat[$a].colours[$c.Raw]=@{ q=$c.Sizes; m=@($c.MRPs.Keys|Sort-Object{[double]$_}) }
+    }
   }
 }
 
@@ -318,9 +324,9 @@ foreach($a in ($cat.Keys|Sort-Object)){
   $e=$cat[$a]
   $cols=@()
   foreach($c in $e.colours.Keys){
-    $q=$e.colours[$c]
+    $q=$e.colours[$c].q
     $sum=0; foreach($k in $q.Keys){ $sum+=[int]$q[$k] }
-    $cols+=[ordered]@{ c=$c; q=$q; t=$sum }
+    $cols+=[ordered]@{ c=$c; q=$q; m=@($e.colours[$c].m); t=$sum }
   }
   $list+=[ordered]@{
     a=$e.a; f=$e.f; mc=$e.mc; sn=$e.sn; m=@($e.m); s=@($e.s); c=@($cols)
@@ -341,7 +347,8 @@ Set-Content "$app\star-kidz-article-catalogue-data.js" @"
    master - nothing is inferred from the images.
    Stock quantities are the $stamp report's, and are 0 for articles it does not carry.
    Fields: a=article f=family mc=machine sn=season m=[MRP] s=[sizes]
-           c=[{c:colour,q:{size:qty},t:total}] t=total st=1 when in stock p=series photo */
+           c=[{c:colour, q:{size:qty}, m:[MRP for that colour], t:total}]
+           t=total st=1 when in stock p=series photo */
 window.ARTICLE_CATALOGUE_DATE = "$stamp";
 window.ARTICLE_CATALOGUE = $catJson;
 "@ -Encoding utf8

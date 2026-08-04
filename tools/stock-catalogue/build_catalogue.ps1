@@ -37,7 +37,7 @@ $cat=@{}
 foreach($r in $rows){
   $a=$r.Article; $fam=($a -split '-')[0].Trim()
   if(-not $cat.ContainsKey($a)){
-    $cat[$a]=[ordered]@{ article=$a; family=$fam; photo=$(if($photoMap.ContainsKey($fam)){$photoMap[$fam]}else{''}); machine=$r.Machine; season=$r.Season; mrps=@{}; sizes=@{}; colours=[ordered]@{}; total=0 }
+    $cat[$a]=[ordered]@{ article=$a; family=$fam; photo=$(if($photoMap.ContainsKey($fam)){$photoMap[$fam]}else{''}); machine=$r.Machine; season=$r.Season; mrps=@{}; sizes=@{}; colours=[ordered]@{}; colourMrps=@{}; total=0 }
   }
   $e=$cat[$a]
   if(-not $e.machine -and $r.Machine){ $e.machine=$r.Machine }
@@ -46,6 +46,10 @@ foreach($r in $rows){
   if($r.Size){ $e.sizes[$r.Size]=$true }
   $c=if($r.Colour){$r.Colour}else{'—'}
   if(-not $e.colours.Contains($c)){ $e.colours[$c]=@{} }
+  # MRP is kept per colour as well as per article: the report prices colours of the same
+  # article differently, and the catalogue quotes the colour the customer is looking at.
+  if(-not $e.colourMrps.ContainsKey($c)){ $e.colourMrps[$c]=@{} }
+  if($r.MRP){ $e.colourMrps[$c][$r.MRP]=$true }
   $s=if($r.Size){$r.Size}else{'—'}
   $q=[int]$r.Qty
   if($e.colours[$c].ContainsKey($s)){ $e.colours[$c][$s]+=$q } else { $e.colours[$c][$s]=$q }
@@ -59,7 +63,9 @@ foreach($k in ($cat.Keys | Sort-Object)){
   $sizes=@($e.sizes.Keys | Sort-Object)
   $cols=@()
   foreach($c in $e.colours.Keys){
-    $row=[ordered]@{ c=$c; q=[ordered]@{} }
+    $cmrp=@()
+    if($e.colourMrps.ContainsKey($c)){ $cmrp=@($e.colourMrps[$c].Keys|Sort-Object{[double]$_}) }
+    $row=[ordered]@{ c=$c; q=[ordered]@{}; m=$cmrp }
     foreach($s in $sizes){ if($e.colours[$c].ContainsKey($s)){ $row.q[$s]=$e.colours[$c][$s] } }
     if($e.colours[$c].ContainsKey('—')){ $row.q['—']=$e.colours[$c]['—'] }
     $cols+=$row
@@ -80,7 +86,8 @@ $js=@"
    Source : stock report dated $stamp (Busy), parsed row-wise.
    Layout : modelled on the NOVA/DREAM/PEARL/MERYCO catalogue (photo + colour x size grid).
    Totals : $((($list | ForEach-Object { $_.t }) | Measure-Object -Sum).Sum) pairs across $($list.Count) articles - matches the report's Grand Total.
-   Fields : a=article f=family p=photo mc=machine sn=season m=[MRP] s=[sizes] c=[{c:colour,q:{size:qty}}] t=total
+   Fields : a=article f=family p=photo mc=machine sn=season m=[MRP] s=[sizes]
+            c=[{c:colour, q:{size:qty}, m:[MRP for that colour]}] t=total
    Regenerate with scratchpad/parse_stock.ps1 + build_catalogue.ps1 when a new stock report arrives. */
 window.STOCK_CATALOGUE_DATE = "$stamp";
 window.STOCK_CATALOGUE = $json;
