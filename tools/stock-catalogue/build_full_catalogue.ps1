@@ -165,23 +165,14 @@ foreach($p in $photos){
   if(-not $famLevel.ContainsKey($fam) -or $s -gt (Score $famLevel[$fam])){ $famLevel[$fam]=$p }
 }
 
-# Most photos of an in-stock article carry no colour in the file name (1,239 of 1,396),
-# so the colour usually cannot be read. One case needs no reading at all: if the article
-# holds stock in exactly ONE colour, a photo of that article IS a photo of that colour.
-# Nothing is inferred for an article with two or more colours - there the photo would be
-# a guess, and a wrong shade on an order sheet is worse than no shade.
+# NO COLOUR IS EVER INFERRED. There was a rule here that read "if an article holds stock
+# in exactly ONE colour, its photo must be that colour" - it is wrong, and ALEXA-201 is
+# the proof: the archive holds two unnamed ALEXA-201 photos, the one picked is the PCH
+# colourway, and the only colour in stock is B.PNK, so the rule captioned a PCH shoe as
+# B.PNK. The archive carries colourways that are not in stock, so "one colour in stock"
+# says nothing about which colour a photo shows. A colour is matched only when the FILE
+# NAME says so.
 $inferred=0
-foreach($sq in $stock.Keys){
-  $e=$stock[$sq]
-  if($e.Colours.Keys.Count -ne 1){continue}
-  $a=$e.Raw
-  if(-not $artLevel.ContainsKey($a)){continue}
-  $col=$e.Colours[@($e.Colours.Keys)[0]].Raw
-  $k="$a|$col"
-  if($exact.ContainsKey($k)){continue}
-  $exact[$k]=$artLevel[$a]
-  $inferred++
-}
 
 # --------------------------------------------------------------- copy + resize
 New-Item -ItemType Directory -Force $dest | Out-Null
@@ -438,7 +429,7 @@ $cov|Export-Csv "$out\photo_coverage_zip.csv" -NoTypeInformation -Encoding utf8
 "FILES WRITTEN          : $($written.Count)"
 "OUTPUT SIZE            : " + [math]::Round($bytesOut/1MB,1) + " MB"
 "FROM photo_index.csv   : $handAdded"
-"SINGLE-COLOUR MATCHES  : $inferred  (article holds one colour, so its photo is that colour)"
+"INFERRED COLOURS       : $inferred  (always 0 - a colour is only ever read from the file name)"
 "INDEX KEYS             : $($index.Count)  (article+colour: " + @($index.Keys|Where-Object{$_ -match '\|'}).Count + ")"
 "SERIES PHOTOS          : $($photomap.Count)"
 ""
