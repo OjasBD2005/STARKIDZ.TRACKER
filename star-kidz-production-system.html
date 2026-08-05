@@ -190,7 +190,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <nav class="sidebar" id="sidebar">
   <div class="sb-section" id="salesDashNav">
     <div class="sb-title" onclick="toggleSub(this)">📈 Sales Dashboard <span class="sb-chevron open">▶</span></div>
-    <div class="sb-sub" style="max-height:260px">
+    <div class="sb-sub" style="max-height:360px">
       <div class="sb-item" data-view="sales-push" onclick="go('sales-push')">📤 Push Sale</div>
       <div class="sb-item" data-view="payment-aging" onclick="go('payment-aging')">💳 Party Performance</div>
       <div class="sb-item" data-view="state-perf" onclick="go('state-perf')">📊 State Performance</div>
@@ -198,7 +198,8 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
       <div class="sb-item" data-view="my-parties" onclick="go('my-parties')">🏬 My Parties</div>
       <div class="sb-item" data-view="sales-order-entry" onclick="go('sales-order-entry')">📝 Pending Order</div>
       <div class="sb-item" data-view="fg-stock" onclick="go('fg-stock')">📦 Finished Goods Stock</div>
-      <div class="sb-item" data-view="stock-catalogue" onclick="go('stock-catalogue')">🗂️ Stock Catalogue</div>
+      <!-- Photo catalogue — highlighted so it is never confused with the plain FG table. -->
+      <div class="sb-item" data-view="stock-catalogue" onclick="go('stock-catalogue')" style="background:linear-gradient(90deg,#1e3a8a,#3730a3);color:#fff;border-left-color:#fbbf24;font-weight:800">🗂️ Stock Catalogue (Photos)</div>
     </div>
   </div>
 
@@ -1839,7 +1840,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-05.2';
+window.STARKIDZ_BUILD='2026-08-05.3';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5011,7 +5012,14 @@ let fgFilterSeason='all', fgFilterAge='all';
 // Show, in this view, when the Busy stock catalogue holds stock this table doesn't.
 // Syncing overwrites catalogue-sourced rows, so it stays a deliberate click — but the
 // prompt now appears where the stock is actually being read.
+// Retired. The table now follows the catalogue automatically (autoSyncFGFromCatalogue),
+// so there is nothing to prompt for; the only case left worth showing is a user who
+// cannot sync because the catalogue has not loaded at all.
 function renderFGCatalogueBanner(){
+  const el=$('#fgCatalogueBanner');if(!el)return;
+  el.style.display='none';
+}
+function renderFGCatalogueBannerLegacy(){
   const el=$('#fgCatalogueBanner');if(!el)return;
   const cat=(typeof catData==='function')?catData():[];
   if(!cat.length||!canAccessFinishedGoodsStock()){el.style.display='none';return}
@@ -5047,19 +5055,24 @@ function renderFGCatalogueBanner(){
 }
 function renderFGStock(){
   renderFGCatalogueBanner();
+  // The FG table is NOT synced automatically. It only changes when someone clicks
+  // "Sync from catalogue" — an explicit, visible action, never a silent backend write.
+  // The banner above the table prompts for it when the catalogue is ahead.
   let filtered=fgFilterSeason==='all'?FINISHED_GOODS_STOCK.slice():FINISHED_GOODS_STOCK.filter(s=>s.season===fgFilterSeason);
   const withAge=filtered.map(s=>{const age=stockAgeDays(s);return {...s,age,bucket:age==null?'—':bucketOf(age)};});
-  // aging KPI strip (over the season-filtered set, before the age filter narrows it)
-  const bkPairs={'0-30':0,'31-60':0,'61-90':0,'90+':0};
-  withAge.forEach(s=>{if(s.bucket!=='—')bkPairs[s.bucket]+=+s.stockPairs||0;});
-  const totPairs=withAge.reduce((t,s)=>t+(+s.stockPairs||0),0);
-  const oldPairs=bkPairs['90+'], oldArticles=withAge.filter(s=>s.bucket==='90+').length;
+  // aging KPI strip (over the season-filtered set, before the age filter narrows it).
+  // CARTONS are the headline — the report counts cartons — with pairs as the subtitle.
+  const bkCtn={'0-30':0,'31-60':0,'61-90':0,'90+':0}, bkPrs={'0-30':0,'31-60':0,'61-90':0,'90+':0};
+  withAge.forEach(s=>{if(s.bucket!=='—'){bkCtn[s.bucket]+=+s.stockCtns||0;bkPrs[s.bucket]+=+s.stockPairs||0;}});
+  const totCtn=withAge.reduce((t,s)=>t+(+s.stockCtns||0),0);
+  const totPrs=withAge.reduce((t,s)=>t+(+s.stockPairs||0),0);
+  const oldCtn=bkCtn['90+'], oldArticles=withAge.filter(s=>s.bucket==='90+').length;
   const kpi=(l,v,sub,c,active)=>`<div class="card" style="padding:10px 12px;border-left:4px solid ${c};cursor:pointer;${active?'box-shadow:0 0 0 2px '+c+' inset':''}" onclick="filterFGAge('${l==='All Stock'?'all':(l==='Old Stock'?'90+':l)}')"><div style="font-size:10px;color:#64748b;font-weight:600">${l}</div><div style="font-size:18px;font-weight:800;color:${c}">${v}</div><div style="font-size:10px;color:#94a3b8">${sub}</div></div>`;
   const ks=$('#fgAgeKpis');
   if(ks)ks.innerHTML=
-    kpi('All Stock',fmtN(totPairs)+' prs',withAge.length+' articles','#1b3187',fgFilterAge==='all')+
-    ['0-30','31-60','61-90'].map(b=>kpi(b,fmtN(bkPairs[b])+' prs',BUCKET_LABEL[b],BUCKET_COLOR[b],fgFilterAge===b)).join('')+
-    kpi('Old Stock',fmtN(oldPairs)+' prs',oldArticles+' articles · 90+ d','#b91c1c',fgFilterAge==='90+');
+    kpi('All Stock',fmtN(totCtn)+' ctn',fmtN(totPrs)+' prs · '+withAge.length+' articles','#1b3187',fgFilterAge==='all')+
+    ['0-30','31-60','61-90'].map(b=>kpi(b,fmtN(bkCtn[b])+' ctn',fmtN(bkPrs[b])+' prs · '+BUCKET_LABEL[b],BUCKET_COLOR[b],fgFilterAge===b)).join('')+
+    kpi('Old Stock',fmtN(oldCtn)+' ctn',oldArticles+' articles · 90+ d','#b91c1c',fgFilterAge==='90+');
   // apply age filter + surface oldest first
   let rows=fgFilterAge==='all'?withAge:withAge.filter(s=>s.bucket===fgFilterAge);
   rows.sort((a,b)=>(b.age||0)-(a.age||0));
@@ -5434,6 +5447,7 @@ function renderStockCatalogue(){
     return;
   }
   touchCatalogueAging(d,catDate());          // stamp/expire lots before anything reads the ages
+  autoSyncFGFromCatalogue();                 // keep FG Stock in step even if that view is never opened
   const mode=catAgingMode();
   const rows=catalogueFiltered(mode);
   const totalCtn=d.reduce((s,a)=>s+(+a.t||0),0);
@@ -5729,11 +5743,12 @@ function resetCatalogueToFile(){
   toast('Reverted','↩️','Showing the catalogue shipped with the app.');
 }
 
-// Push catalogue totals into Finished Goods Stock (article-level pairs).
-function syncCatalogueToFG(){
-  if(!canAccessFinishedGoodsStock()){toast('Access denied','🚫','');return}
+// Push catalogue totals into Finished Goods Stock (article-level cartons and pairs).
+// `silent` is used by the automatic sync so it does not toast on every page load.
+function syncCatalogueToFG(silent){
+  if(!canAccessFinishedGoodsStock()){if(!silent)toast('Access denied','🚫','');return}
   const d=catData();
-  if(!d.length){toast('No catalogue data','⚠️','');return}
+  if(!d.length){if(!silent)toast('No catalogue data','⚠️','');return}
   const date=catDate()||todayISO();
   const live={};d.forEach(a=>live[(a.a||'').toUpperCase()]=1);
   // Drop articles a PREVIOUS catalogue sync created that today's report no longer has.
@@ -5768,8 +5783,29 @@ function syncCatalogueToFG(){
   });
   FINISHED_GOODS_STOCK.sort((x,y)=>(x.article||'').localeCompare(y.article||''));
   saveFGStock();
-  toast('Synced to FG Stock','🔄',added+' new · '+updated+' updated'+(removed?' · '+removed+' stale removed':'')+' · '+qtyLabel(d.reduce((s,a)=>s+(+a.t||0),0),d.reduce((s,a)=>s+artPairs(a),0)));
-  renderFGStock();
+  if(!silent)toast('Synced to FG Stock','🔄',added+' new · '+updated+' updated'+(removed?' · '+removed+' stale removed':'')+' · '+qtyLabel(d.reduce((s,a)=>s+(+a.t||0),0),d.reduce((s,a)=>s+artPairs(a),0)));
+  return {added,updated,removed};
+}
+// The catalogue IS the stock, so the Finished Goods table follows it on its own rather
+// than waiting for someone to notice a banner and press a button. It runs only when the
+// two disagree, and a sync is idempotent, so it settles after one pass and then stays
+// quiet. Manually added rows are preserved exactly as with the manual sync.
+let _fgAutoSynced=false;
+function autoSyncFGFromCatalogue(){
+  if(_fgAutoSynced)return false;
+  if(typeof canAccessFinishedGoodsStock!=='function'||!canAccessFinishedGoodsStock())return false;
+  const cat=(typeof catData==='function')?catData():[];
+  if(!cat.length||!Array.isArray(FINISHED_GOODS_STOCK))return false;
+  const live={};FINISHED_GOODS_STOCK.forEach(s=>live[(s.article||'').toUpperCase()]=1);
+  const missing=cat.filter(a=>!live[(a.a||'').toUpperCase()]).length;
+  const src=FINISHED_GOODS_STOCK.filter(s=>s.src==='catalogue');
+  const inStep=!missing
+    && src.reduce((s,a)=>s+(+a.stockCtns||0),0)===cat.reduce((s,a)=>s+(+a.t||0),0)
+    && src.reduce((s,a)=>s+(+a.stockPairs||0),0)===cat.reduce((s,a)=>s+artPairs(a),0);
+  if(inStep)return false;
+  _fgAutoSynced=true;                 // set first: syncCatalogueToFG re-renders
+  syncCatalogueToFG(true);
+  return true;
 }
 function downloadFGStock(){
   if(!canAccessFinishedGoodsStock()){alert('Access denied: Only Sales, Coordinators, GM, Planning, and Master can download stock.');return}
