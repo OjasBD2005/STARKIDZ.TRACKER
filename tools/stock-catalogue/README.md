@@ -204,8 +204,17 @@ automatically and adds 133 colour matches. Articles with two or more colours are
 alone — there the photo would be a guess, and a wrong shade on an order sheet is worse
 than no shade.
 
-**To close a photo gap:** rename the photo `ARTICLE COLOUR.jpg` (e.g. `CRETA-05 OLV.jpg`),
-put it in the archive, rerun. Nothing else.
+**To close a photo gap:** rename the photo `ARTICLE COLOUR.jpg` (e.g. `CRETA-05 OLV.jpg`)
+and drop it in `tools/stock-catalogue/named-photos/`. That folder is committed to the
+repo, so a rename is **permanent** — it survives every rebuild and deploys with the app.
+Files there use the same file-name parser as the archive and take **priority** over any
+unnamed archive photo. Use the stock colour CODE (`KHK`, not `KHAKI`); the builder maps
+it to the report's spelling. A colour the report does not carry for that article is
+indexed but never shown until it comes back into stock.
+
+Example (read off the images by eye): `ALIA-04 PPL.jpg`, `ALIA-04 DGR.jpg`,
+`ALIA-04 KHK.jpg` — three of ALIA-04's colours whose archive photos carried no colour in
+the file name.
 
 `build_photo_index.ps1` + `photo_index.csv` remain for hand-identifying a one-off photo
 from an unnamed source folder; the archive route supersedes them for bulk work.

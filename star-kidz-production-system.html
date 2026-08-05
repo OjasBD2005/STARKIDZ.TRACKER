@@ -1213,7 +1213,7 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
         <option value="all">Every article we have a photo of</option>
       </select></div>
     <div><label class="lbl">Show</label><select id="scStock" class="inp" style="width:auto" onchange="renderStockCatalogue()">
-      <option value="all">All articles</option><option value="in">In stock only</option><option value="low">Low (&lt; 25 prs)</option>
+      <option value="all">All articles</option><option value="in">In stock only</option><option value="low">Low (&lt; 25 ctn)</option>
     </select></div>
     <div><label class="lbl" title="Aging is always kept in the PDF — this only controls the on-screen catalogue">Aging (screen only)</label>
       <select id="scAging" class="inp" style="width:auto" onchange="renderStockCatalogue()">
@@ -1840,7 +1840,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-05.3';
+window.STARKIDZ_BUILD='2026-08-05.4';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5322,10 +5322,10 @@ function colourPhotoFor(a,colour){
 // (and, for a few articles, within one size). Older builds carry no pairs at all, so
 // the pair figure is simply omitted rather than guessed at with one multiplier.
 function rowPairs(r){return Object.values((r&&r.p)||{}).reduce((s,v)=>s+(+v||0),0);}
-function qtyLabel(ctn,pairs){
-  const c=fmtN(ctn)+' ctn';
-  return pairs>0?(c+' · '+fmtN(pairs)+' prs'):c;
-}
+// The stock interface quotes CARTONS only — this is what goes to a party. Pairs are an
+// internal figure and are deliberately not shown here. The second argument is ignored,
+// kept so existing callers need no change.
+function qtyLabel(ctn,_pairsIgnored){ return fmtN(ctn)+' ctn'; }
 function artPairs(a){
   if(+a.tp>0)return +a.tp;
   return (a.c||[]).reduce((s,r)=>s+rowPairs(r),0);
@@ -5361,6 +5361,12 @@ function closeScPhoto(){const m=$('#scPhotoModal');if(m){m.style.display='none';
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeScPhoto();});
 // One catalogue card: photo on the left, colour x size grid on the right.
 function catalogueCardHTML(a,forPrint){
+  // Only colours that are IN STOCK for this article are ever shown — a colour with zero
+  // stock is dropped from the row list, the totals and the photo tiles alike. Sizes are
+  // then narrowed to those the surviving colours actually use, so no empty column shows.
+  const inStockCols=(a.c||[]).filter(r=>Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0)>0);
+  const usedSizes={};inStockCols.forEach(r=>Object.keys(r.q||{}).forEach(s=>{if((+r.q[s]||0)>0)usedSizes[s]=1;}));
+  a=Object.assign({},a,{c:inStockCols,s:(a.s||[]).filter(s=>usedSizes[s])});
   const sizes=(a.s||[]).slice();
   const ag=catAging(a);
   // An article with no stock is not pictured at all — the card still lists it so the
@@ -5369,7 +5375,7 @@ function catalogueCardHTML(a,forPrint){
   const main=inStock?catPhotoFor(a):null;
   const img=main?`<img src="${CAT_PHOTO_DIR}${main.file}" alt="${a.a}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px\\'>no photo</div>'">`
     :`<div style="display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px">${inStock?'no photo':'no stock'}</div>`;
-  const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num" title="Cartons — the unit the stock report counts in">Ctn</th><th class="num" title="Pairs, from the report's own pairs-per-carton">Prs</th><th class="num" title="MRP for this colour, exactly as the stock report prices it">MRP</th></tr>`;
+  const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num" title="Cartons — the unit the stock report counts in">Ctn</th><th class="num" title="MRP for this colour, exactly as the stock report prices it">MRP</th></tr>`;
   const body=(a.c||[]).map(r=>{
     const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
     const cells=sizes.map(s=>{
@@ -5386,7 +5392,7 @@ function catalogueCardHTML(a,forPrint){
     // another colour, and only when the colour is in stock.
     const cpFile=rowTot>0?colourPhotoFor(a,r.c):'';
     const swatch=cpFile?`<img src="${CAT_PHOTO_DIR}${cpFile}" alt="${a.a} ${r.c}" title="${a.a} · ${r.c} — click to enlarge" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'} style="width:${forPrint?'34px;height:34px':'46px;height:46px;cursor:zoom-in'};object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;vertical-align:middle;margin-right:7px">`:'';
-    return `<tr><td style="font-weight:600;white-space:nowrap">${swatch}${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td><td class="num" style="font-weight:700;color:#475569">${fmtN(rowPairs(r))||'·'}</td><td class="num" style="font-weight:700;color:#15803d;white-space:nowrap">${colourMrp(a,r)}</td></tr>`;
+    return `<tr><td style="font-weight:600;white-space:nowrap">${swatch}${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td><td class="num" style="font-weight:700;color:#15803d;white-space:nowrap">${colourMrp(a,r)}</td></tr>`;
   }).join('');
   const colTot=sizes.map(s=>{
     const t=(a.c||[]).reduce((sum,r)=>sum+(+((r.q||{})[s])||0),0);
@@ -5430,7 +5436,7 @@ function catalogueCardHTML(a,forPrint){
         <div style="font-size:12px;color:#64748b;margin-bottom:8px">MRP <b style="color:#0f172a">${mrpLabel(a)}</b> · sizes ${sizes.join(', ')||'—'} · ${(a.c||[]).length} colour(s)${ag.dated?` · oldest lot <b style="color:${ag.maxAge>90?'#b91c1c':ag.maxAge>60?'#b45309':'#0f172a'}">${ag.maxAge} d</b>`:''}</div>
         <div style="overflow:auto"><table class="tbl" style="font-size:12px">
           <thead>${head}</thead><tbody>${body}
-          <tr style="background:#eef3ff"><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(a.t)}</td><td class="num" style="font-weight:800">${fmtN(artPairs(a))||'·'}</td><td class="num" style="font-weight:800">${mrpLabel(a)}</td></tr>
+          <tr style="background:#eef3ff"><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(a.t)}</td><td class="num" style="font-weight:800">${mrpLabel(a)}</td></tr>
           </tbody></table></div>
       </div>
     </div>
@@ -5447,7 +5453,6 @@ function renderStockCatalogue(){
     return;
   }
   touchCatalogueAging(d,catDate());          // stamp/expire lots before anything reads the ages
-  autoSyncFGFromCatalogue();                 // keep FG Stock in step even if that view is never opened
   const mode=catAgingMode();
   const rows=catalogueFiltered(mode);
   const totalCtn=d.reduce((s,a)=>s+(+a.t||0),0);
@@ -5475,14 +5480,19 @@ function renderStockCatalogue(){
   }
   const k=[['Articles shown',fmtN(rows.length)+' / '+d.length,'#1b3187'],
            ['Shown',fmtN(shownCtn)+' ctn','#059669'],
-           ['Shown (pairs)',fmtN(shownPrs),'#059669'],
            ['Colours',colours,'#7c3aed'],['Size runs',sizes,'#d97706'],
-           ['Total stock',fmtN(totalCtn)+' ctn · '+fmtN(totalPrs)+' prs','#0f172a'],
+           ['Total stock',fmtN(totalCtn)+' ctn','#0f172a'],
            ['Aging 61–90 d',fmtN(agPairs)+' ctn','#d97706'],['Old 90+ d',fmtN(oldPairs)+' ctn','#b91c1c'],
            ['Colour-matched photos',fmtN(photoIndexCount()),'#0891b2']];
   $('#scKpis').innerHTML=k.map(x=>`<div class="card" style="padding:10px 14px;border-left:4px solid ${x[2]}"><div style="font-size:11px;color:#64748b;font-weight:600">${x[0]}</div><div style="font-size:19px;font-weight:800">${x[1]}</div></div>`).join('');
+  // Multi-column grid — several articles per page, not one full-width card each. Each
+  // card sizes to at least 440px, so wide screens show 2-3 across and a phone shows 1.
+  const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const dateBar=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:12px;color:#475569">
+    <span>📅 Viewed <b>${today}</b> · stock as on <b>${catDate()||'—'}</b></span>
+    <span>${fmtN(rows.length)} article(s) on this page</span></div>`;
   $('#scList').innerHTML=rows.length
-    ? rows.map(a=>catalogueCardHTML(a,false)).join('')
+    ? dateBar+`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px;align-items:start">${rows.map(a=>catalogueCardHTML(a,false)).join('')}</div>`
     : '<div class="card" style="text-align:center;color:#94a3b8;padding:20px">No articles match these filters.</div>';
 }
 // Print / save-as-PDF. Deliberately ignores the screen's aging filter and passes 'all':

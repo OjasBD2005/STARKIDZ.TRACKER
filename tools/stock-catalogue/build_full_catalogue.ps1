@@ -14,7 +14,9 @@
 # when it is one of those, and otherwise left out of the colour rather than invented.
 param(
   [string]$out=$env:SC_WORKDIR,
-  [string]$zip="C:\Users\VINAY\Downloads\ALL PHOTOS 1.zip",
+  # Permanent home for the archive. Downloads gets cleared, so the zip lives in
+  # OneDrive\PRODUCT PHOTOS and is backed up with everything else there.
+  [string]$zip="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\PRODUCT PHOTOS\ALL-PHOTOS-ARCHIVE.zip",
   [int]$max=1000,
   [int]$quality=80,
   [switch]$SkipPhotos   # reuse the images already in article-photos/; rebuild only the data
@@ -83,15 +85,15 @@ foreach($r in $stockRows){
 }
 
 # ------------------------------------------------------------------- read names
-$z=[System.IO.Compression.ZipFile]::OpenRead($zip)
-$photos=New-Object System.Collections.ArrayList
-foreach($e in $z.Entries){
-  if(-not $e.Name){continue}
-  if(@('.jpg','.jpeg','.png') -notcontains ([System.IO.Path]::GetExtension($e.Name).ToLower())){continue}
-  $base=[System.IO.Path]::GetFileNameWithoutExtension($e.Name)
+# Turn one file NAME into a matched photo record, or $null when the name says nothing.
+# Identical logic for the zip and for the hand-named override folder, so a renamed photo
+# behaves exactly like a correctly-named archive photo.
+function ParseNamePhoto($fileName,$bytes,$entryId,$folder,$source,$priority){
+  if(@('.jpg','.jpeg','.png') -notcontains ([System.IO.Path]::GetExtension($fileName).ToLower())){ return $null }
+  $base=[System.IO.Path]::GetFileNameWithoutExtension($fileName)
   $base=($base -replace '\(\s*\d+\s*\)','' -replace '(?i)\s*-\s*Copy\s*$','').Trim()
   $toks=@(($base -split '\s+')|Where-Object{$_})
-  if(-not $toks.Count){continue}
+  if(-not $toks.Count){ return $null }
 
   $art='';$used=0;$known=$false
   for($j=$toks.Count;$j -ge 1;$j--){
@@ -134,7 +136,7 @@ foreach($e in $z.Entries){
     foreach($c in $cands){ $k=SquashCol $c; if($colVocab.ContainsKey($k)){ $col=$colVocab[$k];break } }
   }
   # a file whose name is a GUID or a bare number tells us nothing - skip it
-  if($art -notmatch '^[A-Z][A-Z0-9 ]*(-[A-Z0-9()/\.\-]+)*$' -or $art.Length -gt 26){ continue }
+  if($art -notmatch '^[A-Z][A-Z0-9 ]*(-[A-Z0-9()/\.\-]+)*$' -or $art.Length -gt 26){ return $null }
 
   # where the report knows this article+colour, use the report's own spelling
   $sq=Squash $art
@@ -145,24 +147,46 @@ foreach($e in $z.Entries){
       if($stock[$sq].Colours.ContainsKey($ck)){ $col=$stock[$sq].Colours[$ck].Raw }
     }
   }
-  [void]$photos.Add([PSCustomObject]@{
-    Entry=$e.FullName;Folder=(($e.FullName -split '/')[1]);Bytes=$e.Length
+  return [PSCustomObject]@{
+    Entry=$entryId;Folder=$folder;Bytes=$bytes;Source=$source;Priority=$priority
     Article=$art;Squash=$sq;Colour=$col;KnownArticle=$known;InStock=$stock.ContainsKey($sq)
-  })
+  }
+}
+
+$z=[System.IO.Compression.ZipFile]::OpenRead($zip)
+$photos=New-Object System.Collections.ArrayList
+foreach($e in $z.Entries){
+  if(-not $e.Name){continue}
+  $p=ParseNamePhoto $e.Name $e.Length $e.FullName (($e.FullName -split '/')[1]) 'zip' 0
+  if($p){ [void]$photos.Add($p) }
+}
+
+# Hand-named override photos: a colour read off the image by eye, saved with the colour
+# in the file name (e.g. "ALIA-04 PPL.jpg"). Committed to the repo so a rename is
+# permanent, and given priority 1 so it wins over any unnamed archive photo.
+$namedDir="$PSScriptRoot\named-photos"
+$namedCount=0
+if(Test-Path $namedDir){
+  foreach($f in (Get-ChildItem $namedDir -File)){
+    $p=ParseNamePhoto $f.Name $f.Length $f.FullName '(named)' 'file' 1
+    if($p){ [void]$photos.Add($p); $namedCount++ }
+  }
 }
 
 # ------------------------------------------------------------------ pick photos
+# A hand-named override (Priority 1) always beats an archive photo; within the same
+# priority, the mid-weight image wins.
 function Score($p){ $kb=$p.Bytes/1KB; if($kb -lt 25){return 0}; if($kb -gt 1500){return 1}; return 2 }
+function Better($a,$b){ if($a.Priority -ne $b.Priority){ return $a.Priority -gt $b.Priority }; return (Score $a) -gt (Score $b) }
 $exact=@{};$artLevel=@{};$famLevel=@{}
 foreach($p in $photos){
-  $s=Score $p
   if($p.Colour){
     $k="$($p.Article)|$($p.Colour)"
-    if(-not $exact.ContainsKey($k) -or $s -gt (Score $exact[$k])){ $exact[$k]=$p }
+    if(-not $exact.ContainsKey($k) -or (Better $p $exact[$k])){ $exact[$k]=$p }
   }
-  if(-not $artLevel.ContainsKey($p.Article) -or $s -gt (Score $artLevel[$p.Article])){ $artLevel[$p.Article]=$p }
+  if(-not $artLevel.ContainsKey($p.Article) -or (Better $p $artLevel[$p.Article])){ $artLevel[$p.Article]=$p }
   $fam=($p.Article -split '-')[0].Trim()
-  if(-not $famLevel.ContainsKey($fam) -or $s -gt (Score $famLevel[$fam])){ $famLevel[$fam]=$p }
+  if(-not $famLevel.ContainsKey($fam) -or (Better $p $famLevel[$fam])){ $famLevel[$fam]=$p }
 }
 
 # NO COLOUR IS EVER INFERRED. There was a rule here that read "if an article holds stock
@@ -227,19 +251,22 @@ function EmitFile($path,$name){
   return $r
 }
 
+# Emit a picked photo from wherever it came from - a zip entry or a disk file.
+function EmitP($p,$name){ if($p.Source -eq 'file'){ return EmitFile $p.Entry $name } else { return Emit $p.Entry $name } }
+
 $index=[ordered]@{}
 # Article-level photos are written FIRST so that a colour whose photo is the same image
-# as the article's - every single-colour inference, and any article whose only photo is
-# named with its colour - reuses that file instead of writing a second copy of the same
-# bytes. Emit returns the name already written for a source it has seen.
+# as the article's - any article whose only photo is named with its colour - reuses that
+# file instead of writing a second copy of the same bytes. Emit returns the name already
+# written for a source it has seen.
 foreach($a in ($artLevel.Keys|Sort-Object)){
   $p=$artLevel[$a]
-  $file=Emit $p.Entry ((SafeName $a)+'.jpg')
+  $file=EmitP $p ((SafeName $a)+'.jpg')
   if($file){ $index[$a]=$file }
 }
 foreach($k in ($exact.Keys|Sort-Object)){
   $p=$exact[$k]
-  $file=Emit $p.Entry ((SafeName "$($p.Article)__$($p.Colour)")+'.jpg')
+  $file=EmitP $p ((SafeName "$($p.Article)__$($p.Colour)")+'.jpg')
   if($file){ $index[$k]=$file }
 }
 # hand-identified matches from the older unnamed folders, for anything still uncovered
