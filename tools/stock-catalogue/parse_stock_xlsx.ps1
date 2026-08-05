@@ -74,6 +74,7 @@ if(-not $rows){throw "No sheet with an 'Item Name' + 'Colour' header found in $f
 $cName=$colOf['ITEM NAME']; $cCol=$colOf['COLOUR']; $cSize=$colOf['SIZE']
 $cMrp =$colOf['MRP'];       $cSp =$colOf['SALE PRICE']
 $cQty =if($colOf.ContainsKey('STOCK')){$colOf['STOCK']}else{$colOf['QTY.']}
+$cPair=if($colOf.ContainsKey('PAIR')){$colOf['PAIR']}else{''}   # pairs per carton
 $cMach=if($colOf.ContainsKey('MACHINE')){$colOf['MACHINE']}else{''}
 $cSeas=if($colOf.ContainsKey('SEASON')){$colOf['SEASON']}else{''}
 $cSer =if($colOf.ContainsKey('ITEM SERIES')){$colOf['ITEM SERIES']}else{''}
@@ -91,6 +92,11 @@ for($i=1;$i -lt $rows.Count;$i++){
   if($a -match '(?i)\btotal\b'){ $skipped++; continue }
   $qty=[int][double]$q
   if($qty -le 0){ $skipped++; continue }
+  # The report's quantity is in CARTONS (its Unit column says so). Pairs per carton
+  # differ by size, and for a few articles even within one size, so pairs are worked
+  # out line by line here rather than by one multiplier per article.
+  $ppc=0
+  if($cPair -and "$($r[$cPair])" -match '^\d+$'){ $ppc=[int]$r[$cPair] }
   [void]$outRows.Add([PSCustomObject]@{
     Article=$a
     Colour="$($r[$cCol])"
@@ -98,6 +104,8 @@ for($i=1;$i -lt $rows.Count;$i++){
     MRP="$($r[$cMrp])"
     SP=$(if($cSp){"$($r[$cSp])"}else{''})
     Qty=$qty
+    PairPerCtn=$ppc
+    Pairs=($qty*$ppc)
     Machine=$(if($cMach){"$($r[$cMach])".ToUpper()}else{''})
     Season=$(if($cSeas){"$($r[$cSeas])".ToUpper()}else{''})
     Series=$(if($cSer){"$($r[$cSer])"}else{''})
@@ -108,7 +116,8 @@ $outRows|Export-Csv "$out\stock_parsed.csv" -NoTypeInformation -Encoding utf8
 
 "SHEET        : $picked"
 "ROWS PARSED  : $($outRows.Count)   (skipped $skipped non-stock rows)"
-"TOTAL QTY    : " + (($outRows|Measure-Object Qty -Sum).Sum)
+"TOTAL CARTONS: " + (($outRows|Measure-Object Qty -Sum).Sum) + "   <- this is what the report's Grand Total counts"
+"TOTAL PAIRS  : " + (($outRows|Measure-Object Pairs -Sum).Sum)
 "ARTICLES     : " + (@($outRows|Select-Object -ExpandProperty Article -Unique).Count)
 "COLOURS      : " + (@($outRows|Where-Object{$_.Colour}|Select-Object -ExpandProperty Colour -Unique).Count)
 "SIZES        : " + (@($outRows|Where-Object{$_.Size}|Select-Object -ExpandProperty Size -Unique).Count)

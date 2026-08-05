@@ -61,21 +61,24 @@ $stock=@{}   # squashed article -> @{ Raw; Colours = squashedColour -> @{Raw;Siz
 foreach($r in $stockRows){
   $k=Squash $r.Article
   if(-not $stock.ContainsKey($k)){
-    $stock[$k]=@{ Raw=$r.Article.ToUpper(); Colours=@{}; Sizes=@{}; MRPs=@{}; Qty=0
+    $stock[$k]=@{ Raw=$r.Article.ToUpper(); Colours=@{}; Sizes=@{}; MRPs=@{}; Qty=0; Pairs=0
                   Machine=$r.Machine; Season=$r.Season }
   }
   $e=$stock[$k]
   if($r.Size){ $e.Sizes[$r.Size]=$true }
   if($r.MRP){ $e.MRPs[$r.MRP]=$true }
-  $e.Qty+=[int]$r.Qty
+  $e.Qty+=[int]$r.Qty          # CARTONS - the report's own unit
+  $e.Pairs+=[int]$r.Pairs      # summed per line; pairs-per-carton varies by size
   if($r.Colour){
     $ck=SquashCol $r.Colour
-    if(-not $e.Colours.ContainsKey($ck)){ $e.Colours[$ck]=@{ Raw=$r.Colour.ToUpper(); Sizes=[ordered]@{}; Qty=0; MRPs=@{} } }
+    if(-not $e.Colours.ContainsKey($ck)){ $e.Colours[$ck]=@{ Raw=$r.Colour.ToUpper(); Sizes=[ordered]@{}; PairSizes=[ordered]@{}; Qty=0; Pairs=0; MRPs=@{} } }
     $c=$e.Colours[$ck]
     if($r.MRP){ $c.MRPs[$r.MRP]=$true }   # the report prices colours of one article differently
     $s=if($r.Size){$r.Size}else{'—'}
     $c.Sizes[$s]=[int]$c.Sizes[$s]+[int]$r.Qty
+    $c.PairSizes[$s]=[int]$c.PairSizes[$s]+[int]$r.Pairs
     $c.Qty+=[int]$r.Qty
+    $c.Pairs+=[int]$r.Pairs
   }
 }
 
@@ -162,6 +165,24 @@ foreach($p in $photos){
   if(-not $famLevel.ContainsKey($fam) -or $s -gt (Score $famLevel[$fam])){ $famLevel[$fam]=$p }
 }
 
+# Most photos of an in-stock article carry no colour in the file name (1,239 of 1,396),
+# so the colour usually cannot be read. One case needs no reading at all: if the article
+# holds stock in exactly ONE colour, a photo of that article IS a photo of that colour.
+# Nothing is inferred for an article with two or more colours - there the photo would be
+# a guess, and a wrong shade on an order sheet is worse than no shade.
+$inferred=0
+foreach($sq in $stock.Keys){
+  $e=$stock[$sq]
+  if($e.Colours.Keys.Count -ne 1){continue}
+  $a=$e.Raw
+  if(-not $artLevel.ContainsKey($a)){continue}
+  $col=$e.Colours[@($e.Colours.Keys)[0]].Raw
+  $k="$a|$col"
+  if($exact.ContainsKey($k)){continue}
+  $exact[$k]=$artLevel[$a]
+  $inferred++
+}
+
 # --------------------------------------------------------------- copy + resize
 New-Item -ItemType Directory -Force $dest | Out-Null
 if(-not $SkipPhotos){ Get-ChildItem $dest -File | Remove-Item -Force }
@@ -216,15 +237,19 @@ function EmitFile($path,$name){
 }
 
 $index=[ordered]@{}
+# Article-level photos are written FIRST so that a colour whose photo is the same image
+# as the article's - every single-colour inference, and any article whose only photo is
+# named with its colour - reuses that file instead of writing a second copy of the same
+# bytes. Emit returns the name already written for a source it has seen.
+foreach($a in ($artLevel.Keys|Sort-Object)){
+  $p=$artLevel[$a]
+  $file=Emit $p.Entry ((SafeName $a)+'.jpg')
+  if($file){ $index[$a]=$file }
+}
 foreach($k in ($exact.Keys|Sort-Object)){
   $p=$exact[$k]
   $file=Emit $p.Entry ((SafeName "$($p.Article)__$($p.Colour)")+'.jpg')
   if($file){ $index[$k]=$file }
-}
-foreach($a in ($artLevel.Keys|Sort-Object)){
-  $p=$artLevel[$a]
-  $file=Emit $p.Entry ((SafeName $a)+'.jpg')
-  if($file -and -not $index.Contains($a)){ $index[$a]=$file }
 }
 # hand-identified matches from the older unnamed folders, for anything still uncovered
 $handAdded=0
@@ -282,20 +307,21 @@ foreach($p in $photos){
       inStock=[bool]$st
       mc=$(if($st){$st.Machine}else{''}); sn=$(if($st){$st.Season}else{''})
       m=$mArr; s=$sArr
-      t=$(if($st){$st.Qty}else{0})
+      t=$(if($st){$st.Qty}else{0}); tp=$(if($st){$st.Pairs}else{0})
     }
   }
   if($p.Colour -and -not $cat[$a].colours.Contains($p.Colour)){
     $sq=$p.Squash
-    $q=[ordered]@{}; $cm=@()
+    $q=[ordered]@{}; $qp=[ordered]@{}; $cm=@()
     if($stock.ContainsKey($sq)){
       $ck=SquashCol $p.Colour
       if($stock[$sq].Colours.ContainsKey($ck)){
         $q=$stock[$sq].Colours[$ck].Sizes
+        $qp=$stock[$sq].Colours[$ck].PairSizes
         $cm=@($stock[$sq].Colours[$ck].MRPs.Keys|Sort-Object{[double]$_})
       }
     }
-    $cat[$a].colours[$p.Colour]=@{ q=$q; m=$cm }
+    $cat[$a].colours[$p.Colour]=@{ q=$q; p=$qp; m=$cm }
   }
 }
 # articles that are in stock but have no photo at all still belong in the catalogue
@@ -305,7 +331,7 @@ foreach($sq in $stock.Keys){
   $e=$stock[$sq]
   $cat[$a]=[ordered]@{
     a=$a; f=(($a -split '-')[0].Trim()); colours=[ordered]@{}; inStock=$true
-    mc=$e.Machine; sn=$e.Season; m=@($e.MRPs.Keys|Sort-Object{[double]$_}); s=@($e.Sizes.Keys|Sort-Object); t=$e.Qty
+    mc=$e.Machine; sn=$e.Season; m=@($e.MRPs.Keys|Sort-Object{[double]$_}); s=@($e.Sizes.Keys|Sort-Object); t=$e.Qty; tp=$e.Pairs
   }
 }
 # every in-stock colour must appear, photo or not
@@ -314,7 +340,7 @@ foreach($sq in $stock.Keys){
   foreach($ck in $stock[$sq].Colours.Keys){
     $c=$stock[$sq].Colours[$ck]
     if(-not $cat[$a].colours.Contains($c.Raw)){
-      $cat[$a].colours[$c.Raw]=@{ q=$c.Sizes; m=@($c.MRPs.Keys|Sort-Object{[double]$_}) }
+      $cat[$a].colours[$c.Raw]=@{ q=$c.Sizes; p=$c.PairSizes; m=@($c.MRPs.Keys|Sort-Object{[double]$_}) }
     }
   }
 }
@@ -325,12 +351,14 @@ foreach($a in ($cat.Keys|Sort-Object)){
   $cols=@()
   foreach($c in $e.colours.Keys){
     $q=$e.colours[$c].q
+    $qp=$e.colours[$c].p
     $sum=0; foreach($k in $q.Keys){ $sum+=[int]$q[$k] }
-    $cols+=[ordered]@{ c=$c; q=$q; m=@($e.colours[$c].m); t=$sum }
+    $sumP=0; if($qp){ foreach($k in $qp.Keys){ $sumP+=[int]$qp[$k] } }
+    $cols+=[ordered]@{ c=$c; q=$q; p=$(if($qp){$qp}else{[ordered]@{}}); m=@($e.colours[$c].m); t=$sum; tp=$sumP }
   }
   $list+=[ordered]@{
     a=$e.a; f=$e.f; mc=$e.mc; sn=$e.sn; m=@($e.m); s=@($e.s); c=@($cols)
-    t=$e.t; st=[int][bool]$e.inStock
+    t=$e.t; tp=$e.tp; st=[int][bool]$e.inStock
     p=$(if($photomap.Contains($e.f)){$photomap[$e.f]}else{''})
   }
 }
@@ -364,9 +392,11 @@ Set-Content "$app\star-kidz-article-catalogue-data.js" @"
    names, with articles and colours resolved against the stock report and the article
    master - nothing is inferred from the images.
    Stock quantities are the $stamp report's, and are 0 for articles it does not carry.
+   Quantities are CARTONS (the report's own unit); pairs are summed line by line because
+   pairs-per-carton differs by size.
    Fields: a=article f=family mc=machine sn=season m=[MRP] s=[sizes]
-           c=[{c:colour, q:{size:qty}, m:[MRP for that colour], t:total}]
-           t=total st=1 when in stock p=series photo */
+           c=[{c:colour, q:{size:cartons}, p:{size:pairs}, m:[MRP], t:cartons, tp:pairs}]
+           t=total cartons tp=total pairs st=1 when in stock p=series photo */
 window.ARTICLE_CATALOGUE_DATE = "$stamp";
 window.ARTICLE_CATALOGUE = $catJson;
 "@ -Encoding utf8
@@ -408,6 +438,7 @@ $cov|Export-Csv "$out\photo_coverage_zip.csv" -NoTypeInformation -Encoding utf8
 "FILES WRITTEN          : $($written.Count)"
 "OUTPUT SIZE            : " + [math]::Round($bytesOut/1MB,1) + " MB"
 "FROM photo_index.csv   : $handAdded"
+"SINGLE-COLOUR MATCHES  : $inferred  (article holds one colour, so its photo is that colour)"
 "INDEX KEYS             : $($index.Count)  (article+colour: " + @($index.Keys|Where-Object{$_ -match '\|'}).Count + ")"
 "SERIES PHOTOS          : $($photomap.Count)"
 ""
@@ -415,5 +446,6 @@ $cov|Export-Csv "$out\photo_coverage_zip.csv" -NoTypeInformation -Encoding utf8
 "  in stock ($stamp) : $inStockN"
 "  no stock             : " + ($list.Count-$inStockN)
 "CATALOGUE COLOURS      : " + (($list|ForEach-Object{$_.c.Count}|Measure-Object -Sum).Sum)
-"TOTAL PAIRS            : " + (($list|ForEach-Object{$_.t}|Measure-Object -Sum).Sum)
+"TOTAL CARTONS          : " + (($list|ForEach-Object{$_.t}|Measure-Object -Sum).Sum)
+"TOTAL PAIRS            : " + (($list|ForEach-Object{$_.tp}|Measure-Object -Sum).Sum)
 "DATA FILE              : $app\star-kidz-article-catalogue-data.js (" + [math]::Round((Get-Item "$app\star-kidz-article-catalogue-data.js").Length/1KB) + " KB)"

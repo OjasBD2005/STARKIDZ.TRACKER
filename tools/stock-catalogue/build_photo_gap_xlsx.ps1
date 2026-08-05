@@ -33,14 +33,21 @@ foreach($r in $rows){
   if(-not $rep.ContainsKey($k)){
     $rep[$k]=@{ Raw=$r.Article; Family=(($r.Article -split '-')[0].Trim().ToUpper())
                 Machine=$r.Machine; Season=$r.Season
-                Colours=@{}; Sizes=@{}; MRPs=@{}; Qty=0; PairsByColour=@{} }
+                Colours=@{}; Sizes=@{}; MRPs=@{}; Qty=0; Pairs=0; CtnByColour=@{}; PairsByColour=@{} }
   }
   $e=$rep[$k]
-  if($r.Colour){ $e.Colours[$r.Colour.ToUpper()]=$true
-                 $e.PairsByColour[$r.Colour.ToUpper()]=[int]$e.PairsByColour[$r.Colour.ToUpper()]+[int]$r.Qty }
+  # Qty is CARTONS (the report's unit); Pairs is summed per line because pairs-per-carton
+  # varies by size. The two are never interchangeable.
+  if($r.Colour){
+    $c=$r.Colour.ToUpper()
+    $e.Colours[$c]=$true
+    $e.CtnByColour[$c]=[int]$e.CtnByColour[$c]+[int]$r.Qty
+    $e.PairsByColour[$c]=[int]$e.PairsByColour[$c]+[int]$r.Pairs
+  }
   if($r.Size){ $e.Sizes[$r.Size]=$true }
   if($r.MRP){ $e.MRPs[$r.MRP]=$true }
   $e.Qty+=[int]$r.Qty
+  $e.Pairs+=[int]$r.Pairs
 }
 
 # ---- fold the built catalogue the same way, so the two can be compared ----
@@ -77,7 +84,7 @@ function SetEq($h,$arr){
 
 # ================= Sheet 1: Photos Missing =================
 $s1=@()
-$s1+=,@('Article','Series','Machine','Stock (pairs)','Colours in stock','Sizes','MRP (as in report)','Photo status','Action needed')
+$s1+=,@('Article','Series','Machine','Stock (cartons)','Stock (pairs)','Colours in stock','Sizes','MRP (as in report)','Photo status','Action needed')
 $missing=@()
 foreach($k in ($rep.Keys|Sort-Object)){
   $cv0=Cov $k
@@ -91,10 +98,11 @@ foreach($k in ($rep.Keys|Sort-Object)){
 foreach($m in ($missing|Sort-Object @{e={if($_.Status -eq 'NO PHOTO'){0}else{1}}},@{e={$_.Qty};d=$true})){
   $e=$rep[$m.K]
   $act=if($m.Status -eq 'NO PHOTO'){'SHOOT PHOTO - nothing in the archive'}else{'NAME A PHOTO - series folder has photos, none named for this article'}
-  $s1+=,@($e.Raw,$e.Family,$e.Machine,[int]$e.Qty,(($e.Colours.Keys|Sort-Object) -join ', '),(($e.Sizes.Keys|Sort-Object) -join ', '),
+  $s1+=,@($e.Raw,$e.Family,$e.Machine,[int]$e.Qty,[int]$e.Pairs,(($e.Colours.Keys|Sort-Object) -join ', '),(($e.Sizes.Keys|Sort-Object) -join ', '),
           (($e.MRPs.Keys|Sort-Object{[double]$_}) -join ', '),$m.Status,$act)
 }
-$s1+=,@('TOTAL','','',[int](($missing|Measure-Object Qty -Sum).Sum),'','','','','')
+$s1+=,@('TOTAL','','',[int](($missing|Measure-Object Qty -Sum).Sum),
+        [int](($missing|ForEach-Object{[int]$rep[$_.K].Pairs}|Measure-Object -Sum).Sum),'','','','','')
 
 # ================= Sheet 2: Colour Photos Missing =================
 # One row per article|colour that is in stock but has no colour-specific photo.
@@ -106,7 +114,7 @@ $idx=@{}
 ($idxJson|ConvertFrom-Json).PSObject.Properties | ForEach-Object { $idx[$_.Name]=$_.Value }
 
 $s2=@()
-$s2+=,@('Article','Colour','Stock (pairs)','Sizes','MRP (as in report)','Has colour photo?','Photo shown instead')
+$s2+=,@('Article','Colour','Stock (cartons)','Stock (pairs)','Sizes','MRP (as in report)','Has colour photo?','Photo shown instead')
 $noColour=0
 foreach($k in ($rep.Keys|Sort-Object)){
   $e=$rep[$k]
@@ -117,7 +125,7 @@ foreach($k in ($rep.Keys|Sort-Object)){
     $fallback=if($idx.ContainsKey($e.Raw.ToUpper())){'article photo'}
               elseif($built.ContainsKey($k) -and $built[$k].Photo){'series photo'}
               else{'placeholder - no photo'}
-    $s2+=,@($e.Raw,$c,[int]$e.PairsByColour[$c],(($e.Sizes.Keys|Sort-Object) -join ', '),
+    $s2+=,@($e.Raw,$c,[int]$e.CtnByColour[$c],[int]$e.PairsByColour[$c],(($e.Sizes.Keys|Sort-Object) -join ', '),
             (($e.MRPs.Keys|Sort-Object{[double]$_}) -join ', '),'NO',$fallback)
   }
 }
@@ -125,7 +133,7 @@ foreach($k in ($rep.Keys|Sort-Object)){
 # ================= Sheet 3: Article Check (report vs catalogue) =================
 $s3=@()
 $s3+=,@('Article','Series','Machine','Season','Colours (report)','Sizes (report)','MRP (as in report)',
-        'Stock (pairs)','Colours OK','Sizes OK','MRP OK','Qty OK','Verdict','Photo status','Colours with own photo')
+        'Stock (cartons)','Stock (pairs)','Colours OK','Sizes OK','MRP OK','Qty OK','Verdict','Photo status','Colours with own photo')
 $bad=0
 foreach($k in ($rep.Keys|Sort-Object)){
   $e=$rep[$k]
@@ -133,7 +141,7 @@ foreach($k in ($rep.Keys|Sort-Object)){
   if(-not $b){
     $s3+=,@($e.Raw,$e.Family,$e.Machine,$e.Season,(($e.Colours.Keys|Sort-Object) -join ', '),
             (($e.Sizes.Keys|Sort-Object) -join ', '),(($e.MRPs.Keys|Sort-Object{[double]$_}) -join ', '),
-            [int]$e.Qty,'NO','NO','NO','NO','NOT IN CATALOGUE','','')
+            [int]$e.Qty,[int]$e.Pairs,'NO','NO','NO','NO','NOT IN CATALOGUE','','')
     $bad++; continue
   }
   $cOk=SetEq $e.Colours $b.Colours.Keys
@@ -145,7 +153,7 @@ foreach($k in ($rep.Keys|Sort-Object)){
   $cv=Cov $k
   $s3+=,@($e.Raw,$e.Family,$e.Machine,$e.Season,(($e.Colours.Keys|Sort-Object) -join ', '),
           (($e.Sizes.Keys|Sort-Object) -join ', '),(($e.MRPs.Keys|Sort-Object{[double]$_}) -join ', '),
-          [int]$e.Qty,
+          [int]$e.Qty,[int]$e.Pairs,
           $(if($cOk){'OK'}else{'NOT OK'}),$(if($sOk){'OK'}else{'NOT OK'}),
           $(if($mOk){'OK'}else{'NOT OK'}),$(if($qOk){'OK'}else{'NOT OK'}),
           $(if($ok){'OK'}else{'CHECK'}),
@@ -159,17 +167,17 @@ foreach($k in ($rep.Keys|Sort-Object)){
 # differ only by a leading zero.
 $dupGroups=$rep.Keys | Group-Object { Norm-Article $_ } | Where-Object { $_.Count -gt 1 }
 $s5=@()
-$s5+=,@('Article (normalised)','Item codes in the report','Code','Stock (pairs)','Colours','Sizes','MRP (as in report)','Effect')
+$s5+=,@('Article (normalised)','Item codes in the report','Code','Stock (cartons)','Stock (pairs)','Colours','Sizes','MRP (as in report)','Effect')
 foreach($g in ($dupGroups|Sort-Object Name)){
   foreach($code in ($g.Group|Sort-Object)){
     $e=$rep[$code]
-    $s5+=,@($g.Name,(($g.Group|Sort-Object) -join ' | '),$e.Raw,[int]$e.Qty,
+    $s5+=,@($g.Name,(($g.Group|Sort-Object) -join ' | '),$e.Raw,[int]$e.Qty,[int]$e.Pairs,
             (($e.Colours.Keys|Sort-Object) -join ', '),(($e.Sizes.Keys|Sort-Object) -join ', '),
             (($e.MRPs.Keys|Sort-Object{[double]$_}) -join ', '),
             'Stock is split across two codes - the catalogue lists the article twice')
   }
 }
-if($s5.Count -eq 1){ $s5+=,@('None found','','','','','','','') }
+if($s5.Count -eq 1){ $s5+=,@('None found','','','','','','','','') }
 
 # ================= Sheet 4: Read me =================
 $own=@($cov|Where-Object{$_.Status -eq 'OWN PHOTO'}).Count
@@ -205,14 +213,32 @@ $s4=@(
  ,@('','')
  ,@('PRICES','')
  ,@('MRP is taken from the stock report as written.','Where the report carries more than one MRP for an article, every value is listed, comma separated - nothing is averaged, rounded or filled in.')
+ ,@('','')
+ ,@('UNITS','')
+ ,@('Stock is counted in CARTONS.','The report''s Unit column says Carton, so its Grand Total is cartons. Pairs per carton run 24-36 and vary by size, so pairs are summed line by line rather than multiplied. Both are shown side by side - never read one as the other.')
 )
 
 $sheets=[ordered]@{
-  'Photos Missing'        =@{rows=$s1;widths=@(24,14,12,14,34,26,26,14,58)}
-  'Colour Photos Missing' =@{rows=$s2;widths=@(20,12,14,26,22,16,22)}
-  'Article Check'         =@{rows=$s3;widths=@(20,14,12,10,42,26,22,14,11,10,9,9,10,14,20)}
-  'Duplicate Codes'       =@{rows=$s5;widths=@(22,28,14,14,26,26,22,58)}
+  'Photos Missing'        =@{rows=$s1;widths=@(24,14,12,15,14,34,26,26,14,58)}
+  'Colour Photos Missing' =@{rows=$s2;widths=@(20,12,15,14,26,22,16,22)}
+  'Article Check'         =@{rows=$s3;widths=@(20,14,12,10,42,26,22,15,14,11,10,9,9,10,14,20)}
+  'Duplicate Codes'       =@{rows=$s5;widths=@(22,28,14,15,14,26,26,22,58)}
   'Read me'               =@{rows=$s4;widths=@(52,104)}
+}
+# Every row of a sheet must be as wide as its header. A short data row silently shifts
+# every value left of it into the wrong column - the numbers still look plausible, which
+# is exactly what makes it dangerous on a sheet people price and order from.
+foreach($name in $sheets.Keys){
+  $r=$sheets[$name].rows
+  if(-not $r.Count){continue}
+  $w=@($r[0]).Count
+  for($i=1;$i -lt $r.Count;$i++){
+    $n=@($r[$i]).Count
+    if($n -ne $w){ throw "Sheet '$name' row $($i+1) has $n cells but the header has $w. Fix the row before writing the workbook." }
+  }
+  if($sheets[$name].widths -and @($sheets[$name].widths).Count -ne $w){
+    throw "Sheet '$name' declares $(@($sheets[$name].widths).Count) column widths for $w columns."
+  }
 }
 WriteXlsx $dest $sheets
 "WROTE: $dest"

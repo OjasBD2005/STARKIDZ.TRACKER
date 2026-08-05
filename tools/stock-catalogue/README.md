@@ -38,6 +38,17 @@ line reads 0 days, and the bands fill in as daily uploads accumulate.
 
 Run the steps below when a **new stock report** arrives as a PDF.
 
+## The report counts CARTONS, not pairs
+
+The Grand Total of 17,055 on STOCK-04-08-2026 is **17,055 cartons** — the export's own
+`Unit` column says `Carton`. Pairs come from the `Pair` column (pairs per carton), which
+runs 24–36 and **varies by size**, so no single multiplier is right: pairs are summed
+line by line. The same report is **493,184 pairs**.
+
+Everything downstream carries both — `q`/`t` are cartons, `p`/`tp` are pairs — and the
+catalogue grid shows a **Ctn** and a **Prs** column side by side. Read a bare number in
+this report as cartons unless it says otherwise.
+
 ## 0. Prefer the Excel export over the PDF
 
 ```bash
@@ -179,6 +190,19 @@ How a file name is read:
 
 The catalogue then picks the most specific match available: exact article+colour →
 article → series photo → placeholder.
+
+**Why colour coverage is low, and what actually fixes it.** Of the 1,396 archive photos
+for articles we hold stock in, only **157 carry a colour in the file name** — 1,239 are
+named `creta (11).jpg`, `JAZZY-03.png` and so on. The matcher is not losing those: a
+check of every in-stock article+colour against every file name for that article found
+**zero** cases where a name mentions the colour and it failed to resolve. The colour is
+printed *inside* the image, and nothing here reads pixels.
+
+One inference needs no reading and is exact: **if an article holds stock in exactly one
+colour, a photo of that article is a photo of that colour.** That is applied
+automatically and adds 133 colour matches. Articles with two or more colours are left
+alone — there the photo would be a guess, and a wrong shade on an order sheet is worse
+than no shade.
 
 **To close a photo gap:** rename the photo `ARTICLE COLOUR.jpg` (e.g. `CRETA-05 OLV.jpg`),
 put it in the archive, rerun. Nothing else.

@@ -37,7 +37,7 @@ $cat=@{}
 foreach($r in $rows){
   $a=$r.Article; $fam=($a -split '-')[0].Trim()
   if(-not $cat.ContainsKey($a)){
-    $cat[$a]=[ordered]@{ article=$a; family=$fam; photo=$(if($photoMap.ContainsKey($fam)){$photoMap[$fam]}else{''}); machine=$r.Machine; season=$r.Season; mrps=@{}; sizes=@{}; colours=[ordered]@{}; colourMrps=@{}; total=0 }
+    $cat[$a]=[ordered]@{ article=$a; family=$fam; photo=$(if($photoMap.ContainsKey($fam)){$photoMap[$fam]}else{''}); machine=$r.Machine; season=$r.Season; mrps=@{}; sizes=@{}; colours=[ordered]@{}; colourMrps=@{}; pairs=[ordered]@{}; total=0; totalPairs=0 }
   }
   $e=$cat[$a]
   if(-not $e.machine -and $r.Machine){ $e.machine=$r.Machine }
@@ -54,6 +54,13 @@ foreach($r in $rows){
   $q=[int]$r.Qty
   if($e.colours[$c].ContainsKey($s)){ $e.colours[$c][$s]+=$q } else { $e.colours[$c][$s]=$q }
   $e.total+=$q
+  # Quantities are CARTONS. Pairs are summed line by line because pairs-per-carton
+  # differs by size (and for a few articles within one size), so no single multiplier
+  # would be right.
+  $pr=[int]$r.Pairs
+  if(-not $e.pairs.Contains($c)){ $e.pairs[$c]=@{} }
+  if($e.pairs[$c].ContainsKey($s)){ $e.pairs[$c][$s]+=$pr } else { $e.pairs[$c][$s]=$pr }
+  $e.totalPairs+=$pr
 }
 
 # emit compact JSON
@@ -65,13 +72,17 @@ foreach($k in ($cat.Keys | Sort-Object)){
   foreach($c in $e.colours.Keys){
     $cmrp=@()
     if($e.colourMrps.ContainsKey($c)){ $cmrp=@($e.colourMrps[$c].Keys|Sort-Object{[double]$_}) }
-    $row=[ordered]@{ c=$c; q=[ordered]@{}; m=$cmrp }
-    foreach($s in $sizes){ if($e.colours[$c].ContainsKey($s)){ $row.q[$s]=$e.colours[$c][$s] } }
+    $row=[ordered]@{ c=$c; q=[ordered]@{}; p=[ordered]@{}; m=$cmrp }
+    foreach($s in $sizes){
+      if($e.colours[$c].ContainsKey($s)){ $row.q[$s]=$e.colours[$c][$s] }
+      if($e.pairs.Contains($c) -and $e.pairs[$c].ContainsKey($s)){ $row.p[$s]=$e.pairs[$c][$s] }
+    }
     if($e.colours[$c].ContainsKey('—')){ $row.q['—']=$e.colours[$c]['—'] }
+    if($e.pairs.Contains($c) -and $e.pairs[$c].ContainsKey('—')){ $row.p['—']=$e.pairs[$c]['—'] }
     $cols+=$row
   }
   $mrpList=@($e.mrps.Keys | Sort-Object { [double]$_ })
-  $list+=[ordered]@{ a=$e.article; f=$e.family; p=$e.photo; mc=$e.machine; sn=$e.season; m=$mrpList; s=$sizes; c=$cols; t=$e.total }
+  $list+=[ordered]@{ a=$e.article; f=$e.family; p=$e.photo; mc=$e.machine; sn=$e.season; m=$mrpList; s=$sizes; c=$cols; t=$e.total; tp=$e.totalPairs }
 }
 $json=$list | ConvertTo-Json -Depth 8 -Compress
 Set-Content "$out\catalogue.json" $json -Encoding utf8
@@ -85,9 +96,11 @@ $js=@"
 /* STAR Kidz — Finished Goods Stock Catalogue
    Source : stock report dated $stamp (Busy), parsed row-wise.
    Layout : modelled on the NOVA/DREAM/PEARL/MERYCO catalogue (photo + colour x size grid).
-   Totals : $((($list | ForEach-Object { $_.t }) | Measure-Object -Sum).Sum) pairs across $($list.Count) articles - matches the report's Grand Total.
+   Totals : $((($list | ForEach-Object { $_.t }) | Measure-Object -Sum).Sum) CARTONS across $($list.Count) articles - matches the report's Grand Total,
+            which counts cartons (the report's Unit column says Carton), = $((($list | ForEach-Object { $_.tp }) | Measure-Object -Sum).Sum) pairs.
    Fields : a=article f=family p=photo mc=machine sn=season m=[MRP] s=[sizes]
-            c=[{c:colour, q:{size:qty}, m:[MRP for that colour]}] t=total
+            c=[{c:colour, q:{size:cartons}, p:{size:pairs}, m:[MRP for that colour]}]
+            t=total cartons  tp=total pairs
    Regenerate with scratchpad/parse_stock.ps1 + build_catalogue.ps1 when a new stock report arrives. */
 window.STOCK_CATALOGUE_DATE = "$stamp";
 window.STOCK_CATALOGUE = $json;
@@ -97,6 +110,7 @@ Set-Content "$app\star-kidz-stock-catalogue-data.js" $js -Encoding utf8
 "ARTICLES IN CATALOGUE : $($list.Count)"
 $kb=[math]::Round((Get-Item "$out\catalogue.json").Length/1024)
 "JSON SIZE             : $kb KB"
-"TOTAL QTY             : " + (($list | ForEach-Object { $_.t }) | Measure-Object -Sum).Sum
+"TOTAL CARTONS         : " + (($list | ForEach-Object { $_.t }) | Measure-Object -Sum).Sum
+"TOTAL PAIRS           : " + (($list | ForEach-Object { $_.tp }) | Measure-Object -Sum).Sum
 "WITH PHOTO            : " + (($list | Where-Object { $_.p }).Count)
 "JS FILE               : $app\star-kidz-stock-catalogue-data.js"
