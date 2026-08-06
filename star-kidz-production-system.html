@@ -1841,7 +1841,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-06.3';
+window.STARKIDZ_BUILD='2026-08-06.4';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5366,6 +5366,21 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeScPhoto();});
 // the underlying data is never altered.
 const DISTRIBUTOR_CTN_CAP=10;
 function capCtn(v,cap){ const n=+v||0; return (cap&&n>cap)?cap:n; }
+// Size columns follow the assortment ratio the catalogue is sold in, not the alphabet.
+// Anything outside this list keeps a stable order after it, so a new size never
+// disappears — it just sorts to the end.
+const SIZE_RATIO_ORDER=['16X21','5X10','7X10','11X1','2X5','4X9'];
+function sizeRank(s){
+  const k=String(s||'').toUpperCase().replace(/\s+/g,'');
+  const i=SIZE_RATIO_ORDER.indexOf(k);
+  return i<0?SIZE_RATIO_ORDER.length:i;
+}
+function sortSizes(list){
+  return (list||[]).slice().sort((x,y)=>{
+    const d=sizeRank(x)-sizeRank(y);
+    return d||String(x).localeCompare(String(y),undefined,{numeric:true});
+  });
+}
 // One catalogue card: photo on the left, colour x size grid on the right.
 // cap: undefined/0 for the real quantity (screen, sales team), DISTRIBUTOR_CTN_CAP for
 // the distributor sheet.
@@ -5375,7 +5390,7 @@ function catalogueCardHTML(a,forPrint,cap){
   // then narrowed to those the surviving colours actually use, so no empty column shows.
   const inStockCols=(a.c||[]).filter(r=>Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0)>0);
   const usedSizes={};inStockCols.forEach(r=>Object.keys(r.q||{}).forEach(s=>{if((+r.q[s]||0)>0)usedSizes[s]=1;}));
-  a=Object.assign({},a,{c:inStockCols,s:(a.s||[]).filter(s=>usedSizes[s])});
+  a=Object.assign({},a,{c:inStockCols,s:sortSizes((a.s||[]).filter(s=>usedSizes[s]))});
   const sizes=(a.s||[]).slice();
   const ag=catAging(a);
   // An article with no stock is not pictured at all — the card still lists it so the
@@ -5426,21 +5441,23 @@ function catalogueCardHTML(a,forPrint,cap){
   // box adds nothing the grid above has not already said, and three of them beside one
   // real photo is the same information twice over. Colours without a photo simply live
   // in the table.
-  const px=forPrint?'150px':'clamp(120px,30vw,168px)';
+  // Tiles sit in a grid that fills the row, so three colours never leave a half-empty
+  // band under the card. Smaller than before so 3-4 fit across instead of 2.
+  const px=forPrint?'112px':'clamp(96px,26vw,124px)';
   const colourShots=(a.c||[]).map(r=>{
     const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
     if(rowTot<=0)return '';
     const file=colourPhotoFor(a,r.c);
     if(!file)return '';
-    return `<div style="text-align:center;width:${px}">
+    return `<div style="text-align:center">
       <img src="${CAT_PHOTO_DIR}${file}" alt="${a.a} ${r.c}" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'}
-           style="width:${px};height:${px};${forPrint?'':'cursor:zoom-in;'}object-fit:contain;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:block">
-      <div style="font-size:11.5px;font-weight:700;color:#0f172a;margin-top:4px">${r.c}</div>
-      <div style="font-size:10.5px;color:#15803d;font-weight:700">${colourMrp(a,r)}</div>
-      <div style="font-size:10.5px;color:#475569">${qtyLabel(Object.values(r.q||{}).reduce((s,v)=>s+capCtn(v,cap),0))}</div>
+           style="width:100%;aspect-ratio:1/1;${forPrint?'':'cursor:zoom-in;'}object-fit:contain;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:block">
+      <div style="font-size:11px;font-weight:700;color:#0f172a;margin-top:3px">${r.c}</div>
+      <div style="font-size:10px;color:#15803d;font-weight:700">${colourMrp(a,r)}</div>
+      <div style="font-size:10px;color:#475569">${qtyLabel(Object.values(r.q||{}).reduce((s,v)=>s+capCtn(v,cap),0))}</div>
     </div>`;
   }).filter(Boolean).join('');
-  const shotStrip=colourShots?`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px${anyColourPhoto?'':';padding-top:12px;border-top:1px dashed #e2e8f0'}">${colourShots}</div>`:'';
+  const shotStrip=colourShots?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(${px},1fr));gap:10px;margin-top:10px${anyColourPhoto?'':';padding-top:10px;border-top:1px dashed #e2e8f0'}">${colourShots}</div>`:'';
   // The left photo box only exists when there is a single article photo to put in it.
   // When the colours carry their own photos, the tiles below are the photography and an
   // empty box would just be a hole in the card.

@@ -2,7 +2,7 @@
 /* Bump CACHE on every release. The name change is what makes `activate` purge the old
    cache, and it also changes this file's bytes, which is how the browser notices there
    is a new worker at all — leave it unchanged and installed PWAs keep the old build. */
-var CACHE = 'starkidz-v17';
+var CACHE = 'starkidz-v18';
 var CORE = [
   'index.html', 'login.html',
   'ojas-dispatch-tracker.html', 'star-kidz-production-system.html',
