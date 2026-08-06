@@ -1840,7 +1840,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-05.5';
+window.STARKIDZ_BUILD='2026-08-06.1';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5371,8 +5371,15 @@ function catalogueCardHTML(a,forPrint){
   const ag=catAging(a);
   // An article with no stock is not pictured at all — the card still lists it so the
   // range stays visible, but a photo would read as something we can sell.
+  //
+  // One photo per in-stock colour, once. The big article photo is shown ONLY when no
+  // colour of this article has a photo of its own; otherwise it would repeat an image
+  // that already appears as a colour tile. So a single colour in stock shows a single
+  // photo, two colours show two, and nothing is ever tripled.
   const inStock=(+a.t||0)>0;
-  const main=inStock?catPhotoFor(a):null;
+  const anyColourPhoto=inStock&&(a.c||[]).some(r=>
+    Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0)>0 && colourPhotoFor(a,r.c));
+  const main=(inStock&&!anyColourPhoto)?catPhotoFor(a):null;
   const img=main?`<img src="${CAT_PHOTO_DIR}${main.file}" alt="${a.a}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px\\'>no photo</div>'">`
     :`<div style="display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px">${inStock?'no photo':'no stock'}</div>`;
   const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num" title="Cartons — the unit the stock report counts in">Ctn</th><th class="num" title="MRP for this colour, exactly as the stock report prices it">MRP</th></tr>`;
@@ -5389,11 +5396,9 @@ function catalogueCardHTML(a,forPrint){
       const tip=age==null?'':` title="${age} days on shelf"`;
       return `<td class="num"${tip} style="font-weight:700;${tint}">${v}</td>`;
     }).join('');
-    // Same rule as the tiles below: only a photo of this exact shade, never shared with
-    // another colour, and only when the colour is in stock.
-    const cpFile=rowTot>0?colourPhotoFor(a,r.c):'';
-    const swatch=cpFile?`<img src="${CAT_PHOTO_DIR}${cpFile}" alt="${a.a} ${r.c}" title="${a.a} · ${r.c} — click to enlarge" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'} style="width:${forPrint?'34px;height:34px':'46px;height:46px;cursor:zoom-in'};object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;vertical-align:middle;margin-right:7px">`:'';
-    return `<tr><td style="font-weight:600;white-space:nowrap">${swatch}${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td><td class="num" style="font-weight:700;color:#15803d;white-space:nowrap">${colourMrp(a,r)}</td></tr>`;
+    // No swatch here. The same image used to appear three times on one card — as the big
+    // article photo, as a row swatch, and as a colour tile. One photo per colour, once.
+    return `<tr><td style="font-weight:600;white-space:nowrap">${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td><td class="num" style="font-weight:700;color:#15803d;white-space:nowrap">${colourMrp(a,r)}</td></tr>`;
   }).join('');
   const colTot=sizes.map(s=>{
     const t=(a.c||[]).reduce((sum,r)=>sum+(+((r.q||{})[s])||0),0);
@@ -5409,7 +5414,8 @@ function catalogueCardHTML(a,forPrint){
     const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
     if(rowTot<=0)return '';
     const file=colourPhotoFor(a,r.c);
-    const px=forPrint?'132px':'118px';
+    // These tiles ARE the photography of the card, so they are shown large.
+    const px=forPrint?'150px':'168px';
     const box=file
       ? `<img src="${CAT_PHOTO_DIR}${file}" alt="${a.a} ${r.c}" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'}
            style="width:${px};height:${px};${forPrint?'':'cursor:zoom-in;'}object-fit:contain;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:block">`
@@ -5421,10 +5427,16 @@ function catalogueCardHTML(a,forPrint){
       <div style="font-size:10.5px;color:#475569">${qtyLabel(rowTot,rowPairs(r))}</div>
     </div>`;
   }).filter(Boolean).join('');
-  const shotStrip=colourShots?`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed #e2e8f0">${colourShots}</div>`:'';
+  const shotStrip=colourShots?`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px${anyColourPhoto?'':';padding-top:12px;border-top:1px dashed #e2e8f0'}">${colourShots}</div>`:'';
+  // The left photo box only exists when there is a single article photo to put in it.
+  // When the colours carry their own photos, the tiles below are the photography and an
+  // empty box would just be a hole in the card.
+  const mainBox=(main||!anyColourPhoto)
+    ? `<div${forPrint?'':` data-a="${scAttr(a.a)}" onclick="openScPhoto(this.dataset.a,'')" title="click to enlarge"`} style="width:${forPrint?'150px;height:150px':'min(230px,44vw);height:min(230px,44vw);cursor:zoom-in'};flex-shrink:0;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0">${img}</div>`
+    : '';
   return `<div class="card" style="${forPrint?'break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;border:1px solid #cbd5e1':''}">
     <div style="display:flex;gap:14px;flex-wrap:wrap">
-      <div${forPrint?'':` data-a="${scAttr(a.a)}" onclick="openScPhoto(this.dataset.a,'')" title="click to enlarge"`} style="width:${forPrint?'150px;height:150px':'min(230px,44vw);height:min(230px,44vw);cursor:zoom-in'};flex-shrink:0;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0">${img}</div>
+      ${mainBox}
       <div style="flex:1;min-width:260px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">
           <span style="font-size:17px;font-weight:800;color:#0f172a">${a.a}</span>
