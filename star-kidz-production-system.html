@@ -1840,7 +1840,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-05.4';
+window.STARKIDZ_BUILD='2026-08-05.5';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5381,9 +5381,10 @@ function catalogueCardHTML(a,forPrint){
     const cells=sizes.map(s=>{
       const v=(r.q||{})[s];
       if(!v)return '<td class="num" style="color:#cbd5e1">·</td>';
-      // Aging cells are tinted so the PDF (which always carries them) reads at a glance:
-      // amber = 61-90 days on the shelf, red = 90+.
-      const age=lineAgeDays(a.a,r.c,s);
+      // Aging is INTERNAL. On screen a lot is tinted amber (61-90 d) or red (90+ d), but
+      // the printed sheet goes to a party, so it carries no aging tint and no age tooltip
+      // — a customer should not be told how long a carton has sat in the godown.
+      const age=forPrint?null:lineAgeDays(a.a,r.c,s);
       const tint=age==null?'':age>90?'background:#fee2e2;color:#b91c1c':age>60?'background:#fef3c7;color:#b45309':'';
       const tip=age==null?'':` title="${age} days on shelf"`;
       return `<td class="num"${tip} style="font-weight:700;${tint}">${v}</td>`;
@@ -5475,7 +5476,7 @@ function renderStockCatalogue(){
       ? '🔴 Showing <b>aging stock only</b> (90+ days on the shelf).'
       : `🌱 Screen is showing <b>fresh stock only</b> — ${mode==='strict'?'lots older than 60 days':'lots older than 90 days'} are hidden here`
         +(kept?` (<b>${fmtN(mode==='strict'?kept:oldPairs)} ctn</b> held back)`:'')
-        +'. The <b>Catalogue PDF still includes them</b>, highlighted amber/red, for internal tracking.'
+        +'. The <b>Catalogue PDF still includes them</b>, but carries no aging marks — it is the sheet sent to a party.'
         +(datedLines?'':' · aging builds up from the first upload onward, so nothing is old yet.');
   }
   const k=[['Articles shown',fmtN(rows.length)+' / '+d.length,'#1b3187'],
@@ -5529,10 +5530,7 @@ function printStockCatalogue(){
     <div style="font-size:11px;opacity:.85">Ojas Footwear India Pvt. Ltd. · Article / Colour / Size · stock as on ${catDate()}</div></div>
     <div style="text-align:right;font-size:11px;opacity:.85">${rows.length} articles<br>${qtyLabel(rows.reduce((s,a)=>s+(+a.t||0),0),rows.reduce((s,a)=>s+artPairs(a),0))}</div></div>
   <div style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#475569">
-    <b>Includes aging stock</b> — this internal copy carries every lot, including the ones hidden from the sales screen.
-    <span style="background:#fef3c7;color:#b45309;padding:1px 6px;border-radius:4px;font-weight:700">61–90 d ${fmtN(pdfAging)} ctn</span>
-    <span style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">90+ d ${fmtN(pdfOld)} ctn</span>
-    <span style="margin-left:6px">Shaded cells mark the aging quantities.</span>
+    Quantities are <b>CARTONS</b>. Every colour shown is in stock as on <b>${catDate()}</b>. Printed <b>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</b>.
   </div>
   ${cards}
   <div style="text-align:center;font-size:10px;color:#94a3b8;margin-top:10px">Generated ${nowFull()} · STAR Kidz Production &amp; Sales System</div>
@@ -5554,22 +5552,23 @@ function printStockCatalogue(){
   w.document.close();
 }
 function downloadCatalogueCSV(){
-  // like the PDF, the export is the internal copy — aging lots included, with their age
+  // This file goes to a party, so it carries nothing internal: no aging columns, no
+  // pairs, no lot age. Cartons only, and only colours that are actually in stock.
   const rows=catalogueFiltered('all');
   if(!rows.length){toast('Nothing to export','⚠️','');return}
-  const head=['Article','Series','Machine','Season','Colour','Size','Qty (cartons)','Qty (pairs)','MRP (colour, from stock report)','MRP (article range)','Photo','Stock as on','Age (days)','Aging band'];
+  const head=['Article','Series','Colour','Size','Qty (cartons)','MRP','Photo','Stock as on'];
   const lines=[head.join(',')];
   const asOn=catDate()||'';
   let n=0;
   rows.forEach(a=>{
     (a.c||[]).forEach(r=>{
-      const cp=photoFor(a.a,r.c);
-      const photo=cp?(cp.exact?cp.file:cp.file+' (article photo)'):'';
+      const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
+      if(rowTot<=0)return;                       // never list a colour we cannot sell
+      const photo=colourPhotoFor(a,r.c)||'NO PHOTO';
       Object.entries(r.q||{}).forEach(([size,qty])=>{
-        const age=lineAgeDays(a.a,r.c,size);
-        lines.push([a.a,a.f,a.mc||'',a.sn||'',r.c,size,qty,((r.p||{})[size]||''),
-          colourMrp(a,r).replace(/₹/g,''),mrpLabel(a).replace(/₹/g,''),photo,asOn,
-          age==null?'':age, age==null?'not tracked yet':bucketOf(age)].map(csvEscape).join(','));n++;
+        if((+qty||0)<=0)return;
+        lines.push([a.a,a.f,r.c,size,qty,
+          colourMrp(a,r).replace(/₹/g,''),photo,asOn].map(csvEscape).join(','));n++;
       });
     });
   });
@@ -5673,6 +5672,30 @@ function buildCatalogueFromSheet(matrix,sheet){
   if(!out.length)throw new Error('The sheet parsed but produced no stock rows. Check that the quantity column holds numbers.');
   return {rows:out,pairs:ctns,ctns,prs:prsTotal,skipped,used,cols:keys};
 }
+// AUTO CHECKER — cross-check what we parsed against the report's own Grand Total.
+// A parse can look perfectly healthy and still be wrong, so the only trustworthy test is
+// the report's own printed total. Returns {found,reported,parsed,ok}; found:false means
+// the sheet carries no Grand Total row and we say so rather than implying a pass.
+function verifyUploadTotals(matrix,built){
+  const num=v=>parseInt(String(v==null?'':v).replace(/[^0-9\-]/g,''))||0;
+  let reported=0,found=false;
+  for(const row of matrix){
+    const cells=(row||[]).map(v=>String(v==null?'':v));
+    if(!cells.some(c=>/grand\s*total/i.test(c)))continue;
+    const nums=cells.map(num).filter(n=>n>0);
+    if(nums.length){ reported=Math.max(...nums); found=true; break; }
+  }
+  return {found,reported,parsed:built.ctns,ok:found&&reported===built.ctns};
+}
+function uploadCheckBadgeHTML(v){
+  if(!v.found)return `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:8px 12px;border-radius:6px;font-size:12px;color:#92400e;margin-bottom:8px">
+    ⚠️ <b>Not cross-checked</b> — this sheet has no “Grand Total” row, so the parsed total (<b>${fmtN(v.parsed)} ctn</b>) could not be verified against the report.</div>`;
+  if(v.ok)return `<div style="background:#dcfce7;border-left:4px solid #16a34a;padding:8px 12px;border-radius:6px;font-size:12px;color:#166534;margin-bottom:8px">
+    ✅ <b>Verified</b> — parsed <b>${fmtN(v.parsed)} ctn</b> matches the report’s Grand Total of <b>${fmtN(v.reported)} ctn</b> exactly.</div>`;
+  return `<div style="background:#fee2e2;border-left:4px solid #b91c1c;padding:8px 12px;border-radius:6px;font-size:12px;color:#991b1b;margin-bottom:8px">
+    ❌ <b>DOES NOT MATCH</b> — parsed <b>${fmtN(v.parsed)} ctn</b> but the report’s Grand Total says <b>${fmtN(v.reported)} ctn</b>
+    (difference <b>${fmtN(Math.abs(v.parsed-v.reported))}</b>). Do not send this catalogue out — re-export the report and upload again.</div>`;
+}
 // Requirement check + before/after comparison against the catalogue being replaced.
 function compareCatalogues(oldRows,newRows){
   const idx=r=>{const m={};r.forEach(a=>m[(a.a||'').toUpperCase()]=a);return m};
@@ -5717,21 +5740,24 @@ function uploadStockCatalogue(){
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
       // The Busy workbook carries several sheets (modern trade, summaries…) and the
       // stock report is not always the first, so try each until one parses.
-      let built=null,lastErr=null,usedSheet='';
+      let built=null,lastErr=null,usedSheet='',usedMatrix=null;
       for(const name of wb.SheetNames){
         const sh=wb.Sheets[name];
         const mx=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
         if(!mx.length)continue;
-        try{built=buildCatalogueFromSheet(mx,sh);usedSheet=name;break;}catch(err){lastErr=err;}
+        try{built=buildCatalogueFromSheet(mx,sh);usedSheet=name;usedMatrix=mx;break;}catch(err){lastErr=err;}
       }
       if(!built)throw (lastErr||new Error('The file is empty.'));
+      // Auto checker: cross-check against the report's own Grand Total before anything
+      // is stored, so a bad parse is caught at the moment of upload, not by a customer.
+      const check=verifyUploadTotals(usedMatrix||[],built);
       const cmp=compareCatalogues(catData(),built.rows);
       CAT_UPLOAD={date,rows:built.rows,updated:Date.now(),updatedBy:currentUser.name,file:file.name};
       saveCatalogueUpload();
       touchCatalogueAging(built.rows,date);      // stamp new lots, expire the ones that left
       _scBuilt=false;                            // series/machine/size dropdowns must rebuild
       renderStockCatalogue();
-      if(res)res.innerHTML=`<div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Catalogue synced from ${file.name}${usedSheet?' · sheet “'+usedSheet+'”':''} — stock as on ${date}</div>`+catalogueCompareHTML(cmp,built);
+      if(res)res.innerHTML=uploadCheckBadgeHTML(check)+`<div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Catalogue synced from ${file.name}${usedSheet?' · sheet “'+usedSheet+'”':''} — stock as on ${date}</div>`+catalogueCompareHTML(cmp,built);
       toast('Stock catalogue updated','✅',qtyLabel(built.ctns,built.prs)+' · '+built.rows.length+' articles');
       logUpdate(null,'Stock catalogue upload',file.name+' · '+qtyLabel(built.ctns,built.prs)+' · '+built.rows.length+' articles as on '+date);
     }catch(err){
