@@ -1841,7 +1841,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-06.2';
+window.STARKIDZ_BUILD='2026-08-06.3';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5422,18 +5422,19 @@ function catalogueCardHTML(a,forPrint,cap){
   // and it reads as if we hold that shade. A colour we have no photo of says NO PHOTO.
   // colourPhotoFor also refuses a file already claimed by another colour of the same
   // article, so one image can never appear under two colour names.
+  // A tile is only drawn for a colour we actually HAVE a photo of. An empty "NO PHOTO"
+  // box adds nothing the grid above has not already said, and three of them beside one
+  // real photo is the same information twice over. Colours without a photo simply live
+  // in the table.
+  const px=forPrint?'150px':'clamp(120px,30vw,168px)';
   const colourShots=(a.c||[]).map(r=>{
     const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
     if(rowTot<=0)return '';
     const file=colourPhotoFor(a,r.c);
-    // These tiles ARE the photography of the card, so they are shown large.
-    const px=forPrint?'150px':'168px';
-    const box=file
-      ? `<img src="${CAT_PHOTO_DIR}${file}" alt="${a.a} ${r.c}" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'}
-           style="width:${px};height:${px};${forPrint?'':'cursor:zoom-in;'}object-fit:contain;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:block">`
-      : `<div style="width:${px};height:${px};display:grid;place-items:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.03em">NO PHOTO</div>`;
+    if(!file)return '';
     return `<div style="text-align:center;width:${px}">
-      ${box}
+      <img src="${CAT_PHOTO_DIR}${file}" alt="${a.a} ${r.c}" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'}
+           style="width:${px};height:${px};${forPrint?'':'cursor:zoom-in;'}object-fit:contain;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:block">
       <div style="font-size:11.5px;font-weight:700;color:#0f172a;margin-top:4px">${r.c}</div>
       <div style="font-size:10.5px;color:#15803d;font-weight:700">${colourMrp(a,r)}</div>
       <div style="font-size:10.5px;color:#475569">${qtyLabel(Object.values(r.q||{}).reduce((s,v)=>s+capCtn(v,cap),0))}</div>
@@ -5449,7 +5450,9 @@ function catalogueCardHTML(a,forPrint,cap){
   return `<div class="card" style="${forPrint?'break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;border:1px solid #cbd5e1':''}">
     <div style="display:flex;gap:14px;flex-wrap:wrap">
       ${mainBox}
-      <div style="flex:1;min-width:260px">
+      <!-- min-width:0 lets this column shrink below its table's natural width on a phone;
+           without it the flex item refuses to shrink and the card overflows sideways. -->
+      <div style="flex:1 1 240px;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">
           <span style="font-size:17px;font-weight:800;color:#0f172a">${a.a}</span>
           <span class="pill pill-blue">${a.f}</span>
@@ -5459,7 +5462,7 @@ function catalogueCardHTML(a,forPrint,cap){
           ${ag.dated&&(ag.old||ag.aging)?`<span class="pill ${ag.old?'pill-red':'pill-amber'}">${ag.old?'🔴 '+fmtN(ag.old)+' ctn 90+ d':'⚠️ '+fmtN(ag.aging)+' ctn 61–90 d'}</span>`:''}
         </div>
         <div style="font-size:12px;color:#64748b;margin-bottom:8px">MRP <b style="color:#0f172a">${mrpLabel(a)}</b> · sizes ${sizes.join(', ')||'—'} · ${(a.c||[]).length} colour(s)${ag.dated?` · oldest lot <b style="color:${ag.maxAge>90?'#b91c1c':ag.maxAge>60?'#b45309':'#0f172a'}">${ag.maxAge} d</b>`:''}</div>
-        <div style="overflow:auto"><table class="tbl" style="font-size:12px">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="font-size:12px">
           <thead>${head}</thead><tbody>${body}
           <tr style="background:#eef3ff"><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(cardTot)}</td><td class="num" style="font-weight:800">${mrpLabel(a)}</td></tr>
           </tbody></table></div>
@@ -5517,7 +5520,7 @@ function renderStockCatalogue(){
     <span style="font-size:12px">📅 Viewed <b>${today}</b> · stock as on <b>${catDate()||'—'}</b> · ${fmtN(rows.length)} article(s) shown</span>
     <span style="font-size:15px;font-weight:800">TOTAL ${fmtN(shownCtn)} CTN</span></div>`;
   $('#scList').innerHTML=rows.length
-    ? dateBar+`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px;align-items:start">${rows.map(a=>catalogueCardHTML(a,false)).join('')}</div>`
+    ? dateBar+`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;align-items:start">${rows.map(a=>catalogueCardHTML(a,false)).join('')}</div>`
     : '<div class="card" style="text-align:center;color:#94a3b8;padding:20px">No articles match these filters.</div>';
 }
 // Print / save-as-PDF, A4, in two audiences:
