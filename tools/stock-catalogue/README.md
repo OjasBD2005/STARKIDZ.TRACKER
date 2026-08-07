@@ -3,6 +3,46 @@
 Rebuilds `star-kidz-stock-catalogue-data.js` (and the `article-photos/` folder)
 that powers the **🗂️ Stock Catalogue** view in `star-kidz-production-system.html`.
 
+## Unattended: one command for the whole daily rebuild
+
+```bash
+powershell -File daily_stock_update.ps1 -repo "C:\...\CLAUDE DATA"
+```
+
+Picks up the newest `STOCK-DD-MM-YYYY.xlsx` from Downloads (`-watch <dir>` to change,
+`-file <xlsx>` to force one), parses it, **verifies it against the report's own Grand
+Total, and rebuilds only if that passes**. On a mismatch it stops and changes nothing —
+the catalogue goes out to parties as a PDF, so a build that disagrees with the report by
+even one carton must not ship. It also exits early when the catalogue is already built
+for that date, so a daily trigger is harmless on a day with no new report.
+
+`-Commit` commits the rebuilt data files; `-Push` also pushes. To run it every day at
+10:30:
+
+```powershell
+$a=New-ScheduledTaskAction -Execute powershell.exe -Argument '-NoProfile -ExecutionPolicy Bypass -File "C:\...\tools\stock-catalogue\daily_stock_update.ps1" -repo "C:\...\CLAUDE DATA" -Commit'
+Register-ScheduledTask -TaskName "STAR Kidz daily stock" -Action $a -Trigger (New-ScheduledTaskTrigger -Daily -At 10:30)
+```
+
+The steps it runs are the ones documented below, in order: `parse_stock_xlsx.ps1` →
+`verify_stock.ps1` → `build_full_catalogue.ps1 -SkipPhotos` → `build_catalogue.ps1`.
+Run them by hand when you need to inspect a stage.
+
+**Paths.** Every script writes into the checkout given by `-out`. Pass the checkout you
+mean — a worktree writes into itself.
+
+**Stock date.** On the Excel route pass `-date YYYY-MM-DD` to `build_catalogue.ps1` and
+`build_full_catalogue.ps1` (`daily_stock_update.ps1` reads it off the file name). Only
+the PDF route leaves a `stock_table_full.txt` for them to read it from; without either
+the catalogue ships stamped `unknown`.
+
+**Verifying the Excel route.** `verify_stock.ps1 -file <xlsx>` reads the report's own
+Grand Total and subtotals out of the **grouped** sheet of the workbook, while
+`parse_stock_xlsx.ps1` reads the **flat** sheet — so the two are genuinely independent
+views of the same stock. It exits non-zero on a mismatch. Note the workbook also holds
+small working sheets that print their own totals; the sheet with the largest Grand Total
+is the report.
+
 ## Two ways to update stock
 
 **Daily → use the app.** The Stock Catalogue view has an **⬆️ Upload daily stock**
