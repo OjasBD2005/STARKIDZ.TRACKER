@@ -5381,7 +5381,20 @@ function sortSizes(list){
     return d||String(x).localeCompare(String(y),undefined,{numeric:true});
   });
 }
-// One catalogue card: photo on the left, colour x size grid on the right.
+// One catalogue card: a PHOTO COLUMN down the left of the colour x size grid.
+//
+// The photo used to sit in two places — a big box beside the table, and a strip of colour
+// tiles under it. Whichever was shown, the other left a hole: an article whose colours
+// carried their own photos dropped the left box and printed a full-width table with one
+// small tile stranded under it, and the auto-fill tile grid left the rest of that band
+// empty. That is the gap on the BEAR-10 card.
+//
+// Now there is one place for a photo: the first column of the table, beside the colour it
+// belongs to. A colour with its own photo shows it. When no colour of the article has one,
+// the article photo spans the column instead (rowspan), so the picture is still to the
+// LEFT of the colour names and the card is a single rectangle with nothing stranded.
+// Cards are ~half their old height, which is what puts five or more on an A4 page.
+//
 // cap: undefined/0 for the real quantity (screen, sales team), DISTRIBUTOR_CTN_CAP for
 // the distributor sheet.
 function catalogueCardHTML(a,forPrint,cap){
@@ -5404,13 +5417,27 @@ function catalogueCardHTML(a,forPrint,cap){
   const anyColourPhoto=inStock&&(a.c||[]).some(r=>
     Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0)>0 && colourPhotoFor(a,r.c));
   const main=(inStock&&!anyColourPhoto)?catPhotoFor(a):null;
-  const img=main?`<img src="${CAT_PHOTO_DIR}${main.file}" alt="${a.a}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px\\'>no photo</div>'">`
-    :`<div style="display:grid;place-items:center;height:100%;color:#cbd5e1;font-size:11px">${inStock?'no photo':'no stock'}</div>`;
-  const head=`<tr><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num" title="Cartons — the unit the stock report counts in">Ctn</th><th class="num" title="MRP for this colour, exactly as the stock report prices it">MRP</th></tr>`;
+  // The photo column. Print gets a smaller box than the screen — the sheet is read at
+  // arm's length, and every mm saved here is another article on the page.
+  const pw=forPrint?'46px':'clamp(54px,13vw,68px)';
+  const photoCell=(file,label,colour,span)=>{
+    const zoom=forPrint?'':` data-a="${scAttr(a.a)}" data-c="${scAttr(colour||'')}" onclick="openScPhoto(this.dataset.a,this.dataset.c)" title="click to enlarge" style="cursor:zoom-in"`;
+    const inner=file
+      ? `<img src="${CAT_PHOTO_DIR}${file}" alt="${label}"${zoom} style="width:${pw};height:${pw};object-fit:contain;background:#fff;display:block;margin:0 auto${forPrint?'':';cursor:zoom-in'}" onerror="this.style.display='none'">`
+      : `<div style="width:${pw};height:${pw};display:grid;place-items:center;color:#cbd5e1;font-size:9px;margin:0 auto">${inStock?'—':'no stock'}</div>`;
+    return `<td${span>1?` rowspan="${span}"`:''} style="padding:2px;text-align:center;vertical-align:middle;background:#fff">${inner}</td>`;
+  };
+  const head=`<tr><th style="text-align:center;width:1%">PHOTO</th><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num" title="Cartons — the unit the stock report counts in">Ctn</th><th class="num" title="MRP for this colour, exactly as the stock report prices it">MRP</th></tr>`;
   // Every quantity on the card goes through capCtn, so a distributor sheet caps each
   // size cell and every total derived from them; nothing leaks the real depth.
-  const body=(a.c||[]).map(r=>{
+  const body=(a.c||[]).map((r,ri)=>{
     const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+capCtn(v,cap),0);
+    // A colour shows its OWN photo or none. An article photo is never repeated under two
+    // colour names — that reads as three shades we hold and it is three wrong pictures.
+    // When no colour has its own, the article photo spans the whole column once instead.
+    const cell=anyColourPhoto
+      ? photoCell(colourPhotoFor(a,r.c),a.a+' '+r.c,r.c,1)
+      : (ri===0 ? photoCell(main&&main.file,a.a,'',(a.c||[]).length||1) : '');
     const cells=sizes.map(s=>{
       const v=(r.q||{})[s];
       if(!v)return '<td class="num" style="color:#cbd5e1">·</td>';
@@ -5424,68 +5451,30 @@ function catalogueCardHTML(a,forPrint,cap){
     }).join('');
     // No swatch here. The same image used to appear three times on one card — as the big
     // article photo, as a row swatch, and as a colour tile. One photo per colour, once.
-    return `<tr><td style="font-weight:600;white-space:nowrap">${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td><td class="num" style="font-weight:700;color:#15803d;white-space:nowrap">${colourMrp(a,r)}</td></tr>`;
+    return `<tr>${cell}<td style="font-weight:600;white-space:nowrap">${r.c}</td>${cells}<td class="num" style="font-weight:800;background:#f8fafc">${rowTot}</td><td class="num" style="font-weight:700;color:#15803d;white-space:nowrap">${colourMrp(a,r)}</td></tr>`;
   }).join('');
   const colTot=sizes.map(s=>{
     const t=(a.c||[]).reduce((sum,r)=>sum+capCtn((r.q||{})[s],cap),0);
     return `<td class="num" style="font-weight:700">${t||'·'}</td>`;
   }).join('');
   const cardTot=(a.c||[]).reduce((s,r)=>s+Object.values(r.q||{}).reduce((x,v)=>x+capCtn(v,cap),0),0);
-  // Every colour that is IN STOCK gets a tile, on screen and in the download alike.
-  // A tile carries a photo ONLY when that photo is of that exact shade. There is no
-  // stand-in: an article photo shown under three colour names is three wrong pictures,
-  // and it reads as if we hold that shade. A colour we have no photo of says NO PHOTO.
-  // colourPhotoFor also refuses a file already claimed by another colour of the same
-  // article, so one image can never appear under two colour names.
-  // A tile is only drawn for a colour we actually HAVE a photo of. An empty "NO PHOTO"
-  // box adds nothing the grid above has not already said, and three of them beside one
-  // real photo is the same information twice over. Colours without a photo simply live
-  // in the table.
-  // Tiles sit in a grid that fills the row, so three colours never leave a half-empty
-  // band under the card. Smaller than before so 3-4 fit across instead of 2.
-  const px=forPrint?'112px':'clamp(96px,26vw,124px)';
-  const colourShots=(a.c||[]).map(r=>{
-    const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+(+v||0),0);
-    if(rowTot<=0)return '';
-    const file=colourPhotoFor(a,r.c);
-    if(!file)return '';
-    return `<div style="text-align:center">
-      <img src="${CAT_PHOTO_DIR}${file}" alt="${a.a} ${r.c}" data-a="${scAttr(a.a)}" data-c="${scAttr(r.c)}"${forPrint?'':' onclick="openScPhoto(this.dataset.a,this.dataset.c)"'}
-           style="width:100%;aspect-ratio:1/1;${forPrint?'':'cursor:zoom-in;'}object-fit:contain;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:block">
-      <div style="font-size:11px;font-weight:700;color:#0f172a;margin-top:3px">${r.c}</div>
-      <div style="font-size:10px;color:#15803d;font-weight:700">${colourMrp(a,r)}</div>
-      <div style="font-size:10px;color:#475569">${qtyLabel(Object.values(r.q||{}).reduce((s,v)=>s+capCtn(v,cap),0))}</div>
-    </div>`;
-  }).filter(Boolean).join('');
-  const shotStrip=colourShots?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(${px},1fr));gap:10px;margin-top:10px${anyColourPhoto?'':';padding-top:10px;border-top:1px dashed #e2e8f0'}">${colourShots}</div>`:'';
-  // The left photo box only exists when there is a single article photo to put in it.
-  // When the colours carry their own photos, the tiles below are the photography and an
-  // empty box would just be a hole in the card.
-  const mainBox=(main||!anyColourPhoto)
-    ? `<div${forPrint?'':` data-a="${scAttr(a.a)}" onclick="openScPhoto(this.dataset.a,'')" title="click to enlarge"`} style="width:${forPrint?'150px;height:150px':'min(230px,44vw);height:min(230px,44vw);cursor:zoom-in'};flex-shrink:0;border-radius:10px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0">${img}</div>`
-    : '';
-  return `<div class="card" style="${forPrint?'break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;border:1px solid #cbd5e1':''}">
-    <div style="display:flex;gap:14px;flex-wrap:wrap">
-      ${mainBox}
-      <!-- min-width:0 lets this column shrink below its table's natural width on a phone;
-           without it the flex item refuses to shrink and the card overflows sideways. -->
-      <div style="flex:1 1 240px;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">
-          <span style="font-size:17px;font-weight:800;color:#0f172a">${a.a}</span>
-          <span class="pill pill-blue">${a.f}</span>
-          ${a.mc?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.mc}</span>`:''}
-          ${a.sn?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.sn}</span>`:''}
-          <span class="pill ${a.t>0?'pill-green':'pill-red'}">${a.t>0?qtyLabel(cardTot):'no stock'}</span>
-          ${ag.dated&&(ag.old||ag.aging)?`<span class="pill ${ag.old?'pill-red':'pill-amber'}">${ag.old?'🔴 '+fmtN(ag.old)+' ctn 90+ d':'⚠️ '+fmtN(ag.aging)+' ctn 61–90 d'}</span>`:''}
-        </div>
-        <div style="font-size:12px;color:#64748b;margin-bottom:8px">MRP <b style="color:#0f172a">${mrpLabel(a)}</b> · sizes ${sizes.join(', ')||'—'} · ${(a.c||[]).length} colour(s)${ag.dated?` · oldest lot <b style="color:${ag.maxAge>90?'#b91c1c':ag.maxAge>60?'#b45309':'#0f172a'}">${ag.maxAge} d</b>`:''}</div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="font-size:12px">
-          <thead>${head}</thead><tbody>${body}
-          <tr style="background:#eef3ff"><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(cardTot)}</td><td class="num" style="font-weight:800">${mrpLabel(a)}</td></tr>
-          </tbody></table></div>
-      </div>
+  // No tile strip and no separate photo box any more — the photo column above carries
+  // every picture, so there is nothing left to strand in a half-empty band.
+  return `<div class="card"${forPrint?' style="break-inside:avoid;page-break-inside:avoid"':''}>
+    <div style="display:flex;align-items:baseline;gap:${forPrint?'6px':'8px'};flex-wrap:wrap;margin-bottom:1px">
+      <span style="font-size:${forPrint?'13px':'17px'};font-weight:800;color:#0f172a">${a.a}</span>
+      <span class="pill pill-blue">${a.f}</span>
+      ${a.mc?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.mc}</span>`:''}
+      ${a.sn?`<span class="pill" style="background:#f1f5f9;color:#475569">${a.sn}</span>`:''}
+      <span class="pill ${a.t>0?'pill-green':'pill-red'}">${a.t>0?qtyLabel(cardTot):'no stock'}</span>
+      ${ag.dated&&(ag.old||ag.aging)?`<span class="pill ${ag.old?'pill-red':'pill-amber'}">${ag.old?'🔴 '+fmtN(ag.old)+' ctn 90+ d':'⚠️ '+fmtN(ag.aging)+' ctn 61–90 d'}</span>`:''}
+      <span style="font-size:${forPrint?'9px':'12px'};color:#64748b">MRP <b style="color:#0f172a">${mrpLabel(a)}</b> · sizes ${sizes.join(', ')||'—'} · ${(a.c||[]).length} colour(s)${ag.dated?` · oldest lot <b style="color:${ag.maxAge>90?'#b91c1c':ag.maxAge>60?'#b45309':'#0f172a'}">${ag.maxAge} d</b>`:''}</span>
     </div>
-    ${shotStrip}
+    <!-- the table scrolls sideways on a phone rather than forcing the card wider -->
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="font-size:${forPrint?'10px':'12px'};width:100%">
+      <thead>${head}</thead><tbody>${body}
+      <tr style="background:#eef3ff"><td></td><td style="font-weight:800">TOTAL</td>${colTot}<td class="num" style="font-weight:800">${fmtN(cardTot)}</td><td class="num" style="font-weight:800">${mrpLabel(a)}</td></tr>
+      </tbody></table></div>
   </div>`;
 }
 function renderStockCatalogue(){
@@ -5564,14 +5553,18 @@ function printStockCatalogue(audience){
   const base=location.href.replace(/[^\/]*$/,'');
   w.document.write(`<html><head><meta charset="utf-8"><base href="${base}"><title>STAR Kidz ${title} ${catDate()}</title>
   <style>
-    /* A4 with a comfortable margin; the running header repeats on every printed page. */
-    @page{size:A4 portrait;margin:12mm 10mm}
-    body{margin:0;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:11px}
-    .sheet{max-width:190mm;margin:0 auto}
-    .card{background:#fff;border-radius:8px;padding:10px;border:1px solid #cbd5e1;
-          break-inside:avoid;page-break-inside:avoid;margin-bottom:8mm}
+    /* Tight A4. The old sheet used a 12mm/10mm page margin, 10px card padding and an 8mm
+       gap between cards, and with the photo strip under each table that came to roughly
+       two articles a page. Trimming the page margin to 8mm/7mm, the padding to 5px and
+       the gap to 3mm — with the photos now inside the table — fits five to seven,
+       depending on how many colours an article carries. */
+    @page{size:A4 portrait;margin:8mm 7mm}
+    body{margin:0;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:10px}
+    .sheet{max-width:196mm;margin:0 auto}
+    .card{background:#fff;border-radius:5px;padding:5px 6px;border:1px solid #cbd5e1;
+          break-inside:avoid;page-break-inside:avoid;margin-bottom:3mm}
     .tbl{width:100%;border-collapse:collapse}
-    .tbl th,.tbl td{border:1px solid #cbd5e1;padding:3px 6px;font-size:10px}
+    .tbl th,.tbl td{border:1px solid #cbd5e1;padding:1px 4px;font-size:9.5px}
     .tbl th{background:#eef2f7;font-size:9px;text-transform:uppercase;letter-spacing:.03em}
     .num{text-align:right}
     .pill{display:inline-block;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:700}
