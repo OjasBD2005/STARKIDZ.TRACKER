@@ -1226,6 +1226,9 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   </div>
 
   <div id="scAgingNote" style="font-size:11px;color:#94a3b8;margin:-6px 0 12px"></div>
+  <!-- Live photo check. Counts images that actually decoded, not <img> tags, so a broken
+       path is visible here instead of looking like "we have no photo for that colour". -->
+  <div id="scPhotoAudit" style="font-size:11px;color:#64748b;margin:-6px 0 12px"></div>
   <div id="scList"></div>
 </section>
 
@@ -1841,7 +1844,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-07.2';
+window.STARKIDZ_BUILD='2026-08-07.3';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5249,6 +5252,38 @@ function photoIndexCount(){
   const idx=window.PHOTO_INDEX||{};
   return Object.keys(idx).filter(k=>k.indexOf('|')>0).length;
 }
+// A photo that will not load is replaced by a red marker naming the file, not hidden.
+// A silent empty cell is indistinguishable from "no photo exists", which is how a broken
+// path can sit in a catalogue that goes out to parties.
+window.SC_PHOTO_FAILS=[];
+function scPhotoFailed(img){
+  const f=img.getAttribute('data-file')||img.getAttribute('src')||'?';
+  if(window.SC_PHOTO_FAILS.indexOf(f)<0)window.SC_PHOTO_FAILS.push(f);
+  const box=document.createElement('div');
+  box.style.cssText='width:'+img.style.width+';height:'+img.style.height+';margin:0 auto;display:grid;place-items:center;'
+    +'border:1px dashed #b91c1c;border-radius:4px;color:#b91c1c;font-size:7px;line-height:1.1;word-break:break-all;padding:1px;text-align:center';
+  box.textContent='✕ '+f;
+  box.title='This photo did not load: '+f;
+  if(img.parentNode)img.parentNode.replaceChild(box,img);
+  scPhotoAuditRender();
+}
+// Live count of what actually loaded, shown next to the catalogue KPIs. Counting <img>
+// TAGS proves nothing — only naturalWidth does.
+function scPhotoAudit(){
+  const imgs=[...document.querySelectorAll('#scList img')];
+  const done=imgs.filter(i=>i.complete);
+  return {total:imgs.length+ (window.SC_PHOTO_FAILS||[]).length,
+          loaded:done.filter(i=>i.naturalWidth>0).length,
+          failed:(window.SC_PHOTO_FAILS||[]).length,
+          pending:imgs.length-done.length};
+}
+function scPhotoAuditRender(){
+  const el=document.getElementById('scPhotoAudit');if(!el)return;
+  const a=scPhotoAudit();
+  el.innerHTML=a.failed
+    ? `<span style="color:#b91c1c;font-weight:700">✕ ${fmtN(a.failed)} photo file(s) failed to load</span> — ${(window.SC_PHOTO_FAILS||[]).slice(0,4).join(', ')}${a.failed>4?' …':''}`
+    : `<span style="color:#15803d;font-weight:700">✅ ${fmtN(a.loaded)} photos loaded</span>${a.pending?` · ${a.pending} still loading`:''}`;
+}
 let _scBuilt=false;
 function fillCatalogueFilters(){
   const d=catData();
@@ -5427,8 +5462,12 @@ function catalogueCardHTML(a,forPrint,cap){
   const photoCell=(file,label,colour,span,standIn)=>{
     const zoom=forPrint?'':` data-a="${scAttr(a.a)}" data-c="${scAttr(colour||'')}" onclick="openScPhoto(this.dataset.a,this.dataset.c)" title="click to enlarge"`;
     const dim=standIn?'opacity:.45;':'';
+    // A photo that fails to load must SAY SO. It used to be hidden with display:none,
+    // which turns a 404 into an empty cell — indistinguishable from "we have no photo",
+    // so a broken path could sit in the catalogue unnoticed. It now shows the file name
+    // in red, and scPhotoAudit() counts what actually loaded.
     const inner=file
-      ? `<img src="${CAT_PHOTO_DIR}${file}" alt="${label}"${zoom} style="width:${pw};height:${pw};object-fit:contain;background:#fff;display:block;margin:0 auto;${dim}${forPrint?'':'cursor:zoom-in'}" onerror="this.style.display='none'">`
+      ? `<img src="${CAT_PHOTO_DIR}${file}" alt="${label}"${zoom} data-file="${scAttr(file)}" style="width:${pw};height:${pw};object-fit:contain;background:#fff;display:block;margin:0 auto;${dim}${forPrint?'':'cursor:zoom-in'}" onerror="scPhotoFailed(this)">`
         +(standIn?`<div style="font-size:${forPrint?'6px':'8px'};color:#94a3b8;font-style:italic;line-height:1.1;margin-top:1px">article</div>`:'')
       : `<div style="width:${pw};height:${pw};display:grid;place-items:center;color:#cbd5e1;font-size:9px;margin:0 auto">${inStock?'—':'no stock'}</div>`;
     return `<td${span>1?` rowspan="${span}"`:''} style="padding:2px;text-align:center;vertical-align:middle;background:#fff">${inner}</td>`;
@@ -5544,6 +5583,14 @@ function renderStockCatalogue(){
   $('#scList').innerHTML=rows.length
     ? dateBar+`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;align-items:start">${rows.map(a=>catalogueCardHTML(a,false)).join('')}</div>`
     : '<div class="card" style="text-align:center;color:#94a3b8;padding:20px">No articles match these filters.</div>';
+  // Re-count once the images have had a chance to decode, and again as stragglers land.
+  window.SC_PHOTO_FAILS=[];
+  scPhotoAuditRender();
+  [...document.querySelectorAll('#scList img')].forEach(i=>{
+    if(!i.complete)i.addEventListener('load',scPhotoAuditRender,{once:true});
+  });
+  setTimeout(scPhotoAuditRender,1500);
+  setTimeout(scPhotoAuditRender,6000);
 }
 // Print / save-as-PDF, A4, in two audiences:
 //   'distributor' — quantity capped at DISTRIBUTOR_CTN_CAP. 11 ctn and 400 ctn both read
