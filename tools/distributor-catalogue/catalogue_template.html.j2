@@ -1,0 +1,175 @@
+{# STAR Kidz distributor catalogue — A4, print-first.
+   Renders with WeasyPrint or Puppeteer. Photo left, table right, 3 cards per page. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>STAR Kidz — Distributor Catalogue {{ stock_date }}</title>
+<style>
+  /* Branding */
+  :root{
+    --navy:#1A2B4C;
+    --red:#E63946;
+    --grey:#F8F9FA;
+    --line:#DDE2E8;
+    --ink:#1A2B4C;
+    --muted:#6B7785;
+  }
+
+  /* A4, tight margins. The running header repeats on every printed page. */
+  @page{
+    size:A4 portrait;
+    margin:14mm 10mm 12mm;
+    @bottom-center{
+      content:"Quantities are CARTONS · confirm availability before booking · page " counter(page) " of " counter(pages);
+      font:9px/1.3 Arial, Helvetica, sans-serif; color:#6B7785;
+    }
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;font:11px/1.45 Arial,Helvetica,sans-serif;color:var(--ink);background:#fff}
+
+  .masthead{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--navy);color:#fff;padding:12px 16px;border-radius:6px;margin-bottom:12px;
+  }
+  .masthead h1{margin:0;font-size:19px;letter-spacing:.02em}
+  .masthead h1 span{color:var(--red)}
+  .masthead .sub{font-size:10px;opacity:.85;margin-top:3px}
+  .masthead .tally{text-align:right;font-size:10px;opacity:.9}
+  .masthead .tally b{display:block;font-size:17px;opacity:1}
+
+  /* One card per article. break-inside:avoid keeps a card whole across a page break. */
+  .grid{display:flex;flex-direction:column;gap:7mm}
+  .card{
+    display:flex;gap:11px;align-items:flex-start;
+    border:1px solid var(--line);border-radius:6px;padding:9px;background:#fff;
+    break-inside:avoid;page-break-inside:avoid;
+  }
+
+  /* Fixed 1:1 photo box on the LEFT, so every card lines up down the page and a tall
+     or wide image can never push the table out of alignment. */
+  .shot{
+    flex:0 0 108px;width:108px;height:108px;
+    border:1px solid var(--line);border-radius:4px;background:var(--grey);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  .shot img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+  .shot .none{font-size:9px;color:var(--muted);font-style:italic}
+
+  .body{flex:1 1 auto;min-width:0}
+  .head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+  .head .art{font-size:15px;font-weight:700;letter-spacing:.01em}
+  .head .cat{
+    font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    background:var(--grey);border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--muted);
+  }
+  .head .ctn{
+    margin-left:auto;font-size:11px;font-weight:700;color:#fff;
+    background:var(--red);border-radius:999px;padding:2px 9px;
+  }
+
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid var(--line);padding:2px 6px;font-size:10px;text-align:left}
+  th{
+    background:var(--grey);font-size:8.5px;text-transform:uppercase;
+    letter-spacing:.05em;color:var(--muted);font-weight:700;
+  }
+  td.n,th.n{text-align:right;white-space:nowrap}
+  tbody tr:nth-child(even) td{background:#FCFCFD}
+  tfoot td{background:var(--grey);font-weight:700}
+
+  /* Audit report — last page, deliberately separated from the sales pages. */
+  .audit{break-before:page;page-break-before:always}
+  .audit h2{font-size:15px;margin:0 0 3px;color:var(--navy)}
+  .audit .lede{font-size:10px;color:var(--muted);margin:0 0 9px}
+  .audit table{margin-top:6px}
+  .audit .issue{color:var(--red);font-weight:700}
+  .clean{
+    border:1px solid var(--line);border-left:3px solid var(--navy);
+    border-radius:4px;padding:9px 12px;font-size:11px;background:var(--grey);
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div>
+    <h1>STAR <span>Kidz</span> — Distributor Catalogue</h1>
+    <div class="sub">Stock as on {{ stock_date }} · quantities in cartons</div>
+  </div>
+  <div class="tally">
+    <b>{{ "{:,}".format(total_ctn) }} ctn</b>
+    {{ groups|length }} articles
+  </div>
+</header>
+
+<div class="grid">
+{% for g in groups %}
+  <article class="card">
+    <div class="shot">
+      {% if g.photo %}<img src="{{ g.photo }}" alt="{{ g.art }}">
+      {% else %}<span class="none">no photo</span>{% endif %}
+    </div>
+    <div class="body">
+      <div class="head">
+        <span class="art">{{ g.art }}</span>
+        {% if g.cat %}<span class="cat">{{ g.cat }}</span>{% endif %}
+        <span class="ctn">{{ "{:,}".format(g.total) }} ctn</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Colour</th><th>Sizes</th><th class="n">Ctn</th><th class="n">MRP</th></tr>
+        </thead>
+        <tbody>
+        {% for it in g.items %}
+          <tr>
+            <td>{{ it.col }}</td>
+            <td>{{ it.sz or "—" }}</td>
+            <td class="n">{{ it.ctn }}</td>
+            <td class="n">₹{{ it.mrp }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        {% if g.items|length > 1 %}
+        <tfoot>
+          <tr><td>Total</td><td></td><td class="n">{{ g.total }}</td><td></td></tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </article>
+{% endfor %}
+</div>
+
+<section class="audit">
+  <h2>Audit report</h2>
+  <p class="lede">
+    Checks run against the extracted rows and the photo index. Whether the colour printed
+    <em>inside</em> a photo matches its row cannot be checked from text — that needs the
+    image itself — so those rows are listed as <em>shade unverified</em> rather than passed.
+  </p>
+  {% if findings %}
+    <table>
+      <thead>
+        <tr><th>Article</th><th>Colour</th><th>Issue</th><th>Detail</th></tr>
+      </thead>
+      <tbody>
+      {% for f in findings %}
+        <tr>
+          <td>{{ f.article }}</td>
+          <td>{{ f.colour }}</td>
+          <td class="issue">{{ f.issue }}</td>
+          <td>{{ f.detail }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="clean">No discrepancies found across {{ groups|length }} articles.</p>
+  {% endif %}
+  <p class="lede" style="margin-top:9px">Generated {{ generated }}</p>
+</section>
+
+</body>
+</html>

@@ -1,4 +1,50 @@
-# Distributor catalogue PDF (Python)
+# Distributor catalogue (Python)
+
+Two scripts, different inputs:
+
+| Script | Input | Use when |
+|---|---|---|
+| `distributor_catalogue.py` | the Busy **stock export** (`.xlsx`) | normal daily catalogue — this is the accurate path |
+| `parse_ocr.py` | **OCR text** of an existing catalogue | you only have a scanned/printed catalogue, no source data |
+
+Prefer the xlsx path. OCR is a recovery route: it can only recover what was legible.
+
+## parse_ocr.py — OCR text to catalogue
+
+```bash
+pip install anthropic pydantic jinja2 weasyprint
+python parse_ocr.py --in ocr.txt --out catalogue.pdf
+python parse_ocr.py --in ocr.txt --json-only > catalogue.json
+```
+
+Uses `claude-opus-5` with `client.messages.parse()` and the Pydantic schema in the file,
+so the API enforces the output shape server-side. Keys are short (`art`, `col`, `sz`,
+`ctn`, `mrp`), and boilerplate (`VERTICAL CLOSE`, `PHOTO`, `oldest lot 1 d`, page
+furniture) is stripped before the text is sent.
+
+**Where the token savings come from**, largest first: schema-enforced output removes the
+"return only JSON" instruction and every parse-failure retry; pre-compression removes a
+large share of the characters; short keys save a few tokens per row; `effort: "low"` cuts
+thinking spend. Do **not** shrink `max_tokens` to save tokens — a low cap truncates
+mid-JSON and costs a whole retry. Chunk with `--chunk-chars` instead.
+
+Output goes through `catalogue_template.html.j2` — A4, photo in a fixed 1:1 box on the
+left of the colour×size table, ~6 articles per page. Branding: navy `#1A2B4C`, red
+`#E63946`, light grey `#F8F9FA`. Renders with WeasyPrint or Puppeteer.
+
+### What the audit can and cannot check
+
+It verifies internal consistency (duplicate colour rows, non-positive cartons, non-numeric
+MRP, size breakdowns with no digits) and whether a photo file exists for that exact
+article+colour.
+
+It **cannot** verify that the colour printed *inside* a photo matches its row — that needs
+a vision call on the image, not text parsing. Those rows are reported as **shade
+unverified** rather than passed, so the gap stays visible.
+
+---
+
+# distributor_catalogue.py — stock export to PDF
 
 Builds an A4 distributor catalogue from the daily Busy stock export: one card per article
 with its photo, name, MRP, size ratio and a colour × size carton grid, plus a closing page
