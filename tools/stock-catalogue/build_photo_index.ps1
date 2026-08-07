@@ -6,7 +6,7 @@ $roots=@(
  "C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\PRODUCT PHOTOS\Article photos"
 )
 $out=if($env:SC_WORKDIR){$env:SC_WORKDIR}else{$PSScriptRoot}
-$app="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA"
+$app=$out   # write into the checkout that was passed in, not a hardcoded one
 $dest="$app\article-photos"
 New-Item -ItemType Directory -Force $dest | Out-Null
 

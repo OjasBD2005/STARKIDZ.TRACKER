@@ -1,7 +1,17 @@
-param([string]$out=$env:SC_WORKDIR)
+param(
+  [string]$out=$env:SC_WORKDIR,
+  # Stock date as YYYY-MM-DD. The PDF route reads it out of stock_table_full.txt, which
+  # the Excel route never produces - so on that route it has to be passed in, or the
+  # catalogue ships stamped "unknown".
+  [string]$date
+)
 if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR); it must hold stock_parsed.csv + photomap.json"}
+if($date -and $date -notmatch '^\d{4}-\d{2}-\d{2}$'){throw "-date must be YYYY-MM-DD, got '$date'"}
 $root="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\Article photos"
-$app ="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA"
+# The checkout the data files are written into. Defaults to -out so a git worktree or a
+# second clone writes into ITSELF; hardcoding this made every script write into the main
+# checkout no matter which -out was passed.
+$app =$out
 $dest="$app\article-photos"
 New-Item -ItemType Directory -Force $dest | Out-Null
 
@@ -90,8 +100,12 @@ Set-Content "$out\catalogue.json" $json -Encoding utf8
 # emit the JS data file the app loads
 # stock date taken from the report title (STOCK-DD-MM-YYYY) so it always matches the source
 $stamp='unknown'
-$titleLine = Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-(\d{2})-(\d{2})-(\d{4})' | Select-Object -First 1
-if($titleLine){ $m=[regex]::Match($titleLine.Line,'STOCK-(\d{2})-(\d{2})-(\d{4})'); $stamp="$($m.Groups[3].Value)-$($m.Groups[2].Value)-$($m.Groups[1].Value)" }
+if($date){ $stamp=$date }
+elseif(Test-Path "$out\stock_table_full.txt"){
+  $titleLine = Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-(\d{2})-(\d{2})-(\d{4})' | Select-Object -First 1
+  if($titleLine){ $m=[regex]::Match($titleLine.Line,'STOCK-(\d{2})-(\d{2})-(\d{4})'); $stamp="$($m.Groups[3].Value)-$($m.Groups[2].Value)-$($m.Groups[1].Value)" }
+}
+if($stamp -eq 'unknown'){ Write-Warning "No stock date: pass -date YYYY-MM-DD (Excel route) or provide stock_table_full.txt (PDF route). The catalogue will be stamped 'unknown'." }
 $js=@"
 /* STAR Kidz — Finished Goods Stock Catalogue
    Source : stock report dated $stamp (Busy), parsed row-wise.

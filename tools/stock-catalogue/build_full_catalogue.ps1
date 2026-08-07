@@ -19,14 +19,20 @@ param(
   [string]$zip="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\PRODUCT PHOTOS\ALL-PHOTOS-ARCHIVE.zip",
   [int]$max=1000,
   [int]$quality=80,
-  [switch]$SkipPhotos   # reuse the images already in article-photos/; rebuild only the data
+  [switch]$SkipPhotos,  # reuse the images already in article-photos/; rebuild only the data
+  # Stock date as YYYY-MM-DD. Only the PDF route leaves a stock_table_full.txt to read it
+  # from, so on the Excel route it must be passed or the catalogue ships stamped "unknown".
+  [string]$date
 )
+if($date -and $date -notmatch '^\d{4}-\d{2}-\d{2}$'){throw "-date must be YYYY-MM-DD, got '$date'"}
 if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR); it must hold stock_parsed.csv"}
 if(-not (Test-Path $zip)){throw "Photo archive not found: $zip"}
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$app ="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA"
+# The checkout the data files are written into — defaults to -out so a worktree writes
+# into itself rather than into the main checkout. See build_catalogue.ps1.
+$app =$out
 $dest="$app\article-photos"
 
 function Norm-Article([string]$a){
@@ -400,8 +406,12 @@ foreach($k in $dead){ $index.Remove($k) }
 
 $catJson=$list|ConvertTo-Json -Depth 8 -Compress
 $stamp='unknown'
-$tl=Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-(\d{2})-(\d{2})-(\d{4})'|Select-Object -First 1
-if($tl){ $mm=[regex]::Match($tl.Line,'STOCK-(\d{2})-(\d{2})-(\d{4})'); $stamp="$($mm.Groups[3].Value)-$($mm.Groups[2].Value)-$($mm.Groups[1].Value)" }
+if($date){ $stamp=$date }
+elseif(Test-Path "$out\stock_table_full.txt"){
+  $tl=Select-String -Path "$out\stock_table_full.txt" -Pattern 'STOCK-(\d{2})-(\d{2})-(\d{4})'|Select-Object -First 1
+  if($tl){ $mm=[regex]::Match($tl.Line,'STOCK-(\d{2})-(\d{2})-(\d{4})'); $stamp="$($mm.Groups[3].Value)-$($mm.Groups[2].Value)-$($mm.Groups[1].Value)" }
+}
+if($stamp -eq 'unknown'){ Write-Warning "No stock date: pass -date YYYY-MM-DD (Excel route) or provide stock_table_full.txt (PDF route)." }
 
 $inStockN=@($list|Where-Object{$_.st -eq 1}).Count
 Set-Content "$app\star-kidz-article-catalogue-data.js" @"

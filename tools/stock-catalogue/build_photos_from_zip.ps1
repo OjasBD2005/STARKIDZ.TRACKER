@@ -17,7 +17,9 @@ if(-not (Test-Path $zip)){throw "Photo archive not found: $zip"}
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$app ="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA"
+# The checkout the photos and index are written into — defaults to -out so a worktree
+# writes into itself rather than into the main checkout. See build_catalogue.ps1.
+$app =$out
 $dest="$app\article-photos"
 
 function Norm-Article([string]$a){

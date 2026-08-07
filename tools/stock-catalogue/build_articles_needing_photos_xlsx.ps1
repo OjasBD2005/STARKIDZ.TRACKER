@@ -7,7 +7,7 @@
 param([string]$out=$env:SC_WORKDIR)
 if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR)"}
 . "$PSScriptRoot\make_xlsx.ps1"
-$app="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA"
+$app=$out   # write into the checkout that was passed in, not a hardcoded one
 $dest="$app\Articles-Needing-Photos.xlsx"
 
 $rows=Import-Csv "$out\stock_parsed.csv"

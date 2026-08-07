@@ -1,7 +1,7 @@
 param([string]$out=$env:SC_WORKDIR)
 if(-not $out){throw "Pass -out <workdir> (or set SC_WORKDIR); it must hold stock_parsed.csv"}
 . "$PSScriptRoot\make_xlsx.ps1"
-$dest="C:\Users\VINAY\OneDrive - Ojas Footwear India Private Limited\Desktop\CLAUDE DATA\Article-Photos-Missing.xlsx"
+$dest="$out\Article-Photos-Missing.xlsx"   # the checkout passed in, not a hardcoded one
 
 $cov=Import-Csv "$out\photo_coverage.csv"
 $stockDate='27-07-2026'
