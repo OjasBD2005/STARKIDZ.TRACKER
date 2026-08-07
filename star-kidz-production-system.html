@@ -1841,7 +1841,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-07.1';
+window.STARKIDZ_BUILD='2026-08-07.2';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5420,24 +5420,36 @@ function catalogueCardHTML(a,forPrint,cap){
   // The photo column. Print gets a smaller box than the screen — the sheet is read at
   // arm's length, and every mm saved here is another article on the page.
   const pw=forPrint?'46px':'clamp(54px,13vw,68px)';
-  const photoCell=(file,label,colour,span)=>{
-    const zoom=forPrint?'':` data-a="${scAttr(a.a)}" data-c="${scAttr(colour||'')}" onclick="openScPhoto(this.dataset.a,this.dataset.c)" title="click to enlarge" style="cursor:zoom-in"`;
+  // A colour we have no photo of falls back to the ARTICLE's photo, dimmed and captioned
+  // "article". It is a shape reference, not a shade: the same image can appear against
+  // several colours of one article, so it must never read as a swatch. Where the article
+  // holds a single colour the photo IS that colour, so no caption is used.
+  const photoCell=(file,label,colour,span,standIn)=>{
+    const zoom=forPrint?'':` data-a="${scAttr(a.a)}" data-c="${scAttr(colour||'')}" onclick="openScPhoto(this.dataset.a,this.dataset.c)" title="click to enlarge"`;
+    const dim=standIn?'opacity:.45;':'';
     const inner=file
-      ? `<img src="${CAT_PHOTO_DIR}${file}" alt="${label}"${zoom} style="width:${pw};height:${pw};object-fit:contain;background:#fff;display:block;margin:0 auto${forPrint?'':';cursor:zoom-in'}" onerror="this.style.display='none'">`
+      ? `<img src="${CAT_PHOTO_DIR}${file}" alt="${label}"${zoom} style="width:${pw};height:${pw};object-fit:contain;background:#fff;display:block;margin:0 auto;${dim}${forPrint?'':'cursor:zoom-in'}" onerror="this.style.display='none'">`
+        +(standIn?`<div style="font-size:${forPrint?'6px':'8px'};color:#94a3b8;font-style:italic;line-height:1.1;margin-top:1px">article</div>`:'')
       : `<div style="width:${pw};height:${pw};display:grid;place-items:center;color:#cbd5e1;font-size:9px;margin:0 auto">${inStock?'—':'no stock'}</div>`;
     return `<td${span>1?` rowspan="${span}"`:''} style="padding:2px;text-align:center;vertical-align:middle;background:#fff">${inner}</td>`;
   };
+  const artPhoto=inStock?((catPhotoFor(a)||{}).file||''):'';
+  const multiColour=(a.c||[]).length>1;
   const head=`<tr><th style="text-align:center;width:1%">PHOTO</th><th style="text-align:left">COLOUR</th>${sizes.map(s=>`<th class="num">${s}</th>`).join('')}<th class="num" title="Cartons — the unit the stock report counts in">Ctn</th><th class="num" title="MRP for this colour, exactly as the stock report prices it">MRP</th></tr>`;
   // Every quantity on the card goes through capCtn, so a distributor sheet caps each
   // size cell and every total derived from them; nothing leaks the real depth.
   const body=(a.c||[]).map((r,ri)=>{
     const rowTot=Object.values(r.q||{}).reduce((s,v)=>s+capCtn(v,cap),0);
-    // A colour shows its OWN photo or none. An article photo is never repeated under two
-    // colour names — that reads as three shades we hold and it is three wrong pictures.
-    // When no colour has its own, the article photo spans the whole column once instead.
+    // A colour shows its OWN photo where we have one. Where we do not — 806 of the 890
+    // colour lines in stock — the article photo stands in, dimmed and captioned, so the
+    // distributor sees the shoe instead of an empty box. When NO colour of the article
+    // has its own photo every row would carry the same stand-in, so it spans the column
+    // once rather than repeating down the card.
+    const own=anyColourPhoto?colourPhotoFor(a,r.c):'';
     const cell=anyColourPhoto
-      ? photoCell(colourPhotoFor(a,r.c),a.a+' '+r.c,r.c,1)
-      : (ri===0 ? photoCell(main&&main.file,a.a,'',(a.c||[]).length||1) : '');
+      ? (own ? photoCell(own,a.a+' '+r.c,r.c,1,false)
+             : photoCell(artPhoto,a.a,'',1,true))
+      : (ri===0 ? photoCell(artPhoto,a.a,'',(a.c||[]).length||1,multiColour) : '');
     const cells=sizes.map(s=>{
       const v=(r.q||{})[s];
       if(!v)return '<td class="num" style="color:#cbd5e1">·</td>';
@@ -5508,7 +5520,7 @@ function renderStockCatalogue(){
   if(note){
     const kept=oldPairs+agPairs;
     note.innerHTML=mode==='all'
-      ? '👁️ Showing <b>all</b> stock including aging. The Catalogue PDF always carries every lot with the aging cells highlighted.'
+      ? '👁️ Showing <b>all</b> stock including aging. The Catalogue PDF always carries every lot with the aging cells highlighted. · <span style="opacity:.45">Faded</span> photos marked <i>article</i> are the article’s own photo — the shade will differ.'
       : mode==='aging'
       ? '🔴 Showing <b>aging stock only</b> (90+ days on the shelf).'
       : `🌱 Screen is showing <b>fresh stock only</b> — ${mode==='strict'?'lots older than 60 days':'lots older than 90 days'} are hidden here`
@@ -5593,6 +5605,7 @@ function printStockCatalogue(audience){
       ? `Quantities are <b>CARTONS</b> and are shown up to a maximum of <b>${DISTRIBUTOR_CTN_CAP} ctn</b> per line. A line reading “${DISTRIBUTOR_CTN_CAP}” means <b>${DISTRIBUTOR_CTN_CAP} or more available</b> — please confirm the balance with us before booking.`
       : `Quantities are <b>ACTUAL CARTONS</b> in stock — internal sheet for the sales team, not to be shared with a party.`}
     Every colour listed is in stock as on <b>${catDate()}</b>. Printed <b>${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</b>.
+    <br><b>Photos:</b> a full-strength photo is that exact colour. A <span style="opacity:.45">faded</span> photo marked <i>article</i> is the article’s own photo shown for reference — <b>the shade will differ</b>, so please go by the colour name.
   </div>
   ${cards}
   <div style="text-align:center;font-size:9px;color:#94a3b8;margin-top:8px">Generated ${nowFull()} · STAR Kidz Production &amp; Sales System</div></div>
