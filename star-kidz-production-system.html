@@ -5668,31 +5668,65 @@ function buildCatalogueFromSheet(matrix,sheet){
   // Without this the whole file is rejected as "header row not found".
   const hdr=v=>low(v).replace(/^\s*\d+\s*[-\s]\s*/,'').trim();
   const artNames=['item name','article name','article','item','item sku code','sku'];
-  const qtyNames=['total','stock (pairs)','stock pairs','stock','qty','quantity','closing','closing qty','balance','pairs'];
+  // Quantity columns are not always called plainly "Qty" — our own in-stock workbook
+  // labels them "QTY (CTN)" and "STOCK QTY (CTN)", which no exact name could match, so
+  // the whole file was rejected as "header row not found". Score the candidates instead:
+  // a quantity word is worth 3, a carton word 2, and anything counting PAIRS or holding
+  // money/ratios is out — otherwise "QTY (PAIRS)" or "IN CTN" would win over the real
+  // carton column and the catalogue would be built on the wrong number.
+  const qtyScore=h=>{
+    if(/mrp|cost|gst|ratio|assort|status|match|key|basis|flag|s\.?no/.test(h))return 0;
+    if(/\bpairs?\b/.test(h))return 0;                       // that is the pairs column, not cartons
+    let s=0;
+    if(/\b(qty|quantity|stock|closing|balance|total)\b/.test(h))s+=3;
+    if(/\b(ctn|ctns|carton|cartons)\b/.test(h))s+=2;
+    return s;
+  };
   let hi=-1;
   for(let i=0;i<Math.min(30,matrix.length);i++){
     const cells=matrix[i].map(hdr);
-    if(cells.some(c=>artNames.includes(c))&&cells.some(c=>qtyNames.includes(c))){hi=i;break;}
+    if(cells.some(c=>artNames.includes(c))&&cells.some(c=>qtyScore(c)>0)){hi=i;break;}
   }
   if(hi<0)throw new Error('Could not find the header row. The sheet needs an Item Name / Article column and a Total / Stock / Qty column.\n\nTop row seen: '+(matrix[0]||[]).map(norm).join(' | ').slice(0,200));
   const rows=XLSX.utils.sheet_to_json(sheet,{range:hi,defval:''});
   if(!rows.length)throw new Error('No data rows found below the header row.');
   const keys=Object.keys(rows[0]);
   const kfind=c=>{for(const n of c){const k=keys.find(k=>hdr(k)===n);if(k)return k;}return null;};
-  const artKey=kfind(artNames), qtyKey=kfind(qtyNames);
+  // exact name first, then a looser pattern — "COLOUR NAME" and "SIZE RATIO" are ours
+  const kmatch=(names,re)=>kfind(names)||(re?keys.find(k=>re.test(hdr(k))):null)||null;
+  const artKey=kfind(artNames);
+  let qtyKey=null,best=0;
+  keys.forEach(k=>{const s=qtyScore(hdr(k));if(s>best){best=s;qtyKey=k;}});
   if(!artKey||!qtyKey)throw new Error('Missing the article or quantity column. Columns seen: '+keys.join(', '));
-  const colKey=kfind(['colour','color']), sizeKey=kfind(['size']), mrpKey=kfind(['mrp','m.r.p','m.r.p.']);
-  // Busy counts stock in CARTONS and gives pairs-per-carton in its own column, which
-  // differs by size — so pairs are worked out per line, never by one multiplier.
-  const ppcKey=kfind(['pair','pairs','pair/ctn','pairs per carton']);
+  const colKey=kmatch(['colour','color'],/\bcolou?r\b/), sizeKey=kmatch(['size'],/\bsize\b/), mrpKey=kmatch(['mrp','m.r.p','m.r.p.'],/\bmrp\b/);
+  // Stock is counted in CARTONS and pairs-per-carton sits in its own column, differing by
+  // size — so pairs are worked out per line, never by one multiplier. When the sheet
+  // already carries a pairs total of its own ("QTY (PAIRS)") that is read directly,
+  // because it is the figure the report itself stands behind.
+  const ppcKey=kmatch(['pair','pairs','pair/ctn','pairs per carton'],/\bpairs?\b\s*[\/\-]?\s*(per\s*)?\b(ctn|carton)\b/);
+  const prsKey=keys.find(k=>/\b(qty|quantity|stock)\b.*\bpairs?\b/.test(hdr(k)))||null;
   const machKey=kfind(['machine']), seasonKey=kfind(['season']), seriesKey=kfind(['item series','series']);
+  // Which physical column the quantity sits in. The Grand Total cross-check has to read
+  // that SAME column, otherwise it compares cartons against the pairs figure printed
+  // beside them and can never agree — see verifyUploadTotals.
+  const qtyColIdx=(matrix[hi]||[]).findIndex(c=>hdr(c)===hdr(qtyKey));
   const num=v=>parseInt(String(v==null?'':v).replace(/[^0-9\-]/g,''))||0;
   const isTotalRow=r=>Object.values(r).some(v=>/\btotal\b/i.test(String(v)));
   const fam=familyPhotoMap();
-  const cat={};let ctns=0,prsTotal=0,skipped=0,used=0;
+  const cat={};let ctns=0,prsTotal=0,skipped=0,used=0,subtotals=0,dupes=0;
   let lArt='',lCol='',lSize='',lMrp='',lMach='',lSeason='',lSeries='';
   rows.forEach(r=>{
     if(isTotalRow(r)){skipped++;return}                       // Busy subtotal / grand-total lines
+    // Busy closes each group with a labelled subtotal ("REGULAR Total", "ALEXA Total")
+    // which the test above removes — and then an UNLABELLED one: a bare quantity with
+    // every other cell empty. Nothing marks it as a total, so the fill-down below hands
+    // it the previous row's article and it is counted a second time. That is what
+    // doubled the report to 34,474 against a Grand Total of 17,237.
+    //
+    // The test has to be "every other column is empty", NOT "no size": Size is itself a
+    // grouped column, so a real line carrying a second MRP under the same size has an
+    // empty Size cell too. Keying on size alone eats 193 genuine stock lines.
+    if(num(r[qtyKey])>0&&Object.keys(r).every(k=>k===qtyKey||!norm(r[k]))){subtotals++;return}
     // grouped reports leave repeated cells blank — carry the last value down
     if(machKey&&norm(r[machKey]))lMach=norm(r[machKey]).toUpperCase();
     if(seasonKey&&norm(r[seasonKey]))lSeason=norm(r[seasonKey]).toUpperCase();
@@ -5715,8 +5749,12 @@ function buildCatalogueFromSheet(matrix,sheet){
     // MRP per colour as well as per article — the report prices colours differently
     if(!e._cm[colour])e._cm[colour]={};
     if(lMrp)e._cm[colour][lMrp]=1;
+    // The same article/colour/size arriving twice is legitimate in a report split by
+    // godown or batch, so the quantities still add up — but it is also what a missed
+    // subtotal line looks like, so count them and show the count after the upload.
+    if(e._c[colour][size]!=null)dupes++;
     e._c[colour][size]=(e._c[colour][size]||0)+qty;
-    const prLine=ppcKey?qty*num(r[ppcKey]):0;
+    const prLine=prsKey&&num(r[prsKey])>0?num(r[prsKey]):(ppcKey?qty*num(r[ppcKey]):0);
     if(!e._cp[colour])e._cp[colour]={};
     if(prLine)e._cp[colour][size]=(e._cp[colour][size]||0)+prLine;
     e.tp+=prLine;
@@ -5734,8 +5772,8 @@ function buildCatalogueFromSheet(matrix,sheet){
     });
     return {a:e.a,f:e.f,p:e.p,mc:e.mc,sn:e.sn,m:Object.keys(e._m).sort((x,y)=>parseFloat(x)-parseFloat(y)),s:sizes,c:cols,t:e.t,tp:e.tp};
   });
-  if(!out.length)throw new Error('The sheet parsed but produced no stock rows. Check that the quantity column holds numbers.');
-  return {rows:out,pairs:ctns,ctns,prs:prsTotal,skipped,used,cols:keys};
+  if(!out.length)throw new Error('The sheet parsed but produced no stock rows. Check that the quantity column holds numbers'+(subtotals?' — every one of the '+subtotals+' line(s) with a quantity had every other cell empty, so all of them were read as subtotals':'')+'.');
+  return {rows:out,pairs:ctns,ctns,prs:prsTotal,skipped,used,subtotals,dupes,qtyColIdx,qtyKey,cols:keys};
 }
 // AUTO CHECKER — cross-check what we parsed against the report's own Grand Total.
 // A parse can look perfectly healthy and still be wrong, so the only trustworthy test is
@@ -5743,23 +5781,30 @@ function buildCatalogueFromSheet(matrix,sheet){
 // the sheet carries no Grand Total row and we say so rather than implying a pass.
 function verifyUploadTotals(matrix,built){
   const num=v=>parseInt(String(v==null?'':v).replace(/[^0-9\-]/g,''))||0;
-  let reported=0,found=false;
+  let reported=0,found=false,byColumn=false;
   for(const row of matrix){
     const cells=(row||[]).map(v=>String(v==null?'':v));
     if(!cells.some(c=>/grand\s*total/i.test(c)))continue;
+    // Read the total out of the SAME column the quantities were read from. The Grand
+    // Total line also prints pairs, which is the far larger number — taking the largest
+    // number on the line compares cartons against pairs, so the check could never pass.
+    const i=built.qtyColIdx;
+    if(i>=0&&num(cells[i])>0){ reported=num(cells[i]); found=true; byColumn=true; break; }
     const nums=cells.map(num).filter(n=>n>0);
     if(nums.length){ reported=Math.max(...nums); found=true; break; }
   }
-  return {found,reported,parsed:built.ctns,ok:found&&reported===built.ctns};
+  return {found,byColumn,reported,parsed:built.ctns,ok:found&&reported===built.ctns};
 }
 function uploadCheckBadgeHTML(v){
   if(!v.found)return `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:8px 12px;border-radius:6px;font-size:12px;color:#92400e;margin-bottom:8px">
     ⚠️ <b>Not cross-checked</b> — this sheet has no “Grand Total” row, so the parsed total (<b>${fmtN(v.parsed)} ctn</b>) could not be verified against the report.</div>`;
   if(v.ok)return `<div style="background:#dcfce7;border-left:4px solid #16a34a;padding:8px 12px;border-radius:6px;font-size:12px;color:#166534;margin-bottom:8px">
     ✅ <b>Verified</b> — parsed <b>${fmtN(v.parsed)} ctn</b> matches the report’s Grand Total of <b>${fmtN(v.reported)} ctn</b> exactly.</div>`;
+  const dbl=v.reported>0&&v.parsed===v.reported*2
+    ? `<br>The parsed figure is <b>exactly double</b> the report — the sheet almost certainly carries subtotal lines that were counted as stock. Re-export it from Busy as a flat (ungrouped) report.` : '';
   return `<div style="background:#fee2e2;border-left:4px solid #b91c1c;padding:8px 12px;border-radius:6px;font-size:12px;color:#991b1b;margin-bottom:8px">
-    ❌ <b>DOES NOT MATCH</b> — parsed <b>${fmtN(v.parsed)} ctn</b> but the report’s Grand Total says <b>${fmtN(v.reported)} ctn</b>
-    (difference <b>${fmtN(Math.abs(v.parsed-v.reported))}</b>). Do not send this catalogue out — re-export the report and upload again.</div>`;
+    ❌ <b>DOES NOT MATCH — catalogue NOT updated</b> — parsed <b>${fmtN(v.parsed)} ctn</b> but the report’s Grand Total says <b>${fmtN(v.reported)} ctn</b>
+    (difference <b>${fmtN(Math.abs(v.parsed-v.reported))}</b>). The catalogue on screen is unchanged, so nothing wrong can be sent to a party.${dbl}</div>`;
 }
 // Requirement check + before/after comparison against the catalogue being replaced.
 function compareCatalogues(oldRows,newRows){
@@ -5785,10 +5830,56 @@ function catalogueCompareHTML(c,meta){
       ${chip('New articles',fmtN(c.added.length),'#7c3aed')}
       ${chip('Sold out / gone',fmtN(c.removed.length),'#b91c1c')}
       ${chip('Rows read',fmtN(meta.used)+(meta.skipped?' · '+fmtN(meta.skipped)+' skipped':''),'#0891b2')}
+      ${meta.subtotals?chip('Subtotal lines dropped',fmtN(meta.subtotals),'#d97706'):''}
+      ${meta.dupes?chip('Repeated colour/size lines',fmtN(meta.dupes),'#d97706'):''}
     </div>
+    ${meta.dupes?`<div style="font-size:11px;color:#92400e;margin-top:6px">⚠️ ${fmtN(meta.dupes)} article/colour/size combination(s) appeared more than once and were added together. That is correct for a report split by godown or batch — but if this sheet is not split, those are subtotal lines and the total above is too high.</div>`:''}
     ${list('🆕 New in this report',c.added,'#7c3aed')}
     ${list('❌ No longer in stock',c.removed,'#b91c1c')}
     ${list('🔀 Biggest movements',c.moved,'#0f172a')}`;
+}
+// Every readable sheet from the last upload, so the choice can be changed after the fact
+// without re-picking the file. The app cannot always know which sheet is the real stock
+// report, and silently guessing wrong sends a wrong catalogue to a party — so the pick is
+// shown, and every alternative is one click away.
+let CAT_SHEETS=null;
+function catalogueSheetPickerHTML(active){
+  if(!CAT_SHEETS||CAT_SHEETS.cands.length<2)return '';
+  return `<div style="margin:8px 0;padding:8px 10px;background:#f1f5f9;border-radius:6px">
+    <div style="font-size:11px;font-weight:700;color:#334155;margin-bottom:5px">📄 This file holds ${CAT_SHEETS.cands.length} readable sheets — using the one the report’s own Grand Total confirms. Click another to switch:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${CAT_SHEETS.cands.map((c,i)=>{
+      const on=i===active;
+      const mark=c.check.ok?'✅':c.check.found?'❌':'⚠️';
+      return `<button class="btn ${on?'':'btn-outline'}" style="font-size:11px;padding:4px 9px" onclick="applyCatalogueSheet(${i})">${mark} ${c.name} · ${fmtN(c.built.ctns)} ctn · ${fmtN(c.built.rows.length)} art${on?' (in use)':''}</button>`;
+    }).join('')}</div>
+    <div style="font-size:10px;color:#64748b;margin-top:5px">✅ matches that sheet’s Grand Total · ⚠️ that sheet prints no total to check against · ❌ disagrees with its own total</div></div>`;
+}
+function applyCatalogueSheet(i){
+  if(!canUploadCatalogue()){toast('Access denied','🚫','');return}
+  if(!CAT_SHEETS||!CAT_SHEETS.cands[i])return;
+  const {file,date}=CAT_SHEETS, c=CAT_SHEETS.cands[i], built=c.built, check=c.check;
+  const res=$('#scUpResult');
+  const picker=catalogueSheetPickerHTML(i);
+  // A parse that disagrees with the report's own Grand Total is wrong, and a wrong
+  // catalogue is worse than yesterday's: it goes out to parties as a PDF. So the
+  // upload is REFUSED and the previous catalogue is left exactly as it was.
+  if(check.found&&!check.ok){
+    if(res)res.innerHTML=uploadCheckBadgeHTML(check)+picker;
+    toast('Upload refused','❌','Parsed '+fmtN(check.parsed)+' ctn vs report '+fmtN(check.reported)+' ctn — catalogue unchanged.');
+    logUpdate(null,'Stock catalogue upload REFUSED',file+' · sheet '+c.name+' · parsed '+check.parsed+' ctn vs Grand Total '+check.reported+' ctn');
+    return;
+  }
+  const cmp=compareCatalogues(catData(),built.rows);
+  CAT_UPLOAD={date,rows:built.rows,updated:Date.now(),updatedBy:currentUser.name,file:file,sheet:c.name};
+  saveCatalogueUpload();
+  touchCatalogueAging(built.rows,date);      // stamp new lots, expire the ones that left
+  _scBuilt=false;                            // series/machine/size dropdowns must rebuild
+  renderStockCatalogue();
+  if(res)res.innerHTML=uploadCheckBadgeHTML(check)
+    +`<div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Catalogue synced from ${file} · sheet “${c.name}” — stock as on ${date}</div>`
+    +picker+catalogueCompareHTML(cmp,built);
+  toast('Stock catalogue updated','✅',qtyLabel(built.ctns,built.prs)+' · '+built.rows.length+' articles');
+  logUpdate(null,'Stock catalogue upload',file+' · sheet '+c.name+' · '+qtyLabel(built.ctns,built.prs)+' · '+built.rows.length+' articles as on '+date);
 }
 function uploadStockCatalogue(){
   if(!canUploadCatalogue()){toast('Access denied','🚫','');return}
@@ -5803,28 +5894,24 @@ function uploadStockCatalogue(){
   reader.onload=e=>{
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-      // The Busy workbook carries several sheets (modern trade, summaries…) and the
-      // stock report is not always the first, so try each until one parses.
-      let built=null,lastErr=null,usedSheet='',usedMatrix=null;
+      // A Busy workbook carries several sheets and the stock report is not always the
+      // first, so every sheet is parsed and each is cross-checked against its own Grand
+      // Total. The sheet the report VOUCHES FOR wins — a sheet whose parse equals its own
+      // printed total is the authoritative one, which is how the 17,237 ctn report beats
+      // the larger unverified working sheet sitting beside it in the same file.
+      // Size alone is not the test: the biggest sheet is often a working copy.
+      let lastErr=null;const ok=[];
       for(const name of wb.SheetNames){
         const sh=wb.Sheets[name];
         const mx=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
         if(!mx.length)continue;
-        try{built=buildCatalogueFromSheet(mx,sh);usedSheet=name;usedMatrix=mx;break;}catch(err){lastErr=err;}
+        try{const built=buildCatalogueFromSheet(mx,sh);ok.push({name,mx,built,check:verifyUploadTotals(mx,built)});}
+        catch(err){lastErr=err;}
       }
-      if(!built)throw (lastErr||new Error('The file is empty.'));
-      // Auto checker: cross-check against the report's own Grand Total before anything
-      // is stored, so a bad parse is caught at the moment of upload, not by a customer.
-      const check=verifyUploadTotals(usedMatrix||[],built);
-      const cmp=compareCatalogues(catData(),built.rows);
-      CAT_UPLOAD={date,rows:built.rows,updated:Date.now(),updatedBy:currentUser.name,file:file.name};
-      saveCatalogueUpload();
-      touchCatalogueAging(built.rows,date);      // stamp new lots, expire the ones that left
-      _scBuilt=false;                            // series/machine/size dropdowns must rebuild
-      renderStockCatalogue();
-      if(res)res.innerHTML=uploadCheckBadgeHTML(check)+`<div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Catalogue synced from ${file.name}${usedSheet?' · sheet “'+usedSheet+'”':''} — stock as on ${date}</div>`+catalogueCompareHTML(cmp,built);
-      toast('Stock catalogue updated','✅',qtyLabel(built.ctns,built.prs)+' · '+built.rows.length+' articles');
-      logUpdate(null,'Stock catalogue upload',file.name+' · '+qtyLabel(built.ctns,built.prs)+' · '+built.rows.length+' articles as on '+date);
+      if(!ok.length)throw (lastErr||new Error('The file is empty.'));
+      ok.sort((a,b)=>(b.check.ok?1:0)-(a.check.ok?1:0)||b.built.ctns-a.built.ctns);
+      CAT_SHEETS={file:file.name,date,cands:ok};
+      applyCatalogueSheet(0);
     }catch(err){
       if(res)res.innerHTML=`<div class="card" style="border-left:4px solid #b91c1c;font-size:12px;color:#b91c1c;white-space:pre-wrap">❌ ${String(err.message||err)}</div>`;
       toast('Upload failed','⚠️',String(err.message||err).split('\n')[0]);
