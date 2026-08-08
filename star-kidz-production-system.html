@@ -1159,8 +1159,8 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
   <!-- Import Form -->
   <div id="fgImportForm" style="display:none;margin-top:14px" class="card">
     <div style="font-weight:700;margin-bottom:10px">📤 Upload / Configure Finished Goods Stock</div>
-    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Upload an <b>.xlsx / .csv</b> (not PDF). Works with: your Busy <b>Stock report</b> (Item Name + STOCK columns — grouped/size-level rows are auto-summed per article, even when headers aren’t on row 1), a raw SKU export (Item SkuCode + Qty), or a summary file (Article, Stock (ctns), Stock (pairs)). <b>Tip:</b> in Busy, export the stock report as Excel rather than printing to PDF. If a file doesn’t match, you’ll now get a clear message instead of a silent no-op.</p>
-    <input type="file" accept=".xlsx,.xls,.csv" id="fgImportFile" style="margin-bottom:8px">
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Upload an <b>.xlsx / .csv / .pdf</b>. Works with: your Busy <b>Stock report</b> (Item Name + STOCK columns — grouped/size-level rows are auto-summed per article, even when headers aren’t on row 1), a raw SKU export (Item SkuCode + Qty), or a summary file (Article, Stock (ctns), Stock (pairs)). A <b>PDF</b> is scanned back into a table and then read the same way — Excel is still the surer export where you have the choice, and a PDF that is a <i>scan</i> or photo holds no readable text at all. If a file doesn’t match, you’ll get a clear message instead of a silent no-op.</p>
+    <input type="file" accept=".xlsx,.xls,.csv,.pdf" id="fgImportFile" style="margin-bottom:8px">
     <button class="btn btn-brand" onclick="uploadFGStock()" style="font-size:12px">Upload File</button>
   </div>
 </section>
@@ -1183,17 +1183,20 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
   </div>
 
-  <!-- Daily stock upload — parses a Busy stock export (xlsx/csv) straight into the catalogue -->
+  <!-- Daily stock upload — parses a Busy stock export (xlsx/csv/pdf) straight into the catalogue -->
   <div id="scUploadPanel" class="card" style="display:none;margin-bottom:14px;border-left:4px solid #1b3187">
     <div style="font-weight:800;margin-bottom:4px">⬆️ Upload daily stock sheet</div>
     <p style="font-size:12px;color:#64748b;margin-bottom:10px">
-      Export the stock report from Busy as <b>Excel (.xlsx)</b> or <b>CSV</b> — the same report used for the catalogue, with
+      Export the stock report from Busy as <b>Excel (.xlsx)</b>, <b>CSV</b> or <b>PDF</b> — the same report used for the catalogue, with
       <b>Item Name</b>, <b>Colour</b>, <b>Size</b>, <b>MRP</b> and the quantity column. Grouped (blank) cells are filled down and
       Total rows are skipped automatically. The catalogue, aging and photo matching all refresh the moment it uploads.
+      A PDF is scanned back into a table first and then read exactly like the Excel export — check the Grand Total line the
+      upload prints afterwards, since a PDF's columns are rebuilt from the printed page. A PDF that is a <i>scan</i> or photo
+      holds no text to read; export Excel for those.
     </p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
       <div><label class="lbl">Stock date (as on)</label><input id="scUpDate" type="date" class="inp" style="width:auto"></div>
-      <div style="flex:1;min-width:220px"><label class="lbl">Stock file</label><input id="scUpFile" type="file" accept=".xlsx,.xls,.csv" class="inp"></div>
+      <div style="flex:1;min-width:220px"><label class="lbl">Stock file</label><input id="scUpFile" type="file" accept=".xlsx,.xls,.csv,.pdf" class="inp"></div>
       <button class="btn btn-brand" style="font-size:12px" onclick="uploadStockCatalogue()">📥 Parse &amp; sync</button>
       <button class="btn btn-outline" style="font-size:12px" onclick="resetCatalogueToFile()" title="Discard the uploaded sheet and go back to the catalogue shipped with the app">↩️ Reset to file</button>
     </div>
@@ -1757,6 +1760,9 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<!-- PDF reader for stock uploads — lets a Busy stock report be uploaded as PDF as well as
+     Excel/CSV. Offline it simply won't load, and the uploaders say so and ask for Excel. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <script>
 /* ================================================================
@@ -5712,11 +5718,131 @@ function downloadCatalogueCSV(){
   const el=document.createElement('a');el.href=URL.createObjectURL(blob);el.download='stock-catalogue-'+todayISO()+'.csv';el.click();
   toast('Exported','⬇️',n+' colour/size rows');
 }
+// ── PDF STOCK REPORTS ──────────────────────────────────────────────────
+// A Busy stock report uploads as PDF as well as .xlsx/.csv. Both land on the SAME parser:
+// the PDF is rebuilt into a worksheet first, so header detection, the fill-down of grouped
+// cells, subtotal suppression and the Grand Total cross-check are the code already trusted
+// for Excel — a PDF gets no second, weaker path of its own.
+//
+// pdf.js hands back a cloud of positioned text runs, not a table, so the grid is rebuilt by
+// two clusterings: rows by baseline y, then columns by where cells START on x. That is the
+// same shape `pdftotext -table` produces, which is what the offline pipeline reads.
+const PDF_WORKER_SRC='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const PDF_ROW_TOL=3;    // pt — text on one printed line varies by less than this
+const PDF_CELL_GAP=6;   // pt — a wider gap than this ends the cell
+const PDF_COL_TOL=12;   // pt — cell starts within this belong to one column
+const PDF_OFFLINE_MSG='❌ The PDF reader is not available — this device is offline or the '
+  +'library did not load.\n\nReconnect and try again, or export the same report from Busy '
+  +'as Excel (.xlsx) or CSV, which works offline.';
+function pdfReady(){
+  const L=window.pdfjsLib;
+  if(!L||!L.getDocument)return null;
+  if(L.GlobalWorkerOptions&&!L.GlobalWorkerOptions.workerSrc)L.GlobalWorkerOptions.workerSrc=PDF_WORKER_SRC;
+  return L;
+}
+// One page → its lines, each a list of {x,s} cells in left-to-right order.
+async function pdfPageLines(page){
+  const tc=await page.getTextContent();
+  const lines=[];
+  tc.items.forEach(i=>{
+    if(!String(i.str||'').trim())return;
+    const x=i.transform[4],y=i.transform[5];
+    let ln=lines.find(l=>Math.abs(l.y-y)<=PDF_ROW_TOL);
+    if(!ln){ln={y,runs:[]};lines.push(ln);}
+    ln.runs.push({x,w:i.width||0,s:String(i.str)});
+  });
+  lines.sort((a,b)=>b.y-a.y);                 // pdf y grows upward; reading order is top-down
+  return lines.map(l=>{
+    l.runs.sort((a,b)=>a.x-b.x);
+    // Words inside one cell arrive as separate runs. Merging the ones that sit shoulder to
+    // shoulder is what keeps "ROYAL BLUE" in one column instead of splitting it across two.
+    const cells=[];
+    l.runs.forEach(r=>{
+      const last=cells[cells.length-1];
+      const gap=last?r.x-(last.x+last.w):Infinity;
+      if(gap<=PDF_CELL_GAP){last.s+=(gap>0.6?' ':'')+r.s;last.w=r.x+r.w-last.x;}
+      else cells.push({x:r.x,w:r.w,s:r.s});
+    });
+    return cells.map(c=>({x:c.x,s:c.s.trim()})).filter(c=>c.s);
+  }).filter(l=>l.length);
+}
+// Every cell start in the document, clustered into the column it belongs to.
+function pdfColumnStops(lines){
+  const xs=[];lines.forEach(l=>l.forEach(c=>xs.push(c.x)));
+  xs.sort((a,b)=>a-b);
+  const cols=[];
+  xs.forEach(x=>{
+    const last=cols[cols.length-1];
+    if(last&&x-last.x<=PDF_COL_TOL){last.n++;last.sum+=x;last.x=last.sum/last.n;}
+    else cols.push({x,sum:x,n:1});
+  });
+  return cols.map(c=>c.x);
+}
+// A row carrying a bare number is a data line; one without is a caption, header or banner.
+// This is what tells a repeated page header apart from a genuine stock line, so only the
+// former is dropped. (Busy's own "7-Item Name" column prefixes are why the test cannot
+// simply be "contains a digit".)
+function pdfRowHasQty(row){
+  return row.some(c=>{
+    const t=String(c).trim();
+    return /^-?[\d,]+(\.\d+)?$/.test(t)&&parseFloat(t.replace(/,/g,''))>0;
+  });
+}
+// The whole document as one matrix. A multi-page report reprints its column headers on
+// every page; those repeats would be read as stock lines carrying the previous article, so
+// a row identical to one already seen is dropped UNLESS it carries a quantity of its own.
+// Anything this gets wrong still has to survive the Grand Total cross-check afterwards.
+async function pdfToMatrix(buf){
+  const L=pdfReady();
+  if(!L)throw new Error(PDF_OFFLINE_MSG);
+  const doc=await L.getDocument({data:new Uint8Array(buf)}).promise;
+  let lines=[];
+  for(let p=1;p<=doc.numPages;p++)lines=lines.concat(await pdfPageLines(await doc.getPage(p)));
+  if(lines.length<doc.numPages*3)
+    throw new Error('This PDF holds no readable text — it is a scan or an image of the report, '
+      +'so there is no table inside it to read.\n\nExport the same stock report from Busy as '
+      +'Excel (.xlsx) or CSV and upload that.');
+  const stops=pdfColumnStops(lines);
+  const seen={};const matrix=[];let repeats=0;
+  lines.forEach(l=>{
+    const row=new Array(stops.length).fill('');
+    l.forEach(c=>{
+      let bi=0,bd=Infinity;
+      stops.forEach((sx,i)=>{const d=Math.abs(sx-c.x);if(d<bd){bd=d;bi=i;}});
+      row[bi]=row[bi]?row[bi]+' '+c.s:c.s;
+    });
+    const key=row.join('');
+    if(seen[key]&&!pdfRowHasQty(row)){repeats++;return}
+    seen[key]=1;matrix.push(row);
+  });
+  return {matrix,pages:doc.numPages,repeats};
+}
 // ── DAILY STOCK UPLOAD ─────────────────────────────────────────────────
 // Reads the same Busy stock report the offline pipeline reads, but straight from an
-// .xlsx/.csv export in the browser: grouped cells filled down, Total rows dropped, and
+// .xlsx/.csv/.pdf export in the browser: grouped cells filled down, Total rows dropped, and
 // article/colour/size/MRP/qty rebuilt into the catalogue shape. Photos are re-matched
 // by article and colour, so a new article shows its series photo the moment it lands.
+//
+// Candidates for BOTH uploaders. A workbook offers every sheet it holds (the stock report
+// is not always the first); a PDF offers the one table rebuilt out of its pages. Each
+// candidate is a real XLSX worksheet, so everything downstream is type-blind to the source.
+function stockSheetCandidates(file,buf){
+  if(/\.pdf$/i.test(file.name)){
+    return pdfToMatrix(buf).then(r=>[{
+      name:'PDF · '+r.pages+' page'+(r.pages===1?'':'s'),
+      mx:r.matrix,sheet:XLSX.utils.aoa_to_sheet(r.matrix),pdf:r
+    }]);
+  }
+  const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+  const out=[];
+  wb.SheetNames.forEach(name=>{
+    const sheet=wb.Sheets[name];
+    const mx=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    if(mx.length)out.push({name,mx,sheet});
+  });
+  if(!out.length)throw new Error('The file is empty.');
+  return Promise.resolve(out);
+}
 function canUploadCatalogue(){return IS_MASTER||currentUser.role==='GM'||currentUser.role==='PLANNING'||currentUser.name==='RENU'||currentUser.name==='SHUBHAMI'||currentUser.name==='KOMAL JAIN'||currentUser.name==='SUSHIL'}
 function toggleCatalogueUpload(){
   if(!canUploadCatalogue()){toast('Access denied','🚫','Only Master, GM, Planning, RENU/SHUBHAMI, Komal Jain or Sushil can upload stock.');return}
@@ -5957,36 +6083,33 @@ function uploadStockCatalogue(){
   const input=$('#scUpFile');
   if(!input||!input.files[0]){alert('Please choose the stock file first.');return}
   const file=input.files[0];
-  if(/\.pdf$/i.test(file.name)){alert('❌ A PDF can’t be read directly — the table inside it isn’t machine-readable.\n\nExport the SAME stock report from Busy as Excel (.xlsx) or CSV and upload that.');input.value='';return}
   if(typeof XLSX==='undefined'){toast('Upload unavailable','⚠️','Spreadsheet engine still loading — try again in a moment.');return}
+  if(/\.pdf$/i.test(file.name)&&!pdfReady()){alert(PDF_OFFLINE_MSG);input.value='';return}
   const date=($('#scUpDate')&&$('#scUpDate').value)||todayISO();
   const res=$('#scUpResult');
   const reader=new FileReader();
   reader.onload=e=>{
-    try{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-      // A Busy workbook carries several sheets and the stock report is not always the
-      // first, so every sheet is parsed and each is cross-checked against its own Grand
-      // Total. The sheet the report VOUCHES FOR wins — a sheet whose parse equals its own
-      // printed total is the authoritative one, which is how the 17,237 ctn report beats
-      // the larger unverified working sheet sitting beside it in the same file.
-      // Size alone is not the test: the biggest sheet is often a working copy.
+    // A Busy workbook carries several sheets and the stock report is not always the
+    // first, so every sheet is parsed and each is cross-checked against its own Grand
+    // Total. The sheet the report VOUCHES FOR wins — a sheet whose parse equals its own
+    // printed total is the authoritative one, which is how the 17,237 ctn report beats
+    // the larger unverified working sheet sitting beside it in the same file.
+    // Size alone is not the test: the biggest sheet is often a working copy.
+    // A PDF arrives here as a single candidate and is judged on the same total.
+    Promise.resolve().then(()=>stockSheetCandidates(file,e.target.result)).then(cands=>{
       let lastErr=null;const ok=[];
-      for(const name of wb.SheetNames){
-        const sh=wb.Sheets[name];
-        const mx=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
-        if(!mx.length)continue;
-        try{const built=buildCatalogueFromSheet(mx,sh);ok.push({name,mx,built,check:verifyUploadTotals(mx,built)});}
+      for(const c of cands){
+        try{const built=buildCatalogueFromSheet(c.mx,c.sheet);ok.push({name:c.name,mx:c.mx,built,check:verifyUploadTotals(c.mx,built)});}
         catch(err){lastErr=err;}
       }
       if(!ok.length)throw (lastErr||new Error('The file is empty.'));
       ok.sort((a,b)=>(b.check.ok?1:0)-(a.check.ok?1:0)||b.built.ctns-a.built.ctns);
       CAT_SHEETS={file:file.name,date,cands:ok};
       applyCatalogueSheet(0);
-    }catch(err){
+    }).catch(err=>{
       if(res)res.innerHTML=`<div class="card" style="border-left:4px solid #b91c1c;font-size:12px;color:#b91c1c;white-space:pre-wrap">❌ ${String(err.message||err)}</div>`;
       toast('Upload failed','⚠️',String(err.message||err).split('\n')[0]);
-    }
+    });
   };
   reader.onerror=()=>{toast('Could not read the file','⚠️','');};
   reader.readAsArrayBuffer(file);
@@ -6080,11 +6203,20 @@ function uploadFGStock(){
   if(!canAccessFinishedGoodsStock()){alert('Access denied: Only authorized users can upload stock.');return}
   const input=$('#fgImportFile');if(!input||!input.files[0]){alert('Please select a file first');return}
   const file=input.files[0];
-  if(/\.pdf$/i.test(file.name)){alert('❌ A PDF can’t be uploaded directly — tables inside a PDF aren’t machine-readable.\n\nPlease export the SAME stock report from Busy as Excel (.xlsx) or CSV, then upload that file. The uploader now reads Busy’s stock report format (Item Name + STOCK columns) automatically.');input.value='';return;}
+  if(typeof XLSX==='undefined'){alert('Spreadsheet engine still loading — try again in a moment.');return}
+  if(/\.pdf$/i.test(file.name)&&!pdfReady()){alert(PDF_OFFLINE_MSG);input.value='';return}
   const reader=new FileReader();reader.onload=(e)=>{
+    // Excel, CSV and PDF all arrive as a worksheet, so the import below never learns which
+    // one it was handed. A PDF yields one candidate; a workbook yields its first sheet,
+    // exactly as before.
+    Promise.resolve().then(()=>stockSheetCandidates(file,e.target.result))
+      .then(cands=>fgImportFromSheet(cands[0].sheet,cands[0].mx))
+      .catch(err=>alert('Error reading file: '+(err.message||err)));
+  };reader.readAsArrayBuffer(input.files[0]);
+}
+function fgImportFromSheet(sheet,matrix){
+  const input=$('#fgImportFile');
     try{
-      const data=new Uint8Array(e.target.result);const workbook=XLSX.read(data,{type:'array'});const sheet=workbook.Sheets[workbook.SheetNames[0]];
-      const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
       if(!matrix.length){alert('File is empty');return}
       const today=new Date().toISOString().split('T')[0];
       const num=v=>parseInt(String(v==null?'':v).replace(/[^0-9\-]/g,''))||0;
@@ -6143,11 +6275,10 @@ function uploadFGStock(){
         list.forEach(a=>{a.stockCtns=Math.floor(a.stockPairs/12);const old=FINISHED_GOODS_STOCK.find(s=>s.article===a.article);if(old){if(!a.category)a.category=old.category;if(!a.machine)a.machine=old.machine;if(a.series===a.article&&old.series)a.series=old.series;if(old.season)a.season=old.season;}});
         FINISHED_GOODS_STOCK=list.sort((x,y)=>articleCompare(x.article,y.article));
       }
-      saveFGStock();renderFGStock();input.value='';toggleEl('fgImportForm');
+      saveFGStock();renderFGStock();if(input)input.value='';toggleEl('fgImportForm');
       const totPrs=FINISHED_GOODS_STOCK.reduce((s,a)=>s+(+a.stockPairs||0),0);
       toast('Stock updated','✅',FINISHED_GOODS_STOCK.length+' articles · '+totPrs.toLocaleString('en-IN')+' prs in Finished Goods Stock.');
     }catch(err){alert('Error reading file: '+err.message);}
-  };reader.readAsArrayBuffer(input.files[0]);
 }
 
 function renderInventory(){
