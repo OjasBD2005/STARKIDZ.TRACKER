@@ -1844,7 +1844,7 @@ function canRaiseRequirement(){
 // Build stamp — bump on release. The app installs as a PWA, so this is the only
 // reliable way to tell whether a device is actually running the latest deploy
 // (check `STARKIDZ_BUILD` in the console, or read it off the Stock Catalogue header).
-window.STARKIDZ_BUILD='2026-08-07.3';
+window.STARKIDZ_BUILD='2026-08-08.1';
 
 // ── HELPERS ──
 function todayISO(){const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
@@ -5134,10 +5134,24 @@ function saveCatalogueUpload(){
 function catScope(){return $('#scScope')?$('#scScope').value:'stock';}
 // A data file or an uploaded sheet can hand us a bare value where a list is expected
 // (one size, one MRP). Coerce once, in one place, so no renderer has to defend itself.
+// Article names sort NUMBER-AWARE, never as plain text. An article is a series plus a
+// number (BEAR-10, BEAR-105), and a plain string sort reads those digits one character at
+// a time — so BEAR-105 lands between BEAR-10 and BEAR-11, and BEAR-114 between BEAR-11 and
+// BEAR-12. Nobody looking for BEAR-12 on a catalogue sheet expects to pass BEAR-105 first.
+// Numeric collation compares each run of digits as a number, giving BEAR-09, BEAR-10,
+// BEAR-11, BEAR-12, BEAR-13, BEAR-105, BEAR-114. Everything else (the series letters, the
+// " L" in CANDY-11 L) still compares as text, so ties keep a stable, obvious order.
+function articleCompare(x,y){
+  return String(x||'').localeCompare(String(y||''),undefined,{numeric:true});
+}
 function catNormalize(rows){
   if(!Array.isArray(rows)||rows._n)return rows;
   const arr=v=>Array.isArray(v)?v:(v==null||v===''?[]:[v]);
   rows.forEach(a=>{a.s=arr(a.s);a.m=arr(a.m);a.c=arr(a.c);});
+  // Sorted here rather than in each view, so the screen, both PDFs, the CSV and the FG
+  // sync all read the same order — including catalogues uploaded before this build, whose
+  // stored row order came out of a plain text sort.
+  rows.sort((a,b)=>articleCompare(a&&a.a,b&&b.a));
   try{Object.defineProperty(rows,'_n',{value:1});}catch(e){}
   return rows;
 }
@@ -5817,7 +5831,7 @@ function buildCatalogueFromSheet(matrix,sheet){
     e.tp+=prLine;
     e.t+=qty;ctns+=qty;prsTotal+=prLine;used++;
   });
-  const out=Object.keys(cat).sort().map(k=>{
+  const out=Object.keys(cat).sort(articleCompare).map(k=>{
     const e=cat[k];
     const sizes=Object.keys(e._s).sort();
     const cols=Object.keys(e._c).map(c=>{
@@ -6026,7 +6040,7 @@ function syncCatalogueToFG(silent){
     if(!s.series)s.series=a.f||a.a;
     if(!s.machine)s.machine=a.mc||'';
   });
-  FINISHED_GOODS_STOCK.sort((x,y)=>(x.article||'').localeCompare(y.article||''));
+  FINISHED_GOODS_STOCK.sort((x,y)=>articleCompare(x.article,y.article));
   saveFGStock();
   if(!silent)toast('Synced to FG Stock','🔄',added+' new · '+updated+' updated'+(removed?' · '+removed+' stale removed':'')+' · '+qtyLabel(d.reduce((s,a)=>s+(+a.t||0),0),d.reduce((s,a)=>s+artPairs(a),0)));
   return {added,updated,removed};
@@ -6127,7 +6141,7 @@ function uploadFGStock(){
         const list=Object.values(agg);
         if(!list.length){alert('⚠️ File recognised but no stock rows matched.\nDetected columns: '+keys.join(', ')+'\n\nExpected an Article / Item Name / SKU column and a STOCK / Qty column with numbers.');return;}
         list.forEach(a=>{a.stockCtns=Math.floor(a.stockPairs/12);const old=FINISHED_GOODS_STOCK.find(s=>s.article===a.article);if(old){if(!a.category)a.category=old.category;if(!a.machine)a.machine=old.machine;if(a.series===a.article&&old.series)a.series=old.series;if(old.season)a.season=old.season;}});
-        FINISHED_GOODS_STOCK=list.sort((x,y)=>x.article.localeCompare(y.article));
+        FINISHED_GOODS_STOCK=list.sort((x,y)=>articleCompare(x.article,y.article));
       }
       saveFGStock();renderFGStock();input.value='';toggleEl('fgImportForm');
       const totPrs=FINISHED_GOODS_STOCK.reduce((s,a)=>s+(+a.stockPairs||0),0);
@@ -6626,7 +6640,7 @@ function renderArticlesMould(q,f){
     if(f&&f!=='all'&&(!mac||mac.dept!==f))return;
     (byArticle[am.article]=byArticle[am.article]||[]).push({seriesCode:am.seriesCode,sizes:am.sizes,machineName:mac?mac.name:'—',dept:mac?mac.dept:''});
   });
-  let rows=Object.keys(byArticle).sort().map(article=>{
+  let rows=Object.keys(byArticle).sort(articleCompare).map(article=>{
     const items=byArticle[article];
     return{
       article, mould:article+' Mould',
