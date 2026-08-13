@@ -203,6 +203,18 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     </div>
   </div>
 
+  <!-- Targets, focus parties & schemes — the sales-management side of the Sales Dashboard -->
+  <div class="sb-section" id="salesTgtNav">
+    <div class="sb-title" onclick="toggleSub(this)">🎯 Targets &amp; Schemes <span class="sb-chevron open">▶</span></div>
+    <div class="sb-sub" style="max-height:260px">
+      <div class="sb-item" data-view="sp-perf" onclick="go('sp-perf')">👤 Sales Person Performance</div>
+      <div class="sb-item" data-view="sales-target" onclick="go('sales-target')">📈 Sales vs Target</div>
+      <div class="sb-item" data-view="pay-target" onclick="go('pay-target')">💳 Payment vs Target</div>
+      <div class="sb-item" data-view="focus-parties" onclick="go('focus-parties')">⚠️ Focus Parties</div>
+      <div class="sb-item" data-view="schemes" onclick="go('schemes')">🎁 Scheme Tracker</div>
+    </div>
+  </div>
+
   <div class="sb-section">
     <div class="sb-title" onclick="toggleSub(this)">🏭 Production Planning <span class="sb-chevron open">▶</span></div>
     <div class="sb-sub" style="max-height:520px">
@@ -1349,6 +1361,145 @@ body{font-family:'Manrope',system-ui,sans-serif;margin:0;overflow-x:hidden}
     <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Distributors with a balance past its due date or in the 90+ day bucket — chase these first.</div>
     <div style="overflow:auto"><table class="tbl" id="spfLateTbl"></table></div>
   </div>
+</section>
+
+<!-- ===== SALES PERSON PERFORMANCE ===== -->
+<section id="view-sp-perf" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">👤 Sales Person Performance</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">One console per field representative — cartons against target, billing, collection and the parties that need chasing.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="stSrcBadge" class="pill pill-amber"></span>
+      <label class="lbl" style="margin:0;align-self:center">Month</label>
+      <input type="month" id="stMonth" class="inp" style="width:auto;font-size:12px" onchange="stOnMonthChange()">
+    </div>
+  </div>
+  <div id="spPerfKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px"></div>
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:4px">🧑‍💼 Representative-wise Summary</div>
+    <div id="spPerfNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto"><table class="tbl" id="spPerfTbl"></table></div>
+  </div>
+</section>
+
+<!-- ===== SALES ACHIEVEMENT VS TARGET (CARTONS) ===== -->
+<section id="view-sales-target" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">📈 Sales Achievement vs Target</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Monthly carton target per representative, against cartons actually billed and cartons ordered through the app.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="stgSrcBadge" class="pill pill-amber"></span>
+      <label class="lbl" style="margin:0;align-self:center">Month</label>
+      <input type="month" id="stgMonth" class="inp" style="width:auto;font-size:12px" onchange="stOnMonthChange('stgMonth')">
+    </div>
+  </div>
+  <div id="stgKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px"></div>
+  <div class="card" style="margin-bottom:18px">
+    <div style="font-weight:800;margin-bottom:6px">🎯 Cartons: Target vs Billed vs Ordered</div>
+    <div style="height:300px;position:relative"><canvas id="stgChartCanvas"></canvas></div>
+  </div>
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:4px">📋 Month Sales Achievement — cartons</div>
+    <div id="stgNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto"><table class="tbl" id="stgTbl"></table></div>
+    <div id="stgFoot" style="font-size:11px;color:#64748b;margin-top:10px"></div>
+  </div>
+</section>
+
+<!-- ===== PAYMENT ACHIEVEMENT VS TARGET ===== -->
+<section id="view-pay-target" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">💳 Payment Collection vs Target</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Collection target in ₹ per representative, against what has actually been received on their parties' open bills.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="ptgSrcBadge" class="pill pill-amber"></span>
+      <label class="lbl" style="margin:0;align-self:center">Month</label>
+      <input type="month" id="ptgMonth" class="inp" style="width:auto;font-size:12px" onchange="stOnMonthChange('ptgMonth')">
+    </div>
+  </div>
+  <div id="ptgKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px"></div>
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:4px">💰 Collection Achievement</div>
+    <div id="ptgNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto"><table class="tbl" id="ptgTbl"></table></div>
+    <div id="ptgFoot" style="font-size:11px;color:#64748b;margin-top:10px"></div>
+  </div>
+</section>
+
+<!-- ===== LOW PERFORMANCE FOCUS PARTIES ===== -->
+<section id="view-focus-parties" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">⚠️ Low Performance Focus Parties</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Every party that has dropped off, gone silent, or is paying late — one ranked chase-list with the reason on each row.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-brand" style="font-size:12px" onclick="exportFocusCSV()">⬇️ Download</button>
+    </div>
+  </div>
+  <div id="fpKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px"></div>
+  <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:16px">
+    <div><label class="lbl">State</label><select id="fpState" class="inp" style="width:auto" onchange="renderFocusParties()"></select></div>
+    <div><label class="lbl">Salesperson</label><select id="fpSP" class="inp" style="width:auto" onchange="renderFocusParties()"></select></div>
+    <div><label class="lbl">Flag</label><select id="fpFlag" class="inp" style="width:auto" onchange="renderFocusParties()">
+      <option value="all">All flags</option>
+      <option value="sales">📉 Low sales only</option>
+      <option value="payment">⏰ Late payment only</option>
+      <option value="both">🔴 Low sales &amp; late payment</option>
+    </select></div>
+    <div style="flex:1;min-width:180px"><label class="lbl">Search party</label><input id="fpSearch" class="inp" placeholder="type party name…" oninput="renderFocusParties()"></div>
+  </div>
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:4px">🎯 Chase List — worst first</div>
+    <div id="fpNote" style="font-size:11px;color:#94a3b8;margin-bottom:10px"></div>
+    <div style="overflow:auto"><table class="tbl" id="fpTbl"></table></div>
+  </div>
+</section>
+
+<!-- ===== SCHEME & TARGET TRACKER ===== -->
+<section id="view-schemes" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <h2 style="font-size:20px;font-weight:800;color:#0f172a">🎁 Scheme &amp; Target Tracker</h2>
+      <p style="font-size:12px;color:#64748b;margin-top:2px">Dealer schemes with a carton or value threshold — every party's progress is tracked against live billing automatically.</p>
+    </div>
+    <div id="schAddWrap" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label class="btn btn-outline" style="cursor:pointer;font-size:12px">📥 Upload Schemes
+        <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importSchemes(event)"></label>
+      <button class="btn btn-brand" style="font-size:12px" onclick="toggleEl('schForm')">➕ New Scheme</button>
+    </div>
+  </div>
+
+  <div class="card" id="schForm" style="display:none;margin-bottom:16px">
+    <div style="font-weight:800;margin-bottom:10px">➕ Add a Scheme</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+      <div><label class="lbl">Scheme name</label><input id="schName" class="inp" placeholder="e.g. Monsoon Mega Reward"></div>
+      <div><label class="lbl">Qualify on</label><select id="schBasis" class="inp">
+        <option value="ctns">Cartons billed</option>
+        <option value="value">₹ Value billed</option>
+      </select></div>
+      <div><label class="lbl">Threshold</label><input id="schThreshold" type="number" min="0" class="inp" placeholder="e.g. 500"></div>
+      <div><label class="lbl">From</label><input id="schFrom" type="date" class="inp"></div>
+      <div><label class="lbl">To</label><input id="schTo" type="date" class="inp"></div>
+      <div><label class="lbl">State (optional)</label><select id="schState" class="inp"></select></div>
+      <div><label class="lbl">Salesperson (optional)</label><select id="schSP" class="inp"></select></div>
+      <div style="grid-column:1/-1"><label class="lbl">Reward / note</label><input id="schReward" class="inp" placeholder="e.g. 2% credit note + Goa trip"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-brand" onclick="addScheme()">💾 Save Scheme</button>
+      <button class="btn btn-outline" onclick="toggleEl('schForm')">Cancel</button>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px">Upload format: a sheet with <b>Scheme</b>, <b>Threshold</b> and optionally <b>Basis</b> (Cartons / Value), <b>From</b>, <b>To</b>, <b>State</b>, <b>Salesperson</b>, <b>Reward</b> columns.</div>
+  </div>
+
+  <div id="schKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px"></div>
+  <div id="schList"></div>
 </section>
 
 <!-- ===== INVENTORY ===== -->
@@ -2610,7 +2761,7 @@ function isRestrictedProduction(){return !IS_MASTER && currentUser.role!=='SALES
 function canAccessProductionDashboard(){return IS_MASTER || currentUser.role==='PLANNING' || currentUser.role==='GM' || ['UPPER','PU','PVC','STUCKON','EVA','RMSTORE','RMDISP','CUTTING'].includes(currentUser.role)}
 function canAccessFinishedGoodsStock(){return IS_MASTER || currentUser.role==='SALES' || currentUser.role==='PLANNING' || currentUser.role==='GM' || currentUser.name==='RENU' || currentUser.name==='SHUBHAMI' || currentUser.name==='KOMAL JAIN' || currentUser.name==='SUSHIL'}
 const SALES_BLOCKED_VIEWS=['dash','machine-plan','upper-plan','article-plan','upper-approval','dept-queue','packing-plan','orders','my-queue','pendency','upper-issuance','people','rm-store','rm-allot','inventory','stock-log','products','costing','machines','gm','reports','settings','pending'];
-const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties','payment-aging','state-perf'];
+const PRODUCTION_BLOCKED_FROM_SALES=['sales-push','sales-pull','sales-order-entry','my-parties','payment-aging','state-perf','sp-perf','sales-target','pay-target','focus-parties','schemes'];
 function renderBlocked(view,reason){
   const el=$('#view-'+view);if(!el)return;
   el.innerHTML=`<div class="card" style="text-align:center;padding:60px 20px">
@@ -2657,6 +2808,11 @@ function go(view){
   else if(view==='sales-push')renderPushSale();
   else if(view==='payment-aging'){renderPaymentAging();}
   else if(view==='state-perf'){renderStatePerf();}
+  else if(view==='sp-perf')renderSpPerf();
+  else if(view==='sales-target')renderSalesTarget();
+  else if(view==='pay-target')renderPayTarget();
+  else if(view==='focus-parties')renderFocusParties();
+  else if(view==='schemes')renderSchemes();
   else if(view==='my-parties')renderMyParties();
   else if(view==='sales-order-entry')renderOrderEntry();
   else if(view==='settings')loadSettings();
@@ -8318,13 +8474,16 @@ function myPartyMaster(){
 }
 // ── Daily / Monthly carton targets — updated only by RENU & SHUBHAMI (coordinators) ──
 const SP_TGT_KEY='STARKIDZ_SP_TARGETS';
-let SP_TARGETS={daily:{},monthly:{},updated:0,updatedBy:''};
+// daily/monthly hold CARTON targets (monthly is also the target the Sales-vs-Target
+// window scores against — one target per rep per month, edited in either place).
+// payment holds the ₹ collection target per rep per month.
+let SP_TARGETS={daily:{},monthly:{},payment:{},updated:0,updatedBy:''};
 function loadSpTargets(){
   try{
     const raw=window.Store?Store.getItem(SP_TGT_KEY):localStorage.getItem(SP_TGT_KEY);
     if(raw)SP_TARGETS=Object.assign(SP_TARGETS,JSON.parse(raw));
   }catch(e){}
-  SP_TARGETS.daily=SP_TARGETS.daily||{};SP_TARGETS.monthly=SP_TARGETS.monthly||{};
+  SP_TARGETS.daily=SP_TARGETS.daily||{};SP_TARGETS.monthly=SP_TARGETS.monthly||{};SP_TARGETS.payment=SP_TARGETS.payment||{};
 }
 function saveSpTargets(){
   SP_TARGETS.updated=Date.now();SP_TARGETS.updatedBy=currentUser.name;
@@ -10293,12 +10452,619 @@ function renderRoleChip(){
     `<div style="font-size:10px;color:#9ca3af;font-weight:400;margin-top:1px">${ttl}</div>`+
     ((isPlanner||master)?'':`<div style="margin-top:5px;font-size:9px;background:rgba(239,68,68,.15);color:#fca5a5;border-radius:4px;padding:2px 6px;display:inline-block">🔒 Planning: View-only</div>`);
 }
+// ══════════════════════════════════════════════════════════════════════
+// SALES TARGETS · FOCUS PARTIES · SCHEMES
+// Five sales-management windows. Everything here reads the data the app
+// ALREADY has — there is no second set of numbers:
+//   · sale rows    → LINK.saleCur/salePrev (uploaded, dated) → PUSH_FACT
+//                    (Busy Consolidated_report) → pushCustRows/Prev (seed)
+//   · receivables  → RECEIVABLE_BILLS, the same feed Party Performance uses
+//   · attribution  → Busy's own Salesperson column when present, else the
+//                    party→rep master via attributeSP()
+//   · carton target→ SP_TARGETS.monthly — the SAME map the Push Sale
+//                    salesperson breakdown edits, so a target set in one
+//                    place is the target everywhere.
+// UNITS: Busy's Qty in these exports is CARTON grain (its Stock figure,
+// 17,063, is the 17,055 cartons the Stock Catalogue counts), so billed qty
+// needs no conversion. App-entered ORDERS carry PAIRS → cartonsOf().
+// SCOPE: these windows have their own state pickers and must NOT inherit
+// the Push Sale filters, so they use stScopeOK() rather than stateAllowed().
+// ══════════════════════════════════════════════════════════════════════
+const SCHEME_KEY='STARKIDZ_SCHEMES';
+let SCHEMES=[];
+function loadSchemes(){
+  try{
+    const raw=window.Store?Store.getItem(SCHEME_KEY):localStorage.getItem(SCHEME_KEY);
+    if(raw){const o=JSON.parse(raw);SCHEMES=Array.isArray(o)?o:(o.schemes||[]);}
+  }catch(e){SCHEMES=[];}
+  if(!Array.isArray(SCHEMES))SCHEMES=[];
+}
+function saveSchemes(){
+  const s=JSON.stringify({updated:Date.now(),updatedBy:currentUser.name,schemes:SCHEMES});
+  if(window.Store)Store.setItem(SCHEME_KEY,s);else try{localStorage.setItem(SCHEME_KEY,s)}catch(e){}
+}
+// A rep only ever sees their own states; master/coordinators see everything.
+function stScopeOK(state){return !hasStateLock()||(currentUser.states||[]).some(s=>stateEq(s,state));}
+const stEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const stMonthLabel=m=>{const d=new Date(m+'-01T00:00:00');return isNaN(d)?m:d.toLocaleDateString('en-IN',{month:'short',year:'numeric'});};
+const stPct=(a,t)=>t?Math.round(a/t*100):0;
+function stAchPill(done,tgt,unit){
+  if(!tgt)return '<span class="pill" style="background:#f1f5f9;color:#94a3b8">— no target</span>';
+  const p=stPct(done,tgt);
+  if(p>=100)return `<span class="pill pill-green">✅ ${p}%</span>`;
+  if(p>=80)return `<span class="pill pill-amber">⚠️ ${p}%</span>`;
+  return `<span class="pill pill-red">🔴 ${p}%</span>`;
+}
+// ── Sale rows, best real source first ────────────────────────────────
+// Returns {rows:[{party,sp,state,ctns,value,date}], basis:'upload'|'busy'|'sample'}
+function stSaleRows(which){
+  const link=which==='prev'?(LINK.salePrev||[]):(LINK.saleCur||[]);
+  if(link.length)return{basis:'upload',rows:link.map(r=>({
+    party:r.party||'—',sp:attributeSP(r.party)||'—',state:String(stateOfCustomer(r.party)||'—').toUpperCase(),
+    ctns:+r.qty||0,value:+r.value||0,date:r.date||''}))};
+  if(which!=='prev'&&PUSH_FACT.length)return{basis:'busy',rows:PUSH_FACT.map(r=>({
+    party:r.customer||'—',
+    sp:(r.salesperson&&r.salesperson!=='—')?String(r.salesperson).toUpperCase():(attributeSP(r.customer)||'—'),
+    state:String(r.state||'—').toUpperCase(),ctns:+r.qty||0,value:+r.taxpaid||0,date:''}))};
+  if(which==='prev')return{basis:'sample',rows:pushCustPrev.map(r=>({
+    party:r.customer,sp:attributeSP(r.customer)||'—',state:String(r.state||'—').toUpperCase(),
+    // the previous-period seed carries value + ASP but no qty — recover cartons from them
+    ctns:r.asp?Math.round((+r.taxless||0)/r.asp):0,value:+r.taxless||0,date:''}))};
+  return{basis:'sample',rows:pushCustRows.map(r=>({
+    party:r.customer,sp:attributeSP(r.customer)||'—',state:String(r.state||'—').toUpperCase(),
+    ctns:+r.qty||0,value:+(r.taxpaid||r.taxless)||0,date:''}))};
+}
+// Narrow to one month — only possible when the source actually carries dates.
+function stMonthCut(rows,month){
+  const dated=rows.some(r=>r.date&&!isNaN(new Date(r.date)));
+  if(!dated||!month)return{rows,dated:false};
+  return{dated:true,rows:rows.filter(r=>{const d=new Date(r.date);
+    return !isNaN(d)&&(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))===month;})};
+}
+const ST_BASIS_TEXT={
+  upload:['pill-green','✅ Live from uploaded sale data'],
+  busy:['pill-green','✅ Live from Busy import'],
+  sample:['pill-amber','⏳ Sample figures — import Busy / upload sale data for live']
+};
+function stSetBadge(id,basis,dated,month){
+  const el=$(id);if(!el)return;
+  const [cls,txt]=ST_BASIS_TEXT[basis]||ST_BASIS_TEXT.sample;
+  el.className='pill '+cls;
+  el.textContent=txt+(dated?' · '+stMonthLabel(month):' · full imported period (no dates in the data)');
+}
+// ── Receivables, scoped to the viewer (independent of the Push Sale filters) ──
+function stPartyAging(){
+  const m={};
+  RECEIVABLE_BILLS.forEach(b=>{
+    if(!(+b.balance>0))return;
+    const st=String(stateOfCustomer(b.party)||'—').toUpperCase();
+    if(!stScopeOK(st))return;
+    const p=m[b.party]||(m[b.party]={party:b.party,state:st,sp:attributeSP(b.party)||'—',
+      billed:0,received:0,total:0,overdue:0,b90:0,oldest:0,bills:0});
+    const age=billAgeDays(b);
+    p.billed+=+b.billAmt||0;p.received+=+b.received||0;p.total+=+b.balance||0;p.bills++;
+    p.oldest=Math.max(p.oldest,age);
+    if(billOverdue(b))p.overdue+=+b.balance||0;
+    if(age>90)p.b90+=+b.balance||0;
+  });
+  return Object.values(m);
+}
+// ── Per-representative rollup — the spine of all three target windows ──
+function stSpRollup(month){
+  const cur=stSaleRows('cur'),prev=stSaleRows('prev');
+  const c=stMonthCut(cur.rows,month),p=stMonthCut(prev.rows,month);
+  const m={};
+  const touch=n=>{const k=String(n||'—').toUpperCase().trim()||'—';
+    return m[k]=m[k]||{name:k,curC:0,curV:0,prevC:0,prevV:0,ordC:0,orders:0,
+      parties:new Set(),outstanding:0,overdue:0,received:0,billed:0,states:new Set()};};
+  c.rows.forEach(r=>{if(!stScopeOK(r.state))return;const x=touch(r.sp);
+    x.curC+=r.ctns;x.curV+=r.value;if(r.party&&r.party!=='—')x.parties.add(r.party);if(r.state!=='—')x.states.add(r.state);});
+  p.rows.forEach(r=>{if(!stScopeOK(r.state))return;const x=touch(r.sp);x.prevC+=r.ctns;x.prevV+=r.value;});
+  // cartons ordered through the app this month (ORDERS carry pairs)
+  ORDERS.filter(o=>o.fromSales).forEach(o=>{
+    if(month&&String(o.order_date||'').slice(0,7)!==month)return;
+    const x=touch(o.salesPerson||o.enteredBy||'Unassigned');
+    x.ordC+=cartonsOf(o.qty);x.orders++;
+  });
+  // receivables position
+  stPartyAging().forEach(a=>{const x=touch(a.sp);
+    x.outstanding+=a.total;x.overdue+=a.overdue||a.b90;x.received+=a.received;x.billed+=a.billed;});
+  // every rep in scope appears even at zero, so a target can be set up-front
+  SALESPERSONS.forEach(s=>{
+    if(hasStateLock()&&!(s.states||[]).some(st=>stScopeOK(st)))return;
+    const x=touch(s.name);(s.states||[]).forEach(st=>st&&x.states.add(String(st).toUpperCase()));
+  });
+  const mTg=SP_TARGETS.monthly[month]||{},pTg=SP_TARGETS.payment[month]||{};
+  const rows=Object.values(m).map(r=>{
+    const sp=spMatch(r.name);
+    return Object.assign(r,{
+      id:sp?sp.id:'—',
+      partyCount:r.parties.size,
+      stateList:[...r.states].sort(),
+      tgtC:+mTg[r.name]||0,
+      tgtP:+pTg[r.name]||0,
+      growth:r.prevV?((r.curV-r.prevV)/r.prevV*100):(r.curV?100:0)
+    });
+  });
+  // "—" is the bucket for billing we could not attribute to any rep; keep it last
+  rows.sort((a,b)=>(a.name==='—')-(b.name==='—')||b.curC-a.curC||b.curV-a.curV);
+  return{rows,basis:cur.basis,dated:c.dated,prevDated:p.dated};
+}
+// ── Month pickers stay in step across the three target windows ──
+function stMonth(){
+  const el=$('#stMonth');
+  return (el&&el.value)||todayISO().slice(0,7);
+}
+function stSyncMonthInputs(v){['#stMonth','#stgMonth','#ptgMonth'].forEach(id=>{const el=$(id);if(el)el.value=v;});}
+function stOnMonthChange(src){
+  const el=$('#'+(src||'stMonth'));
+  const v=(el&&el.value)||todayISO().slice(0,7);
+  stSyncMonthInputs(v);
+  const active=document.querySelector('.view.active');
+  const vid=active?active.id.replace('view-',''):'';
+  if(vid==='sp-perf')renderSpPerf();else if(vid==='sales-target')renderSalesTarget();else if(vid==='pay-target')renderPayTarget();
+}
+function stEnsureMonth(){const v=($('#stMonth')&&$('#stMonth').value)||todayISO().slice(0,7);stSyncMonthInputs(v);return v;}
+// Re-paint whichever of the five windows is on screen (target edited on another device, data refresh…)
+function stRefreshActive(){
+  const active=document.querySelector('.view.active');if(!active)return;
+  const vid=active.id.replace('view-','');
+  if(vid==='sp-perf')renderSpPerf();
+  else if(vid==='sales-target')renderSalesTarget();
+  else if(vid==='pay-target')renderPayTarget();
+  else if(vid==='focus-parties')renderFocusParties();
+  else if(vid==='schemes')renderSchemes();
+}
+// Targets are coordinator-owned, exactly like the daily/monthly carton targets.
+function stSetTarget(kind,month,name,val,after){
+  if(!canSetSpTargets()){toast('Access denied','🚫','Only RENU / SHUBHAMI (Sales Coordinators), GM or Master can update targets.');}
+  else{
+    const bucket=SP_TARGETS[kind][month]=SP_TARGETS[kind][month]||{};
+    const n=Math.max(0,Math.round(+val||0));
+    if(n)bucket[name]=n;else delete bucket[name];
+    saveSpTargets();
+    toast('Target saved','🎯',name+' · '+stMonthLabel(month)+' → '+(n?(kind==='payment'?fmtCr(n):fmtN(n)+' ctns'):'cleared'));
+  }
+  if(after==='sales')renderSalesTarget();else if(after==='payment')renderPayTarget();else renderSpPerf();
+}
+const stKpi=(l,v,s,c)=>`<div class="card" style="padding:12px 14px;border-left:4px solid ${c}"><div style="font-size:11px;color:#64748b;font-weight:600">${l}</div><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:11px;color:#94a3b8">${s}</div></div>`;
+const stScopeNote=()=>hasStateLock()
+  ?'🔒 Your states only: '+((currentUser.states||[]).slice().sort().join(', ')||'—')+'.'
+  :'🌐 All states.';
+
+// ── 1. SALES PERSON PERFORMANCE ──────────────────────────────────────
+function renderSpPerf(){
+  const tbl=$('#spPerfTbl');if(!tbl)return;
+  const month=stEnsureMonth();
+  const {rows,basis,dated}=stSpRollup(month);
+  stSetBadge('#stSrcBadge',basis,dated,month);
+  const real=rows.filter(r=>r.name!=='—');
+  const totC=real.reduce((s,r)=>s+r.curC,0),totT=real.reduce((s,r)=>s+r.tgtC,0),
+        totV=real.reduce((s,r)=>s+r.curV,0),totOut=real.reduce((s,r)=>s+r.outstanding,0),
+        hit=real.filter(r=>r.tgtC&&r.curC>=r.tgtC).length,withT=real.filter(r=>r.tgtC).length;
+  $('#spPerfKpis').innerHTML=
+    stKpi('Cartons Billed',fmtN(totC),stMonthLabel(month),'#1b3187')+
+    stKpi('Carton Target',totT?fmtN(totT):'— not set',totT?stPct(totC,totT)+'% achieved':'set it in Sales vs Target','#d97706')+
+    stKpi('Value Billed',fmtCr(totV),real.length+' representatives','#5b8cff')+
+    stKpi('Reps On Target',withT?hit+' / '+withT:'—',withT?(withT-hit)+' behind':'no targets set','#059669')+
+    stKpi('Outstanding',fmtCr(totOut),'across their parties','#dc2626');
+  $('#spPerfNote').textContent=stScopeNote()+' Cartons come from billing; the target is the monthly carton target set in Sales vs Target. Click a row for the full profile.';
+  tbl.innerHTML='<thead><tr><th>ID</th><th>Representative</th><th style="text-align:right">Cartons Billed</th><th style="text-align:right">Carton Target</th><th>Achievement</th><th style="text-align:right">Value</th><th>Growth</th><th style="text-align:right">Parties</th><th style="text-align:right">Outstanding</th><th style="text-align:right">Overdue</th><th></th></tr></thead><tbody>'+
+    (rows.length?rows.map(r=>{
+      const unattr=r.name==='—';
+      return `<tr style="${unattr?'background:#f8fafc;color:#64748b':'cursor:pointer'}" ${unattr?'':`onclick="openSpProfile('${stEsc(r.name).replace(/'/g,"\\'")}')"`}>
+        <td><b>${r.id}</b></td>
+        <td><b>${unattr?'Unattributed billing':stEsc(r.name)}</b>${unattr?'<div style="font-size:10px">no salesperson on these bills</div>':''}</td>
+        <td style="text-align:right;font-weight:700">${fmtN(r.curC)}</td>
+        <td style="text-align:right">${r.tgtC?fmtN(r.tgtC):'—'}</td>
+        <td>${unattr?'—':stAchPill(r.curC,r.tgtC)}</td>
+        <td style="text-align:right">${fmtCr(r.curV)}</td>
+        <td>${unattr?'—':growPillHTML(r.growth)}</td>
+        <td style="text-align:right">${r.partyCount||'—'}</td>
+        <td style="text-align:right">${r.outstanding?fmtN(r.outstanding):'—'}</td>
+        <td style="text-align:right;${r.overdue?'color:#dc2626;font-weight:700':''}">${r.overdue?fmtN(r.overdue):'—'}</td>
+        <td>${unattr?'':'<button class="btn btn-outline" style="font-size:11px;padding:3px 8px">Profile →</button>'}</td></tr>`;
+    }).join('')
+    :'<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:16px">No representatives in scope.</td></tr>')+'</tbody>';
+}
+function openSpProfile(name){
+  const month=stEnsureMonth();
+  const r=stSpRollup(month).rows.find(x=>x.name===String(name).toUpperCase());
+  if(!r)return;
+  const parties=stPartyAging().filter(p=>String(p.sp).toUpperCase()===r.name).sort((a,b)=>b.total-a.total);
+  const sale=stMonthCut(stSaleRows('cur').rows,month).rows
+    .filter(x=>String(x.sp).toUpperCase()===r.name&&stScopeOK(x.state));
+  const byParty={};
+  sale.forEach(x=>{const k=x.party;(byParty[k]=byParty[k]||{party:k,state:x.state,ctns:0,value:0});byParty[k].ctns+=x.ctns;byParty[k].value+=x.value;});
+  const top=Object.values(byParty).sort((a,b)=>b.value-a.value).slice(0,15);
+  const focus=focusPartyRows().filter(f=>String(f.sp).toUpperCase()===r.name).slice(0,10);
+  const k=(l,v,c)=>`<div class="card" style="padding:10px 12px;border-left:4px solid ${c}"><div style="font-size:10px;color:#64748b;font-weight:600">${l}</div><div style="font-size:16px;font-weight:800;color:${c}">${v}</div></div>`;
+  $('#lowBillTitle').textContent='👤 '+r.name+' — '+stMonthLabel(month);
+  $('#lowBillBody').innerHTML=
+    `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:14px">`+
+    k('Cartons Billed',fmtN(r.curC),'#1b3187')+k('Carton Target',r.tgtC?fmtN(r.tgtC):'—','#d97706')+
+    k('Achievement',r.tgtC?stPct(r.curC,r.tgtC)+'%':'—',r.tgtC&&r.curC>=r.tgtC?'#059669':'#dc2626')+
+    k('Value',fmtCr(r.curV),'#5b8cff')+k('Cartons Ordered',fmtN(r.ordC),'#7c3aed')+
+    k('Outstanding',fmtCr(r.outstanding),'#dc2626')+
+    `</div>`+
+    `<div style="font-size:12px;color:#64748b;margin-bottom:14px">🗺️ States: <b>${r.stateList.join(', ')||'—'}</b> · ${r.partyCount} billing ${r.partyCount===1?'party':'parties'} · ${r.orders} app ${r.orders===1?'order':'orders'} this month · growth ${growPillHTML(r.growth)}</div>`+
+    `<div style="font-weight:800;margin-bottom:6px">🏆 Top Parties — ${stMonthLabel(month)}</div>`+
+    (top.length?`<div style="overflow:auto;max-height:240px;margin-bottom:14px"><table class="tbl"><thead><tr><th>Party</th><th>State</th><th style="text-align:right">Cartons</th><th style="text-align:right">Value</th></tr></thead><tbody>`+
+      top.map(t=>`<tr><td>${stEsc(t.party)}</td><td style="font-size:11px">${stEsc(t.state)}</td><td style="text-align:right">${fmtN(t.ctns)}</td><td style="text-align:right">${fmtN(t.value)}</td></tr>`).join('')+
+      `</tbody></table></div>`
+      :`<div class="card" style="text-align:center;color:#94a3b8;padding:14px;font-size:12px;margin-bottom:14px">No billing attributed to this representative in the selected period.</div>`)+
+    `<div style="font-weight:800;margin-bottom:6px">⚠️ Their Focus Parties</div>`+
+    (focus.length?`<div style="overflow:auto;max-height:220px;margin-bottom:14px"><table class="tbl"><thead><tr><th>Party</th><th style="text-align:right">Outstanding</th><th style="text-align:right">Oldest</th><th>Why</th></tr></thead><tbody>`+
+      focus.map(f=>`<tr style="background:#fff7ed"><td>${stEsc(f.party)}</td><td style="text-align:right">${f.outstanding?fmtN(f.outstanding):'—'}</td><td style="text-align:right">${f.oldest?f.oldest+'d':'—'}</td><td style="font-size:11px">${f.flags.join(' · ')}</td></tr>`).join('')+
+      `</tbody></table></div>`
+      :`<div class="card" style="text-align:center;color:#059669;padding:14px;font-size:12px;margin-bottom:14px">No focus parties. 👍</div>`)+
+    `<div style="font-weight:800;margin-bottom:6px">💳 Payment Position</div>`+
+    (parties.length?`<div style="overflow:auto;max-height:240px"><table class="tbl"><thead><tr><th>Party</th><th style="text-align:right">Billed</th><th style="text-align:right">Received</th><th style="text-align:right">Pending</th><th style="text-align:right">Oldest</th></tr></thead><tbody>`+
+      parties.map(p=>`<tr style="${p.b90?'background:#fef2f2':''}"><td>${stEsc(p.party)}</td><td style="text-align:right">${fmtN(p.billed)}</td><td style="text-align:right;color:#059669">${p.received?fmtN(p.received):'—'}</td><td style="text-align:right;font-weight:700">${fmtN(p.total)}</td><td style="text-align:right;${p.oldest>90?'color:#dc2626;font-weight:700':''}">${p.oldest}d</td></tr>`).join('')+
+      `</tbody></table></div>`
+      :`<div class="card" style="text-align:center;color:#94a3b8;padding:14px;font-size:12px">No open bills for this representative's parties.</div>`);
+  $('#lowBillModal').style.display='flex';
+}
+
+// ── 2. SALES ACHIEVEMENT VS TARGET (CARTONS) ─────────────────────────
+let stgChart=null;
+function renderSalesTarget(){
+  const tbl=$('#stgTbl');if(!tbl)return;
+  const month=stEnsureMonth();
+  const {rows,basis,dated}=stSpRollup(month);
+  stSetBadge('#stgSrcBadge',basis,dated,month);
+  const real=rows.filter(r=>r.name!=='—');
+  const canEdit=canSetSpTargets();
+  const totC=real.reduce((s,r)=>s+r.curC,0),totT=real.reduce((s,r)=>s+r.tgtC,0),
+        totO=real.reduce((s,r)=>s+r.ordC,0),totP=real.reduce((s,r)=>s+r.prevC,0);
+  const hit=real.filter(r=>r.tgtC&&r.curC>=r.tgtC).length,miss=real.filter(r=>r.tgtC&&r.curC<r.tgtC).length;
+  $('#stgKpis').innerHTML=
+    stKpi('Carton Target',totT?fmtN(totT):'— not set',stMonthLabel(month),'#d97706')+
+    stKpi('Cartons Billed',fmtN(totC),totT?stPct(totC,totT)+'% of target':'no target set','#1b3187')+
+    stKpi('Gap',totT?(totC>=totT?'+'+fmtN(totC-totT):'−'+fmtN(totT-totC)):'—',totT?(totC>=totT?'over target':'cartons short'):'—',totC>=totT&&totT?'#059669':'#dc2626')+
+    stKpi('Cartons Ordered',fmtN(totO),'through this app','#7c3aed')+
+    stKpi('Reps Hit / Missed','✅ '+hit+' · 🔴 '+miss,'vs last period '+(totP?((totC-totP)>=0?'▲ ':'▼ ')+Math.abs(stPct(totC-totP,totP))+'%':'—'),'#059669');
+  $('#stgNote').textContent=stScopeNote()+' Target is in CARTONS and is the same monthly target the Push Sale breakdown uses — editing it here changes it there too.';
+  const tgtCell=(name,val)=>canEdit
+    ?`<input type="number" min="0" value="${val||''}" placeholder="—" class="inp" style="width:84px;padding:4px 6px;text-align:right" onchange="stSetTarget('monthly','${month}','${stEsc(name).replace(/'/g,"\\'")}',this.value,'sales')">`
+    :`<span style="font-weight:700">${val?fmtN(val):'—'}</span>`;
+  tbl.innerHTML='<thead><tr><th>ID</th><th>Sales Person</th><th style="text-align:right">Last Period</th><th style="text-align:right">Month Target (ctns)</th><th style="text-align:right">Cartons Billed</th><th style="text-align:right">Cartons Ordered</th><th style="text-align:right">Gap</th><th>Achievement</th></tr></thead><tbody>'+
+    (real.length?real.map(r=>{
+      const gap=r.tgtC?r.curC-r.tgtC:0;
+      return `<tr><td><b>${r.id}</b></td><td><b>${stEsc(r.name)}</b></td>
+        <td style="text-align:right;color:#64748b">${r.prevC?fmtN(r.prevC):'—'}</td>
+        <td style="text-align:right">${tgtCell(r.name,r.tgtC)}</td>
+        <td style="text-align:right;font-weight:700">${fmtN(r.curC)}</td>
+        <td style="text-align:right;color:#7c3aed">${fmtN(r.ordC)}</td>
+        <td style="text-align:right;${r.tgtC?(gap>=0?'color:#059669':'color:#dc2626;font-weight:700'):''}">${r.tgtC?(gap>=0?'+':'−')+fmtN(Math.abs(gap)):'—'}</td>
+        <td>${stAchPill(r.curC,r.tgtC)}</td></tr>`;
+    }).join('')
+    :'<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:16px">No representatives in scope.</td></tr>')+
+    (real.length?`<tr style="font-weight:800;background:#f1f5f9"><td></td><td>Total</td>
+      <td style="text-align:right">${fmtN(totP)}</td><td style="text-align:right">${fmtN(totT)}</td>
+      <td style="text-align:right">${fmtN(totC)}</td><td style="text-align:right">${fmtN(totO)}</td>
+      <td style="text-align:right">${totT?((totC-totT)>=0?'+':'−')+fmtN(Math.abs(totC-totT)):'—'}</td>
+      <td>${stAchPill(totC,totT)}</td></tr>`:'')+'</tbody>';
+  $('#stgFoot').innerHTML=(canEdit
+    ?'✏️ You can edit the month carton target — it saves against '+stMonthLabel(month)+' and syncs to every device.'
+    :'🔒 Targets are read-only — set by RENU / SHUBHAMI (Sales Coordinators), GM or Master.')+
+    (SP_TARGETS.updated?' · Last target update: '+new Date(SP_TARGETS.updated).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+' by '+(SP_TARGETS.updatedBy||'—'):'');
+  const cv=document.getElementById('stgChartCanvas');
+  if(cv&&typeof Chart!=='undefined'){
+    if(stgChart){stgChart.destroy();stgChart=null;}
+    stgChart=new Chart(cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:real.map(r=>r.name),datasets:[
+        {label:'Target (ctns)',data:real.map(r=>r.tgtC),backgroundColor:'#fbbf24'},
+        {label:'Billed (ctns)',data:real.map(r=>r.curC),backgroundColor:'#1b3187'},
+        {label:'Ordered (ctns)',data:real.map(r=>r.ordC),backgroundColor:'#7c3aed'}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},
+        scales:{y:{ticks:{callback:v=>fmtN(v)}},x:{ticks:{autoSkip:false,maxRotation:45,minRotation:0,font:{size:10}}}}}
+    });
+  }
+}
+
+// ── 3. PAYMENT COLLECTION VS TARGET ──────────────────────────────────
+function renderPayTarget(){
+  const tbl=$('#ptgTbl');if(!tbl)return;
+  const month=stEnsureMonth();
+  const {rows}=stSpRollup(month);
+  const badge=$('#ptgSrcBadge');
+  if(badge){badge.className='pill '+(RECEIVABLES_LIVE?'pill-green':'pill-amber');
+    badge.textContent=RECEIVABLES_LIVE?'✅ Live from Busy receivables import':'⏳ Amounts from last Busy data — import receivables for live';}
+  const real=rows.filter(r=>r.name!=='—');
+  const canEdit=canSetSpTargets();
+  const totR=real.reduce((s,r)=>s+r.received,0),totT=real.reduce((s,r)=>s+r.tgtP,0),
+        totOut=real.reduce((s,r)=>s+r.outstanding,0),totOd=real.reduce((s,r)=>s+r.overdue,0);
+  const hit=real.filter(r=>r.tgtP&&r.received>=r.tgtP).length,withT=real.filter(r=>r.tgtP).length;
+  $('#ptgKpis').innerHTML=
+    stKpi('Collection Target',totT?fmtCr(totT):'— not set',stMonthLabel(month),'#d97706')+
+    stKpi('Received',fmtCr(totR),totT?stPct(totR,totT)+'% of target':'on open bills','#059669')+
+    stKpi('Gap',totT?(totR>=totT?'+'+fmtCr(totR-totT):'−'+fmtCr(totT-totR)):'—',totT?(totR>=totT?'ahead':'short'):'—',totR>=totT&&totT?'#059669':'#dc2626')+
+    stKpi('Still Outstanding',fmtCr(totOut),'across all parties','#1b3187')+
+    stKpi('Overdue',fmtCr(totOd),withT?hit+' / '+withT+' reps on target':'past due date','#dc2626');
+  $('#ptgNote').textContent=stScopeNote()+' Received is the amount collected against the open bills of each rep’s parties. Busy’s receivables feed carries no receipt date, so this is collection to date on those bills, not month-only — the month picker moves the target, not the receipts.';
+  const tgtCell=(name,val)=>canEdit
+    ?`<input type="number" min="0" step="1000" value="${val||''}" placeholder="—" class="inp" style="width:110px;padding:4px 6px;text-align:right" onchange="stSetTarget('payment','${month}','${stEsc(name).replace(/'/g,"\\'")}',this.value,'payment')">`
+    :`<span style="font-weight:700">${val?fmtN(val):'—'}</span>`;
+  tbl.innerHTML='<thead><tr><th>ID</th><th>Sales Person</th><th style="text-align:right">Collection Target (₹)</th><th style="text-align:right">Received</th><th style="text-align:right">Gap</th><th style="text-align:right">Outstanding</th><th style="text-align:right">Overdue</th><th>Status</th></tr></thead><tbody>'+
+    (real.length?real.map(r=>{
+      const gap=r.tgtP?r.received-r.tgtP:0;
+      return `<tr style="${r.overdue?'background:#fef2f2':''}"><td><b>${r.id}</b></td><td><b>${stEsc(r.name)}</b></td>
+        <td style="text-align:right">${tgtCell(r.name,r.tgtP)}</td>
+        <td style="text-align:right;font-weight:700;color:#059669">${r.received?fmtN(r.received):'—'}</td>
+        <td style="text-align:right;${r.tgtP?(gap>=0?'color:#059669':'color:#dc2626;font-weight:700'):''}">${r.tgtP?(gap>=0?'+':'−')+fmtN(Math.abs(gap)):'—'}</td>
+        <td style="text-align:right">${r.outstanding?fmtN(r.outstanding):'—'}</td>
+        <td style="text-align:right;${r.overdue?'color:#dc2626;font-weight:700':''}">${r.overdue?fmtN(r.overdue):'—'}</td>
+        <td>${stAchPill(r.received,r.tgtP)}</td></tr>`;
+    }).join('')
+    :'<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:16px">No representatives in scope.</td></tr>')+
+    (real.length?`<tr style="font-weight:800;background:#f1f5f9"><td></td><td>Total</td>
+      <td style="text-align:right">${fmtN(totT)}</td><td style="text-align:right">${fmtN(totR)}</td>
+      <td style="text-align:right">${totT?((totR-totT)>=0?'+':'−')+fmtN(Math.abs(totR-totT)):'—'}</td>
+      <td style="text-align:right">${fmtN(totOut)}</td><td style="text-align:right">${fmtN(totOd)}</td>
+      <td>${stAchPill(totR,totT)}</td></tr>`:'')+'</tbody>';
+  $('#ptgFoot').textContent=canEdit
+    ?'✏️ You can edit the ₹ collection target — it saves against '+stMonthLabel(month)+' and syncs to every device.'
+    :'🔒 Targets are read-only — set by RENU / SHUBHAMI (Sales Coordinators), GM or Master.';
+}
+
+// ── 4. LOW PERFORMANCE FOCUS PARTIES ─────────────────────────────────
+// One row per party carrying BOTH reasons a party needs chasing: the sale has
+// dropped (or stopped), and/or the money is late. droppedParties() already
+// computes the sales side against the same sources; this adds the payment side
+// and the closed-party flag from the party master.
+function focusPartyRows(){
+  const m={};
+  const touch=(party,state,sp)=>{
+    const k=String(party||'—');
+    return m[k]=m[k]||{party:k,state:String(state||'—').toUpperCase(),sp:sp||'—',
+      last:0,cur:0,drop:0,outstanding:0,overdue:0,oldest:0,flags:[],score:0,closed:false};
+  };
+  droppedParties().forEach(d=>{
+    if(!stScopeOK(d.state))return;
+    const r=touch(d.party,d.state,d.sp);
+    r.last=d.last;r.cur=d.cur;r.drop=d.drop;
+  });
+  stPartyAging().forEach(a=>{
+    if(!(a.overdue||a.b90))return;
+    const r=touch(a.party,a.state,a.sp);
+    r.outstanding=a.total;r.overdue=a.overdue||a.b90;r.oldest=a.oldest;
+  });
+  const closed=new Set(PARTY_SP_MASTER.filter(p=>p.status==='CLOSED').map(p=>p.firm.toUpperCase()));
+  return Object.values(m).map(r=>{
+    const up=r.party.toUpperCase();
+    r.closed=[...closed].some(f=>up.includes(f)||f.includes(up));
+    if(r.drop>=40)r.flags.push(r.cur?`📉 Sale down ${Math.round(r.drop)}%`:'🛑 No sale this period');
+    if(r.overdue)r.flags.push(`⏰ Overdue ${fmtCr(r.overdue)}${r.oldest?' · '+r.oldest+'d':''}`);
+    if(r.closed)r.flags.push('🚫 Marked closed');
+    // rank by money at risk plus how far the sale has fallen
+    r.score=(r.overdue||0)+(r.last-r.cur>0?(r.last-r.cur)*0.5:0)+(r.oldest>90?500000:0);
+    r.kind=(r.drop>=40&&r.overdue)?'both':(r.drop>=40?'sales':'payment');
+    return r;
+  }).filter(r=>r.flags.length).sort((a,b)=>b.score-a.score);
+}
+function renderFocusParties(){
+  const tbl=$('#fpTbl');if(!tbl)return;
+  const all=focusPartyRows();
+  const stSel=$('#fpState'),spSel=$('#fpSP');
+  if(stSel){const cur=stSel.value||'all';
+    const list=[...new Set(all.map(r=>r.state))].filter(s=>s&&s!=='—').sort();
+    stSel.innerHTML='<option value="all">'+(hasStateLock()?'My States':'All States')+'</option>'+list.map(s=>`<option>${stEsc(s)}</option>`).join('');
+    stSel.value=[...stSel.options].some(o=>o.value===cur)?cur:'all';}
+  if(spSel){const cur=spSel.value||'all';
+    const list=[...new Set(all.map(r=>r.sp))].filter(s=>s&&s!=='—').sort();
+    spSel.innerHTML='<option value="all">All Salespersons</option>'+list.map(s=>`<option>${stEsc(s)}</option>`).join('');
+    spSel.value=[...spSel.options].some(o=>o.value===cur)?cur:'all';}
+  let rows=all.slice();
+  const st=stSel?stSel.value:'all',sp=spSel?spSel.value:'all',
+        fl=$('#fpFlag')?$('#fpFlag').value:'all',
+        q=(($('#fpSearch')&&$('#fpSearch').value)||'').trim().toLowerCase();
+  if(st&&st!=='all')rows=rows.filter(r=>stateEq(r.state,st));
+  if(sp&&sp!=='all')rows=rows.filter(r=>r.sp===sp);
+  if(fl&&fl!=='all')rows=rows.filter(r=>fl==='both'?r.kind==='both':(fl==='sales'?r.drop>=40:!!r.overdue));
+  if(q)rows=rows.filter(r=>r.party.toLowerCase().includes(q));
+  const both=rows.filter(r=>r.kind==='both').length,
+        totOd=rows.reduce((s,r)=>s+r.overdue,0),
+        lostSale=rows.reduce((s,r)=>s+Math.max(0,r.last-r.cur),0);
+  $('#fpKpis').innerHTML=
+    stKpi('Focus Parties',fmtN(rows.length),'need chasing','#d97706')+
+    stKpi('Both Problems',fmtN(both),'low sale AND late payment','#dc2626')+
+    stKpi('Overdue Money',fmtCr(totOd),'past due date','#b91c1c')+
+    stKpi('Sale Lost',fmtCr(lostSale),'vs last period','#7c3aed');
+  $('#fpNote').textContent=stScopeNote()+' A party is flagged when its billing has fallen 40%+ (or stopped), when money is past its due date, or when the party master marks it closed.';
+  tbl.innerHTML='<thead><tr><th>Party</th><th>State</th><th>Sales Rep</th><th style="text-align:right">Last Period</th><th style="text-align:right">This Period</th><th>Drop</th><th style="text-align:right">Outstanding</th><th style="text-align:right">Overdue</th><th style="text-align:right">Oldest</th><th>Flag Reason</th></tr></thead><tbody>'+
+    (rows.length?rows.map(r=>`<tr style="${r.kind==='both'?'background:#fef2f2;border-left:3px solid #dc2626':(r.overdue?'background:#fff7ed':'')}">
+      <td><b>${stEsc(r.party)}</b></td><td style="font-size:11px">${stEsc(r.state)}</td><td style="font-size:11px">${stEsc(r.sp)}</td>
+      <td style="text-align:right">${r.last?fmtN(r.last):'—'}</td>
+      <td style="text-align:right">${r.cur?fmtN(r.cur):'—'}</td>
+      <td>${r.drop>=40?growPillHTML(-r.drop):'—'}</td>
+      <td style="text-align:right">${r.outstanding?fmtN(r.outstanding):'—'}</td>
+      <td style="text-align:right;${r.overdue?'color:#dc2626;font-weight:700':''}">${r.overdue?fmtN(r.overdue):'—'}</td>
+      <td style="text-align:right;${r.oldest>90?'color:#dc2626;font-weight:700':''}">${r.oldest?r.oldest+'d':'—'}</td>
+      <td style="font-size:11px">${r.flags.join('<br>')}</td></tr>`).join('')
+    :'<tr><td colspan="10" style="text-align:center;color:#059669;padding:18px">No focus parties in scope. 👍</td></tr>')+'</tbody>';
+}
+function exportFocusCSV(){
+  const rows=focusPartyRows();
+  const head=['Party','State','Sales Rep','Last Period','This Period','Drop %','Outstanding','Overdue','Oldest (days)','Flag Reason'];
+  const lines=[head.join(',')].concat(rows.map(r=>[r.party,r.state,r.sp,r.last,r.cur,Math.round(r.drop),r.outstanding,r.overdue,r.oldest,r.flags.join(' | ').replace(/<br>/g,' | ')]
+    .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='focus-parties-'+todayISO()+'.csv';a.click();
+}
+
+// ── 5. SCHEME & TARGET TRACKER ───────────────────────────────────────
+function canManageSchemes(){return canSetSpTargets();}
+function schFillSelects(){
+  const stSel=$('#schState');
+  if(stSel&&!stSel.options.length){
+    const list=hasStateLock()?(currentUser.states||[]).slice().sort()
+      :[...new Set(PARTY_SP_MASTER.map(p=>String(p.state).toUpperCase()))].sort();
+    stSel.innerHTML='<option value="">All states</option>'+list.map(s=>`<option>${stEsc(s)}</option>`).join('');
+  }
+  const spSel=$('#schSP');
+  if(spSel&&!spSel.options.length)
+    spSel.innerHTML='<option value="">All salespersons</option>'+SALESPERSONS.map(s=>`<option>${stEsc(s.name)}</option>`).join('');
+}
+function addScheme(){
+  if(!canManageSchemes()){toast('Access denied','🚫','Only Sales Coordinators, GM or Master can add schemes.');return;}
+  const name=($('#schName').value||'').trim();
+  const threshold=Math.max(0,+$('#schThreshold').value||0);
+  if(!name){toast('Name needed','⚠️','Give the scheme a name.');return;}
+  if(!threshold){toast('Threshold needed','⚠️','Set the qualifying carton / value figure.');return;}
+  SCHEMES.push({id:'SCH'+Date.now().toString(36).toUpperCase(),name,
+    basis:$('#schBasis').value==='value'?'value':'ctns',threshold,
+    from:$('#schFrom').value||'',to:$('#schTo').value||'',
+    state:$('#schState').value||'',sp:$('#schSP').value||'',
+    reward:($('#schReward').value||'').trim(),
+    by:currentUser.name,at:Date.now()});
+  saveSchemes();
+  ['#schName','#schThreshold','#schFrom','#schTo','#schReward'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  toggleEl('schForm');renderSchemes();
+  toast('Scheme saved','🎁',name);
+}
+function deleteScheme(id){
+  if(!canManageSchemes()){toast('Access denied','🚫','Only Sales Coordinators, GM or Master can remove schemes.');return;}
+  const s=SCHEMES.find(x=>x.id===id);if(!s)return;
+  if(!confirm('Remove the scheme "'+s.name+'"? Its tracking disappears for everyone.'))return;
+  SCHEMES=SCHEMES.filter(x=>x.id!==id);saveSchemes();renderSchemes();
+  toast('Scheme removed','🗑️',s.name);
+}
+function importSchemes(ev){
+  const f=ev.target.files[0];if(!f)return;
+  if(!canManageSchemes()){toast('Access denied','🚫','Only Sales Coordinators, GM or Master can upload schemes.');ev.target.value='';return;}
+  if(typeof XLSX==='undefined'){toast('Import unavailable','⚠️','Spreadsheet engine still loading — try again in a moment.');ev.target.value='';return;}
+  const rd=new FileReader();
+  rd.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      let hi=-1;
+      for(let i=0;i<Math.min(20,aoa.length);i++){
+        const line=aoa[i].map(x=>String(x).toLowerCase());
+        if(line.some(c=>c.includes('scheme')||c.includes('name'))&&line.some(c=>c.includes('threshold')||c.includes('target')||c.includes('criteria')||c.includes('qty'))){hi=i;break;}
+      }
+      if(hi<0){toast('Import failed','⚠️','Need a header row with a Scheme/Name column and a Threshold/Target column.');ev.target.value='';return;}
+      const H=aoa[hi].map(x=>String(x).trim().toLowerCase());
+      const col=(...names)=>{for(const n of names){const i=H.findIndex(h=>h.includes(n));if(i>=0)return i;}return -1;};
+      const ci={name:col('scheme','name'),threshold:col('threshold','target','criteria','qty'),basis:col('basis','unit','on'),
+        from:col('from','start'),to:col('to','end'),state:col('state'),sp:col('salesperson','sales person','rep'),reward:col('reward','benefit','note')};
+      const num=v=>+String(v==null?'':v).replace(/[^0-9.\-]/g,'')||0;
+      const txt=v=>String(v==null?'':v).trim();
+      let added=0;
+      for(let i=hi+1;i<aoa.length;i++){
+        const row=aoa[i];if(!row||!row.length)continue;
+        const name=txt(row[ci.name]);if(!name||/^(total|grand)/i.test(name))continue;
+        const threshold=ci.threshold>=0?num(row[ci.threshold]):0;if(!threshold)continue;
+        const basisRaw=ci.basis>=0?txt(row[ci.basis]).toLowerCase():'';
+        SCHEMES.push({id:'SCH'+Date.now().toString(36).toUpperCase()+i,name,
+          basis:/val|amount|₹|rs/.test(basisRaw)?'value':'ctns',threshold,
+          from:ci.from>=0?parseXLDate(row[ci.from]):'',to:ci.to>=0?parseXLDate(row[ci.to]):'',
+          state:ci.state>=0?txt(row[ci.state]).toUpperCase():'',sp:ci.sp>=0?txt(row[ci.sp]).toUpperCase():'',
+          reward:ci.reward>=0?txt(row[ci.reward]):'',by:currentUser.name,at:Date.now()});
+        added++;
+      }
+      if(!added){toast('Import failed','⚠️','No scheme rows found under the detected header.');ev.target.value='';return;}
+      saveSchemes();renderSchemes();
+      toast('Schemes imported','🎁',added+' scheme'+(added===1?'':'s')+' now tracking.');
+    }catch(err){toast('Import error','⚠️',err.message||'Could not read file.');}
+    ev.target.value='';
+  };
+  rd.readAsArrayBuffer(f);
+}
+// Party progress against one scheme, from the same billing rows everything else uses.
+function schemeProgress(s){
+  const {rows,basis}=stSaleRows('cur');
+  const from=s.from?new Date(s.from):null,to=s.to?new Date(s.to+'T23:59:59'):null;
+  const dated=rows.some(r=>r.date&&!isNaN(new Date(r.date)));
+  const windowed=(from||to)&&dated;
+  const m={};
+  rows.forEach(r=>{
+    if(!stScopeOK(r.state))return;
+    if(s.state&&!stateEq(r.state,s.state))return;
+    if(s.sp&&String(r.sp).toUpperCase()!==String(s.sp).toUpperCase())return;
+    if(windowed){const d=new Date(r.date);if(isNaN(d))return;if(from&&d<from)return;if(to&&d>to)return;}
+    const k=r.party;(m[k]=m[k]||{party:k,state:r.state,sp:r.sp,ctns:0,value:0});
+    m[k].ctns+=r.ctns;m[k].value+=r.value;
+  });
+  const parties=Object.values(m).map(p=>{
+    const got=s.basis==='value'?p.value:p.ctns;
+    return Object.assign(p,{got,pct:s.threshold?Math.min(999,Math.round(got/s.threshold*100)):0,qualified:got>=s.threshold});
+  }).sort((a,b)=>b.got-a.got);
+  return{parties,qualified:parties.filter(p=>p.qualified),basis,windowed,dated};
+}
+function schemeWindowText(s,p){
+  if(!s.from&&!s.to)return 'whole imported period';
+  const range=(s.from?fmt(s.from):'…')+' → '+(s.to?fmt(s.to):'…');
+  return p.windowed?range:range+' (not applied — the sale data carries no dates)';
+}
+function renderSchemes(){
+  const list=$('#schList');if(!list)return;
+  schFillSelects();
+  const wrap=$('#schAddWrap');if(wrap)wrap.style.display=canManageSchemes()?'flex':'none';
+  const active=SCHEMES.slice().sort((a,b)=>(b.at||0)-(a.at||0));
+  const computed=active.map(s=>({s,p:schemeProgress(s)}));
+  const totQ=computed.reduce((n,x)=>n+x.p.qualified.length,0);
+  const live=computed.length?computed[0].p.basis:'sample';
+  $('#schKpis').innerHTML=
+    stKpi('Schemes Running',fmtN(active.length),active.length?'tracking live billing':'none yet','#7c3aed')+
+    stKpi('Qualifying Parties',fmtN(totQ),'across all schemes','#059669')+
+    stKpi('Data Source',live==='upload'?'Uploaded sale data':(live==='busy'?'Busy import':'Sample seed'),
+      live==='sample'?'import Busy for live tracking':'live','#1b3187');
+  if(!active.length){
+    list.innerHTML='<div class="card" style="text-align:center;color:#94a3b8;padding:40px 20px">'+
+      '<div style="font-size:34px;margin-bottom:10px">🎁</div>'+
+      '<div style="font-weight:700;color:#475569;margin-bottom:4px">No schemes yet</div>'+
+      '<div style="font-size:12px">'+(canManageSchemes()
+        ?'Add one with ➕ New Scheme, or upload a sheet of them. Every party’s progress is then tracked against live billing automatically.'
+        :'Sales Coordinators, GM or Master can add schemes here.')+'</div></div>';
+    return;
+  }
+  list.innerHTML=computed.map(({s,p})=>{
+    const unit=s.basis==='value'?'₹':'ctns';
+    const target=s.basis==='value'?fmtCr(s.threshold):fmtN(s.threshold)+' ctns';
+    const scope=[s.state||'All states',s.sp||'All salespersons'].join(' · ');
+    const top=p.parties.slice(0,25);
+    return `<div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:800;font-size:15px">🎁 ${stEsc(s.name)}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Qualify on <b>${s.basis==='value'?'value billed':'cartons billed'}</b> ≥ <b>${target}</b> · ${stEsc(scope)} · ${stEsc(schemeWindowText(s,p))}</div>
+          ${s.reward?`<div style="font-size:11px;color:#7c3aed;margin-top:2px">🏆 ${stEsc(s.reward)}</div>`:''}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="pill ${p.qualified.length?'pill-green':'pill-amber'}">${p.qualified.length} qualifying ${p.qualified.length===1?'party':'parties'}</span>
+          ${canManageSchemes()?`<button class="btn btn-outline" style="font-size:11px;padding:3px 8px" onclick="deleteScheme('${s.id}')">🗑️</button>`:''}
+        </div>
+      </div>
+      ${top.length?`<div style="overflow:auto;max-height:320px"><table class="tbl"><thead><tr><th>Party</th><th>State</th><th>Sales Rep</th><th style="text-align:right">Achieved (${unit})</th><th style="text-align:right">Needs</th><th style="width:160px">Progress</th><th>Status</th></tr></thead><tbody>`+
+        top.map(x=>{
+          const short=Math.max(0,s.threshold-x.got);
+          return `<tr style="${x.qualified?'background:#f0fdf4':''}">
+            <td><b>${stEsc(x.party)}</b></td><td style="font-size:11px">${stEsc(x.state)}</td><td style="font-size:11px">${stEsc(x.sp)}</td>
+            <td style="text-align:right;font-weight:700">${s.basis==='value'?fmtN(x.got):fmtN(x.got)}</td>
+            <td style="text-align:right;${short?'':'color:#059669'}">${short?fmtN(short):'—'}</td>
+            <td>${barHTML('',Math.min(100,x.pct))}</td>
+            <td>${x.qualified?'<span class="pill pill-green">✅ Qualified</span>':`<span class="pill pill-amber">${x.pct}%</span>`}</td></tr>`;
+        }).join('')+
+        `</tbody></table></div>${p.parties.length>25?`<div style="font-size:11px;color:#94a3b8;margin-top:8px">Showing the top 25 of ${p.parties.length} parties in scope.</div>`:''}`
+        :`<div style="text-align:center;color:#94a3b8;padding:20px;font-size:12px">No billing in scope for this scheme yet.</div>`}
+    </div>`;
+  }).join('');
+}
+
 // ── Sidebar section visibility by role (re-applied when the master switches view) ──
 function applyRoleVisibility(){
   const _r=currentUser.role;
   const master=IS_MASTER&&ACTING_MASTER;
   // Sales Dashboard — hidden for KOMAL JAIN (GM). MASTER (own identity) still sees it.
   const salesNav=$('#salesDashNav');if(salesNav)salesNav.style.display=(_r==='GM'&&!master)?'none':'';
+  // Targets & Schemes is sales data too — it follows the Sales Dashboard, and is
+  // hidden outright from production roles (they'd only get the "Access Restricted" card).
+  const tgtNav=$('#salesTgtNav');
+  if(tgtNav)tgtNav.style.display=((_r==='GM'&&!master)||isRestrictedProduction())?'none':'';
   const qNav=$('#myQueueNav');if(qNav)qNav.style.display=(IS_MASTER||['GM','UPPER','PU','PVC','STUCKON','EVA','RMDISP','CUTTING'].includes(_r))?'flex':'none';
   const pNav=$('#pendencyNav');if(pNav)pNav.style.display=(IS_MASTER||_r==='GM'||_r==='PLANNING')?'flex':'none';
   const uiNav=$('#upperIssuanceNav');if(uiNav)uiNav.style.display=(IS_MASTER||_r==='GM'||_r==='UPPER'||_r==='CUTTING')?'block':'none';
@@ -10326,6 +11092,7 @@ function refresh(){
     else if(vid==='rm-allot')renderAllotView();
     else if(vid==='my-queue')renderMyQueue();
     else if(vid==='pendency')renderPendencyLog();
+    else if(vid==='sp-perf'||vid==='sales-target'||vid==='pay-target'||vid==='focus-parties'||vid==='schemes')stRefreshActive();
     else if(vid==='sales-push')renderPushSale();
     else if(vid==='sales-order-entry')renderOrderEntry();
     else if(vid==='upper-approval')renderUpperApproval();
@@ -10513,7 +11280,12 @@ function seedInventifyOrders(){
   if(window.Store)Store.onChange(LINK_KEY,()=>{loadLink();if($('#view-sales-push').classList.contains('active'))renderPushSale();});
   if(window.Store)Store.register(SP_TGT_KEY);
   loadSpTargets();
-  if(window.Store)Store.onChange(SP_TGT_KEY,()=>{loadSpTargets();if($('#view-sales-push').classList.contains('active'))renderSalespersonBreakdown();});
+  if(window.Store)Store.onChange(SP_TGT_KEY,()=>{loadSpTargets();stRefreshActive();if($('#view-sales-push').classList.contains('active'))renderSalespersonBreakdown();});
+  // Schemes ride the shared store too, so one coordinator's scheme reaches every device.
+  if(window.Store)Store.register(SCHEME_KEY);
+  loadSchemes();
+  if(window.Store)Store.onChange(SCHEME_KEY,()=>{loadSchemes();if($('#view-schemes')&&$('#view-schemes').classList.contains('active'))renderSchemes();});
+  stSyncMonthInputs(todayISO().slice(0,7));
   // Stock catalogue: the uploaded sheet and the aging stamps both ride the shared store,
   // so a stock upload on one device reaches every other device's catalogue.
   if(window.Store){Store.register(CAT_UPLOAD_KEY);Store.register(CAT_AGING_KEY);}
